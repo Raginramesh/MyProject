@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
 using System.Linq;
+using DG.Tweening;
 
 public class WordValidator : MonoBehaviour
 {
@@ -131,24 +132,68 @@ public class WordValidator : MonoBehaviour
     private void ReplaceUsedLetters(List<string> usedWords)
     {
         int gridSize = wordGridManager.GridSize;
-        HashSet<int> shiftedColumns = new HashSet<int>(); // Track shifted columns
+        List<Vector2Int> cellsToReplace = new List<Vector2Int>(); // Store cells to replace
 
         foreach (string word in usedWords)
         {
+            // Check rows for the word
+            for (int row = 0; row < gridSize; row++)
+            {
+                string rowWord = "";
+                for (int col = 0; col < gridSize; col++)
+                {
+                    rowWord += wordGridManager.GetLetterAt(row, col);
+                }
+                if (rowWord.Contains(word))
+                {
+                    int wordIndex = rowWord.IndexOf(word);
+                    for (int col = 0; col < word.Length; col++)
+                    {
+                        cellsToReplace.Add(new Vector2Int(row, wordIndex + col));
+                    }
+                    break; // Move to the next word
+                }
+            }
+
+            // Check columns for the word
             for (int col = 0; col < gridSize; col++)
             {
+                string colWord = "";
                 for (int row = 0; row < gridSize; row++)
                 {
-                    char gridLetter = wordGridManager.GetLetterAt(row, col);
-                    if (word.Contains(gridLetter) && !shiftedColumns.Contains(col))
+                    colWord += wordGridManager.GetLetterAt(row, col);
+                }
+                if (colWord.Contains(word))
+                {
+                    int wordIndex = colWord.IndexOf(word);
+                    for (int row = 0; row < word.Length; row++)
                     {
-                        wordGridManager.ShiftColumnData(col, -1);
-                        shiftedColumns.Add(col); // Mark column as shifted
-                        break; // Move to the next column
+                        cellsToReplace.Add(new Vector2Int(wordIndex + row, col));
                     }
+                    break; // Move to the next word
                 }
             }
         }
+
+        // Animate cell disappearances
+        Sequence replaceSequence = DOTween.Sequence();
+        foreach (Vector2Int cellPos in cellsToReplace)
+        {
+            RectTransform cellRect = wordGridManager.GetCellRect(cellPos.x, cellPos.y);
+            if (cellRect != null)
+            {
+                replaceSequence.Insert(0, cellRect.DOScale(0f, 0.2f)); // Animate cell scale down
+            }
+        }
+
+        // Replace letters and animate new cells in
+        replaceSequence.OnComplete(() =>
+        {
+            foreach (Vector2Int cellPos in cellsToReplace)
+            {
+                wordGridManager.ReplaceLetter(cellPos.x, cellPos.y);
+            }
+        });
     }
 
     private void CheckInitialWords()

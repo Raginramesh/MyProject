@@ -501,7 +501,25 @@ public class WordGridManager : MonoBehaviour
         scrollSequence.SetUpdate(UpdateType.Normal, true);
     }
 
+    public RectTransform GetCellRect(int row, int col)
+    {
+        if (row >= 0 && row < gridSize && col >= 0 && col < gridSize)
+        {
+            return gridCellRects[row, col];
+        }
+        return null;
+    }
 
+    public void ReplaceLetter(int row, int col)
+    {
+        if (row >= 0 && row < gridSize && col >= 0 && col < gridSize)
+        {
+            gridData[row, col] = GetRandomWeightedLetter();
+            gridCellTextComponents[row, col].text = gridData[row, col].ToString();
+            gridCellRects[row, col].localScale = Vector3.zero;
+            gridCellRects[row, col].DOScale(1f, 0.2f);
+        }
+    }
 
     //--------------------------------------------------------------------------
     // Animation Coroutines
