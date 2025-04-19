@@ -340,7 +340,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 29763512}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3312d7739989d2b4e91e6319e9a96d76, type: 3}
   m_Name: 
@@ -358,6 +358,9 @@ GameObject:
   - component: {fileID: 54221075}
   - component: {fileID: 54221077}
   - component: {fileID: 54221076}
+  - component: {fileID: 54221080}
+  - component: {fileID: 54221079}
+  - component: {fileID: 54221078}
   m_Layer: 5
   m_Name: MainGamePanel
   m_TagString: Untagged
@@ -424,6 +427,61 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 54221074}
   m_CullTransparentMesh: 1
+--- !u!114 &54221078
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 54221074}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94270dbe007e16045aa79f53411fc745, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  wordGridManager: {fileID: 593137150}
+  scoreTextDisplay: {fileID: 1345162615}
+  wordListAsset: {fileID: 4900000, guid: 7ce0682035e54af429542f52a1a79e9f, type: 3}
+--- !u!114 &54221079
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 54221074}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2947602caa5c54440ba018856a2975a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gridManager: {fileID: 54221080}
+  minDragThreshold: 10
+  dragSensitivity: 1
+  rowScrollSpeedMultiplier: 0.1
+  snapDuration: 0.1
+  snapEase: 9
+  rightScrollBound: 200
+  leftScrollBound: -200
+--- !u!114 &54221080
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 54221074}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2cd82ee15ff64a14d903d5a4aec35f8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gridSize: 4
+  wordValidator: {fileID: 54221078}
+  letterCellPrefab: {fileID: 9110838812193733251, guid: cc9c4ccdc67a2564f96eadc2f42672d0, type: 3}
+  gridContainer: {fileID: 450983248}
+  cellSize: {x: 210, y: 210}
+  spacing: {x: 10, y: 10}
+  scrollAnimationDuration: 0.2
+  scrollEaseType: 3
 --- !u!1 &450983247
 GameObject:
   m_ObjectHideFlags: 0
@@ -435,6 +493,7 @@ GameObject:
   - component: {fileID: 450983248}
   - component: {fileID: 450983251}
   - component: {fileID: 450983250}
+  - component: {fileID: 450983253}
   m_Layer: 5
   m_Name: LetterGridPanel_4x4
   m_TagString: Untagged
@@ -499,6 +558,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 450983247}
   m_CullTransparentMesh: 1
+--- !u!114 &450983253
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 450983247}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2947602caa5c54440ba018856a2975a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gridManager: {fileID: 593137150}
+  minDragThreshold: 10
+  dragSensitivity: 1
+  rowScrollSpeedMultiplier: 0.1
+  snapDuration: 0.1
+  snapEase: 9
+  rightScrollBound: 400
+  leftScrollBound: -400
 --- !u!1 &593137149
 GameObject:
   m_ObjectHideFlags: 0
@@ -511,7 +590,7 @@ GameObject:
   - component: {fileID: 593137150}
   - component: {fileID: 593137152}
   m_Layer: 0
-  m_Name: WordsManager
+  m_Name: WordManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1069,7 +1148,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2028402606
 RectTransform:
   m_ObjectHideFlags: 0
