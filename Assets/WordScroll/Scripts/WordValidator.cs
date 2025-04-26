@@ -1,239 +1,205 @@
 using UnityEngine;
-using System.Collections.Generic;
 using TMPro;
-using System.Linq;
-using DG.Tweening;
+using System.Collections.Generic;
+using System.Linq; // Needed for HashSet operations
+using DG.Tweening; // Make sure you have this if using DOTween
 
 public class WordValidator : MonoBehaviour
 {
     [Header("References")]
-    [Tooltip("Assign the WordGridManager script instance here")]
     [SerializeField] private WordGridManager wordGridManager;
+    [SerializeField] private TextAsset wordListTextAsset; // Assign your wordlist.txt here
 
-    [Tooltip("Assign the TextMeshProUGUI component to display the score")]
-    [SerializeField] private TextMeshProUGUI scoreTextDisplay;
+    [Header("Settings")]
+    [SerializeField] private int minWordLength = 3;
 
-    [Header("Word List")]
-    [Tooltip("TextAsset containing the list of valid words (one word per line)")]
-    [SerializeField] private TextAsset wordListAsset;
+    // --- ADD THIS ---
+    private GameManager gameManager; // Reference to the GameManager
 
-    private HashSet<string> validWords = new HashSet<string>();
-    private int playerScore = 0;
+    private HashSet<string> validWords;
+    private Dictionary<char, int> letterValues = new Dictionary<char, int>() {
+        {'A', 1}, {'B', 3}, {'C', 3}, {'D', 2}, {'E', 1}, {'F', 4}, {'G', 2}, {'H', 4},
+        {'I', 1}, {'J', 8}, {'K', 5}, {'L', 1}, {'M', 3}, {'N', 1}, {'O', 1}, {'P', 3},
+        {'Q', 10}, {'R', 1}, {'S', 1}, {'T', 1}, {'U', 1}, {'V', 4}, {'W', 4}, {'X', 8},
+        {'Y', 4}, {'Z', 10}
+    }; // Example Scrabble values
 
-    // Scrabble letter values
-    private Dictionary<char, int> letterValues = new Dictionary<char, int>()
+    void Awake() // Use Awake for initialization before Start
     {
-        {'A', 1}, {'E', 1}, {'I', 1}, {'O', 1}, {'U', 1}, {'L', 1}, {'N', 1}, {'S', 1}, {'T', 1}, {'R', 1},
-        {'D', 2}, {'G', 2},
-        {'B', 3}, {'C', 3}, {'M', 3}, {'P', 3},
-        {'F', 4}, {'H', 4}, {'V', 4}, {'W', 4}, {'Y', 4},
-        {'K', 5},
-        {'J', 8}, {'X', 8},
-        {'Q', 10}, {'Z', 10}
-    };
-
-    void Start()
-    {
-        if (wordGridManager == null)
-        {
-            Debug.LogError("WordGridManager reference is not assigned in the WordValidator inspector!", this);
-            return;
-        }
-
-        if (wordListAsset == null)
-        {
-            Debug.LogError("Word List TextAsset is not assigned in the WordValidator inspector!", this);
-            return;
-        }
-
         LoadWordList();
-        UpdateScoreDisplay();
-        CheckInitialWords(); // Check for initial words at start
     }
 
-    private void LoadWordList()
+    // --- THIS IS THE NEW PUBLIC METHOD ---
+    public void SetGameManager(GameManager manager)
     {
-        string[] words = wordListAsset.text.Split('\n');
-        foreach (string word in words)
+        gameManager = manager;
+        Debug.Log("WordValidator: GameManager reference set.");
+    }
+
+    void LoadWordList()
+    {
+        validWords = new HashSet<string>();
+        if (wordListTextAsset != null)
         {
-            validWords.Add(word.Trim().ToUpper()); // Trim whitespace and convert to uppercase
+            string[] words = wordListTextAsset.text.Split(new[] { "\r\n", "\r", "\n" }, System.StringSplitOptions.RemoveEmptyEntries);
+            foreach (string word in words)
+            {
+                if (word.Length >= minWordLength)
+                {
+                    validWords.Add(word.ToUpper()); // Store words in uppercase for easier comparison
+                }
+            }
+            Debug.Log($"Loaded {validWords.Count} words of length {minWordLength}+.");
+        }
+        else
+        {
+            Debug.LogError("Word list TextAsset not assigned in WordValidator!");
         }
     }
 
     public void ValidateWords()
     {
-        List<string> foundWords = new List<string>();
-        int gridSize = wordGridManager.GridSize;
+        if (wordGridManager == null)
+        {
+            Debug.LogError("WordValidator: WordGridManager reference not set!");
+            return;
+        }
+        if (gameManager == null)
+        {
+            Debug.LogWarning("WordValidator: GameManager reference not set! Score will not be updated.");
+            // Don't necessarily return, maybe we still want validation effect?
+        }
 
-        // Check rows
-        for (int row = 0; row < gridSize; row++)
+
+        HashSet<(int, int)> cellsToReplace = new HashSet<(int, int)>();
+        int totalScoreThisCheck = 0;
+
+        char[,] currentGridData = wordGridManager.gridData; // Get current grid data
+        int gridSize = currentGridData.GetLength(0); // Get grid size dynamically
+
+        // Check Rows
+        for (int r = 0; r < gridSize; r++)
         {
             string rowWord = "";
-            for (int col = 0; col < gridSize; col++)
+            for (int c = 0; c < gridSize; c++)
             {
-                rowWord += wordGridManager.GetLetterAt(row, col);
+                rowWord += currentGridData[r, c];
             }
-            CheckAndAddWord(rowWord, foundWords);
+            FindValidWordsInString(rowWord, r, -1, cellsToReplace, ref totalScoreThisCheck);
         }
 
-        // Check columns
-        for (int col = 0; col < gridSize; col++)
+        // Check Columns
+        for (int c = 0; c < gridSize; c++)
         {
             string colWord = "";
-            for (int row = 0; row < gridSize; row++)
+            for (int r = 0; r < gridSize; r++)
             {
-                colWord += wordGridManager.GetLetterAt(row, col);
+                colWord += currentGridData[r, c];
             }
-            CheckAndAddWord(colWord, foundWords);
+            FindValidWordsInString(colWord, -1, c, cellsToReplace, ref totalScoreThisCheck);
         }
 
-        // Process found words
-        if (foundWords.Count > 0)
+        // Process replacements if any words were found
+        if (cellsToReplace.Count > 0)
         {
-            foreach (string word in foundWords)
+            ProcessReplacements(cellsToReplace);
+            if (gameManager != null && totalScoreThisCheck > 0)
             {
-                playerScore += CalculateWordScore(word);
-            }
-            UpdateScoreDisplay();
-            ReplaceUsedLetters(foundWords);
-        }
-    }
-
-    private void CheckAndAddWord(string word, List<string> foundWords)
-    {
-        if (word.Length >= 3 && validWords.Contains(word.ToUpper())) // Convert to uppercase here
-        {
-            foundWords.Add(word.ToUpper());
-            Debug.Log($"Found word: {word.ToUpper()}");
-        }
-    }
-
-    private int CalculateWordScore(string word)
-    {
-        int score = 0;
-        foreach (char letter in word)
-        {
-            if (letterValues.ContainsKey(letter))
-            {
-                score += letterValues[letter];
-            }
-        }
-        return score;
-    }
-
-    private void UpdateScoreDisplay()
-    {
-        if (scoreTextDisplay != null)
-        {
-            scoreTextDisplay.text = "Score: " + playerScore;
-        }
-    }
-
-    private void ReplaceUsedLetters(List<string> usedWords)
-    {
-        int gridSize = wordGridManager.GridSize;
-        List<Vector2Int> cellsToReplace = new List<Vector2Int>(); // Store cells to replace
-
-        foreach (string word in usedWords)
-        {
-            // Check rows for the word
-            for (int row = 0; row < gridSize; row++)
-            {
-                string rowWord = "";
-                for (int col = 0; col < gridSize; col++)
-                {
-                    rowWord += wordGridManager.GetLetterAt(row, col);
-                }
-                if (rowWord.Contains(word))
-                {
-                    int wordIndex = rowWord.IndexOf(word);
-                    for (int col = 0; col < word.Length; col++)
-                    {
-                        cellsToReplace.Add(new Vector2Int(row, wordIndex + col));
-                    }
-                    break; // Move to the next word
-                }
-            }
-
-            // Check columns for the word
-            for (int col = 0; col < gridSize; col++)
-            {
-                string colWord = "";
-                for (int row = 0; row < gridSize; row++)
-                {
-                    colWord += wordGridManager.GetLetterAt(row, col);
-                }
-                if (colWord.Contains(word))
-                {
-                    int wordIndex = colWord.IndexOf(word);
-                    for (int row = 0; row < word.Length; row++)
-                    {
-                        cellsToReplace.Add(new Vector2Int(wordIndex + row, col));
-                    }
-                    break; // Move to the next word
-                }
-            }
-        }
-
-        // Animate cell disappearances
-        Sequence replaceSequence = DOTween.Sequence();
-        foreach (Vector2Int cellPos in cellsToReplace)
-        {
-            RectTransform cellRect = wordGridManager.GetCellRect(cellPos.x, cellPos.y);
-            if (cellRect != null)
-            {
-                replaceSequence.Insert(0, cellRect.DOScale(0f, 0.2f)); // Animate cell scale down
-            }
-        }
-
-        // Replace letters and animate new cells in
-        replaceSequence.OnComplete(() =>
-        {
-            foreach (Vector2Int cellPos in cellsToReplace)
-            {
-                wordGridManager.ReplaceLetter(cellPos.x, cellPos.y);
-            }
-        });
-    }
-
-    private void CheckInitialWords()
-    {
-        List<string> initialWords = new List<string>();
-        int gridSize = wordGridManager.GridSize;
-
-        // Check rows
-        for (int row = 0; row < gridSize; row++)
-        {
-            string rowWord = "";
-            for (int col = 0; col < gridSize; col++)
-            {
-                rowWord += wordGridManager.GetLetterAt(row, col);
-            }
-            CheckAndAddWord(rowWord, initialWords);
-        }
-
-        // Check columns
-        for (int col = 0; col < gridSize; col++)
-        {
-            string colWord = "";
-            for (int row = 0; row < gridSize; row++)
-            {
-                colWord += wordGridManager.GetLetterAt(row, col);
-            }
-            CheckAndAddWord(colWord, initialWords);
-        }
-
-        if (initialWords.Count > 0)
-        {
-            Debug.Log("Initial valid words found:");
-            foreach (string word in initialWords)
-            {
-                Debug.Log("- " + word);
+                gameManager.AddScore(totalScoreThisCheck); // Add total score for this validation pass
             }
         }
         else
         {
-            Debug.Log("No initial valid words found.");
+            // Optional: Add feedback if no words found after a scroll
+            // Debug.Log("No words found this turn.");
         }
     }
+
+    // Helper to find words within a row or column string
+    void FindValidWordsInString(string line, int rowIndex, int colIndex, HashSet<(int, int)> cellsToReplace, ref int currentTurnScore)
+    {
+        int n = line.Length;
+        for (int len = minWordLength; len <= n; len++)
+        {
+            for (int i = 0; i <= n - len; i++)
+            {
+                string sub = line.Substring(i, len);
+                if (validWords.Contains(sub.ToUpper())) // Check against uppercase list
+                {
+                    Debug.Log($"Valid word found: {sub}");
+                    int wordScore = CalculateScore(sub);
+                    currentTurnScore += wordScore; // Add to score for this turn
+
+                    // Mark cells for replacement
+                    for (int k = 0; k < len; k++)
+                    {
+                        if (rowIndex != -1) // It's a row word
+                        {
+                            cellsToReplace.Add((rowIndex, i + k));
+                        }
+                        else // It's a column word
+                        {
+                            cellsToReplace.Add((i + k, colIndex));
+                        }
+                    }
+                    // Optional: Add score popup effect here
+                }
+            }
+        }
+    }
+
+
+    int CalculateScore(string word)
+    {
+        int score = 0;
+        foreach (char letter in word.ToUpper())
+        {
+            score += letterValues.ContainsKey(letter) ? letterValues[letter] : 0;
+        }
+        // Add length bonus?
+        if (word.Length > 4) score += (word.Length - 4) * 5; // Example bonus
+        return score;
+    }
+
+    void ProcessReplacements(HashSet<(int row, int col)> cells)
+    {
+        if (wordGridManager == null) return;
+
+        Sequence sequence = DOTween.Sequence(); // Create a sequence for animations
+
+        // First, animate all found cells scaling out
+        foreach (var cellCoord in cells)
+        {
+            RectTransform cellRect = wordGridManager.gridCellRects[cellCoord.row, cellCoord.col];
+            if (cellRect != null)
+            {
+                // Add scale-out animation to the sequence (at the same time)
+                sequence.Join(cellRect.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InBack));
+            }
+        }
+
+        // After scale-out is done, replace letters and animate scale-in
+        sequence.AppendCallback(() => {
+            foreach (var cellCoord in cells)
+            {
+                wordGridManager.ReplaceLetter(cellCoord.row, cellCoord.col); // Replace data and get new letter
+
+                // Get the rect transform again (ReplaceLetter might change internal state)
+                RectTransform cellRect = wordGridManager.gridCellRects[cellCoord.row, cellCoord.col];
+                if (cellRect != null)
+                {
+                    // Ensure scale is zero before scaling in (might already be from previous tween)
+                    cellRect.localScale = Vector3.zero;
+                    // Add scale-in animation (start slightly delayed or concurrently)
+                    sequence.Join(cellRect.DOScale(Vector3.one, 0.3f).SetEase(Ease.OutBack));
+                }
+            }
+        });
+
+        // Play the entire animation sequence
+        sequence.Play();
+    }
+
+    // Ensure WordGridManager reference is available if needed elsewhere
+    // (e.g., if you add methods called by other scripts)
 }

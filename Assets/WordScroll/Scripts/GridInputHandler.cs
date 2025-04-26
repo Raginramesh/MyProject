@@ -1,234 +1,220 @@
 using UnityEngine;
-using UnityEngine.EventSystems; // Required for event system interfaces
+using UnityEngine.EventSystems;
 
 public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     [Header("References")]
-    [Tooltip("Assign the WordGridManager script instance here")]
     [SerializeField] private WordGridManager wordGridManager;
+    [SerializeField] private RectTransform gridPanelRect; // Panel that receives drag events
 
     [Header("Settings")]
-    [Tooltip("How much of a cell's width/height needs to be dragged to trigger one scroll step.")]
-    [SerializeField] [Range(0.1f, 1.0f)] private float scrollThresholdFactor = 0.5f; // e.g., 0.5 means drag half a cell width/height
+    [SerializeField] private float dragThreshold = 20f;
+    [SerializeField] private float scrollThresholdFactor = 0.4f;
 
-    // --- Private Drag State ---
+    private Vector2 dragStartPosition;
     private bool isDragging = false;
-    private Vector2 dragStartPosition; // Screen position where drag started
-    private Vector2 lastDragPosition;  // Previous frame's screen position
-    private Vector2 accumulatedDragVector; // Total drag vector this drag gesture
-    private float accumulatedHorizontalDrag = 0f; // Accumulated drag distance specifically for triggering horizontal scrolls
-    private float accumulatedVerticalDrag = 0f;   // Accumulated drag distance specifically for triggering vertical scrolls
+    private bool axisLocked = false;
+    private bool isHorizontalDrag = false;
+    private int targetRow = -1;
+    private int targetCol = -1;
+    private float accumulatedDrag = 0f;
+    private float cellSizeWithSpacing;
 
-    private enum DragAxis { None, Horizontal, Vertical }
-    private DragAxis lockedAxis = DragAxis.None;
-    private int lockedRowOrColumnIndex = -1;
-
-    private RectTransform panelRectTransform;
-
-    // --- Public Flag (Optional - can be controlled by WordGridManager) ---
-    // Set this to true while scrolling animation is playing to prevent new input
-    //public bool IsInputBlocked { get; set; } = false;
-
-    void Awake()
+    void Start()
     {
-        panelRectTransform = GetComponent<RectTransform>();
-        if (panelRectTransform == null)
-        {
-            Debug.LogError("GridInputHandler requires a RectTransform component on the same GameObject.", this);
-        }
         if (wordGridManager == null)
         {
-            Debug.LogError("WordGridManager reference is not assigned in the GridInputHandler inspector!", this);
-            // As a fallback, you could try to find it, but assigning is better:
-            // wordGridManager = FindObjectOfType<WordGridManager>();
+            Debug.LogError("GridInputHandler: WordGridManager reference missing!", this);
+            enabled = false; return;
         }
+        if (gridPanelRect == null)
+        {
+            Debug.LogError("GridInputHandler: Grid Panel Rect reference missing!", this);
+            enabled = false; return;
+        }
+        // Calculate cell size including spacing using public properties
+        cellSizeWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
+        Debug.Log($"GridInputHandler Started. CellSizeWithSpacing: {cellSizeWithSpacing}");
     }
 
-    // Called when the user first presses down and starts moving on this UI element
+    void OnEnable()
+    {
+        // Reset state when enabled (e.g., after game over and restart)
+        isDragging = false;
+        axisLocked = false;
+        accumulatedDrag = 0f;
+        Debug.Log("GridInputHandler Enabled");
+    }
+
+    void OnDisable()
+    {
+        // Optional: Log when disabled
+        Debug.Log("GridInputHandler Disabled");
+    }
+
+
     public void OnBeginDrag(PointerEventData eventData)
     {
-        if (wordGridManager == null || wordGridManager.IsAnimating) // Check if manager is busy
+        // Check if script is enabled and WordGridManager exists
+        if (!enabled || wordGridManager == null)
         {
-            isDragging = false; // Prevent drag logic if blocked
+            Debug.LogWarning("OnBeginDrag ignored: GridInputHandler disabled or WordGridManager missing.");
             return;
         }
 
+        // Check if WordGridManager is animating
+        if (wordGridManager.isAnimating)
+        {
+            Debug.Log("OnBeginDrag ignored: WordGridManager is animating.");
+            isDragging = false; // Ensure dragging flag is false if ignored
+            return;
+        }
+
+        // Try to get local point, check if click is within the panel
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, eventData.position, eventData.pressEventCamera, out dragStartPosition))
+        {
+            Debug.Log("OnBeginDrag ignored: Click outside Grid Panel Rect.");
+            isDragging = false;
+            return;
+        }
+
+        // --- If we got here, drag is starting ---
         isDragging = true;
-        dragStartPosition = eventData.position;
-        lastDragPosition = dragStartPosition;
-        accumulatedDragVector = Vector2.zero;
-        accumulatedHorizontalDrag = 0f;
-        accumulatedVerticalDrag = 0f;
-        lockedAxis = DragAxis.None;
-        lockedRowOrColumnIndex = -1;
-        // Debug.Log($"Begin Drag at: {dragStartPosition}");
+        axisLocked = false;
+        accumulatedDrag = 0f;
+        CalculateTargetRowCol(dragStartPosition); // Calculate initial target
+        Debug.Log($"OnBeginDrag: Started at Local Pos {dragStartPosition}. Initial Target (R:{targetRow}, C:{targetCol}). IsAnimating: {wordGridManager.isAnimating}");
     }
 
-    // Called while the user is dragging (we don't need complex logic here for simple swipes)
     public void OnDrag(PointerEventData eventData)
     {
-        if (!isDragging || wordGridManager == null || wordGridManager.IsAnimating) // Check if should process drag
+        if (!isDragging)
         {
-            // If we were dragging but got blocked mid-drag, reset state
-            if (isDragging) OnEndDrag(eventData); // Treat as drag end if blocked
+            // Debug.Log("OnDrag ignored: Not dragging."); // Can be spammy, enable if needed
+            return;
+        }
+        if (wordGridManager == null || wordGridManager.isAnimating)
+        {
+            Debug.Log($"OnDrag ignored: WordGridManager missing or animating (IsAnimating: {wordGridManager?.isAnimating}).");
+            // Consider ending drag if manager goes missing or starts animating mid-drag
+            // OnEndDrag(eventData);
             return;
         }
 
-        Vector2 currentDragPosition = eventData.position;
-        Vector2 delta = currentDragPosition - lastDragPosition; // Movement since last frame
-        accumulatedDragVector += delta; // Add to total drag vector for direction locking
-        lastDragPosition = currentDragPosition;
-
-        // --- Lock Axis if not already locked ---
-        if (lockedAxis == DragAxis.None)
+        // Get current position, check if still within panel
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, eventData.position, eventData.pressEventCamera, out Vector2 currentLocalPos))
         {
-            float totalHorizontal = Mathf.Abs(accumulatedDragVector.x);
-            float totalVertical = Mathf.Abs(accumulatedDragVector.y);
-            float lockThreshold = 10f; // Min pixels to move before locking axis
+            Debug.Log("OnDrag: Dragged outside Grid Panel Rect, ending drag.");
+            OnEndDrag(eventData); // Treat dragging outside as ending the drag
+            return;
+        }
 
-            if (totalHorizontal > lockThreshold || totalVertical > lockThreshold)
+        Vector2 dragVector = currentLocalPos - dragStartPosition;
+        // Debug.Log($"OnDrag: Current Local Pos {currentLocalPos}, Drag Vector {dragVector}"); // Spammy
+
+        // --- Axis Locking ---
+        if (!axisLocked)
+        {
+            if (dragVector.magnitude > dragThreshold)
             {
-                if (totalHorizontal > totalVertical)
+                axisLocked = true;
+                isHorizontalDrag = Mathf.Abs(dragVector.x) > Mathf.Abs(dragVector.y);
+                // Optional: Recalculate target based on locked axis start point? Usually not needed.
+                // CalculateTargetRowCol(dragStartPosition);
+                Debug.Log($"OnDrag: Axis Locked - {(isHorizontalDrag ? "Horizontal" : "Vertical")}. Target (R:{targetRow}, C:{targetCol})");
+            }
+            else
+            {
+                // Debug.Log($"OnDrag: Axis not locked yet. Magnitude {dragVector.magnitude} < Threshold {dragThreshold}"); // Spammy
+                return; // Don't process scroll until axis is locked
+            }
+        }
+
+        // --- Scroll Triggering (Only if axis is locked) ---
+        if (axisLocked)
+        {
+            float dragAmount = isHorizontalDrag ? dragVector.x : dragVector.y;
+            float previousAccumulated = accumulatedDrag;
+            accumulatedDrag = dragAmount;
+
+            float scrollThreshold = cellSizeWithSpacing * scrollThresholdFactor;
+            int scrollDirection = 0;
+            float scrollAmountValue = 0;
+
+            // Check positive threshold crossing
+            if (previousAccumulated < scrollThreshold && accumulatedDrag >= scrollThreshold)
+            {
+                scrollDirection = isHorizontalDrag ? 1 : -1; // Right or Up
+                scrollAmountValue = accumulatedDrag;
+                Debug.Log($"OnDrag: Positive Scroll Triggered! Dir: {scrollDirection}, Accum: {scrollAmountValue}, Thresh: {scrollThreshold}");
+                accumulatedDrag = 0; // Reset after trigger
+                dragStartPosition = currentLocalPos; // Reset start pos for next drag segment
+            }
+            // Check negative threshold crossing
+            else if (previousAccumulated > -scrollThreshold && accumulatedDrag <= -scrollThreshold)
+            {
+                scrollDirection = isHorizontalDrag ? -1 : 1; // Left or Down
+                scrollAmountValue = accumulatedDrag;
+                Debug.Log($"OnDrag: Negative Scroll Triggered! Dir: {scrollDirection}, Accum: {scrollAmountValue}, Thresh: {scrollThreshold}");
+                accumulatedDrag = 0; // Reset after trigger
+                dragStartPosition = currentLocalPos; // Reset start pos for next drag segment
+            }
+            // else { Debug.Log($"OnDrag: No scroll triggered. Accum: {accumulatedDrag}, Thresh: {scrollThreshold}"); } // Spammy
+
+            // --- Request Scroll if Triggered ---
+            if (scrollDirection != 0)
+            {
+                if (isHorizontalDrag && targetRow != -1)
                 {
-                    lockedAxis = DragAxis.Horizontal;
-                    lockedRowOrColumnIndex = GetRowIndexFromScreenPosition(dragStartPosition);
-                    // Debug.Log($"Locked Axis: Horizontal, Row: {lockedRowOrColumnIndex}");
+                    Debug.Log($"--> Requesting Row Scroll: Row {targetRow}, Dir {scrollDirection}");
+                    wordGridManager.RequestRowScroll(targetRow, scrollDirection, scrollAmountValue);
+                }
+                else if (!isHorizontalDrag && targetCol != -1)
+                {
+                    Debug.Log($"--> Requesting Col Scroll: Col {targetCol}, Dir {scrollDirection}");
+                    wordGridManager.RequestColumnScroll(targetCol, scrollDirection, scrollAmountValue);
                 }
                 else
                 {
-                    lockedAxis = DragAxis.Vertical;
-                    lockedRowOrColumnIndex = GetColIndexFromScreenPosition(dragStartPosition);
-                    // Debug.Log($"Locked Axis: Vertical, Column: {lockedRowOrColumnIndex}");
+                    Debug.LogWarning($"Scroll triggered (Dir: {scrollDirection}) but target row/col was invalid (R:{targetRow}, C:{targetCol})");
                 }
-
-                // If locking failed (invalid index), stop the drag
-                if (lockedRowOrColumnIndex == -1)
-                {
-                    Debug.LogWarning("Could not determine valid row/column index on drag start.");
-                    OnEndDrag(eventData); // Treat as drag end
-                    return;
-                }
-            }
-        }
-
-        // --- Process Drag based on Locked Axis ---
-        if (lockedAxis == DragAxis.Horizontal && lockedRowOrColumnIndex != -1)
-        {
-            accumulatedHorizontalDrag += delta.x;
-            float scrollThreshold = (wordGridManager.CellSize.x + wordGridManager.Spacing.x) * scrollThresholdFactor;
-
-            // Check if enough distance dragged for a scroll LEFT
-            if (accumulatedHorizontalDrag < -scrollThreshold)
-            {
-                Debug.Log($"Threshold met: Requesting Row {lockedRowOrColumnIndex} scroll LEFT");
-                wordGridManager.RequestRowScroll(lockedRowOrColumnIndex, -1);
-                accumulatedHorizontalDrag += scrollThreshold; // Consume threshold distance
-                                                              // Re-check if animating *immediately* after request in case it was instant? Or rely on next frame's check.
-                if (wordGridManager.IsAnimating) { OnEndDrag(eventData); return; } // Stop processing drag if animation started
-            }
-            // Check if enough distance dragged for a scroll RIGHT
-            else if (accumulatedHorizontalDrag > scrollThreshold)
-            {
-                Debug.Log($"Threshold met: Requesting Row {lockedRowOrColumnIndex} scroll RIGHT");
-                wordGridManager.RequestRowScroll(lockedRowOrColumnIndex, 1);
-                accumulatedHorizontalDrag -= scrollThreshold; // Consume threshold distance
-                if (wordGridManager.IsAnimating) { OnEndDrag(eventData); return; } // Stop processing drag
-            }
-        }
-        else if (lockedAxis == DragAxis.Vertical && lockedRowOrColumnIndex != -1)
-        {
-            accumulatedVerticalDrag += delta.y;
-            float scrollThreshold = (wordGridManager.CellSize.y + wordGridManager.Spacing.y) * scrollThresholdFactor;
-
-            // Check for scroll UP (negative direction, positive delta Y)
-            if (accumulatedVerticalDrag > scrollThreshold)
-            {
-                Debug.Log($"Threshold met: Requesting Column {lockedRowOrColumnIndex} scroll UP");
-                wordGridManager.RequestColumnScroll(lockedRowOrColumnIndex, -1); // UP is -1
-                accumulatedVerticalDrag -= scrollThreshold; // Consume threshold
-                if (wordGridManager.IsAnimating) { OnEndDrag(eventData); return; } // Stop processing drag
-            }
-            // Check for scroll DOWN (positive direction, negative delta Y)
-            else if (accumulatedVerticalDrag < -scrollThreshold)
-            {
-                Debug.Log($"Threshold met: Requesting Column {lockedRowOrColumnIndex} scroll DOWN");
-                wordGridManager.RequestColumnScroll(lockedRowOrColumnIndex, 1); // DOWN is +1
-                accumulatedVerticalDrag += scrollThreshold; // Consume threshold
-                if (wordGridManager.IsAnimating) { OnEndDrag(eventData); return; } // Stop processing drag
+                // Reset accumulation and start position are handled above after trigger
             }
         }
     }
 
-
-    // Called when the user releases the pointer after dragging
     public void OnEndDrag(PointerEventData eventData)
     {
-        // Reset state regardless of previous state
+        if (!isDragging)
+        {
+            // Debug.Log("OnEndDrag ignored: Not dragging.");
+            return;
+        }
+        Debug.Log("OnEndDrag: Resetting state.");
         isDragging = false;
-        lockedAxis = DragAxis.None;
-        lockedRowOrColumnIndex = -1;
-        accumulatedHorizontalDrag = 0f;
-        accumulatedVerticalDrag = 0f;
-        // Debug.Log("End Drag");
+        axisLocked = false;
+        accumulatedDrag = 0f;
+        targetRow = -1; // Reset target
+        targetCol = -1; // Reset target
     }
 
-
-    // --- Helper Functions to get Row/Column from Screen Position ---
-
-    private int GetRowIndexFromScreenPosition(Vector2 screenPos)
+    void CalculateTargetRowCol(Vector2 localPosition)
     {
-        if (panelRectTransform == null || wordGridManager == null) return -1;
+        if (wordGridManager == null) return; // Should not happen if Start checks pass
 
-        // Convert screen position to local position within the panel's RectTransform
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            panelRectTransform, screenPos, (GetComponentInParent<Canvas>().renderMode == RenderMode.ScreenSpaceOverlay ? null : Camera.main), out Vector2 localPoint))
-        {
-            // Assuming panel pivot is center (0.5, 0.5)
-            // Normalize local position to range [0, 1] (0,0 being bottom-left based on localPoint)
-            float panelHeight = panelRectTransform.rect.height;
-            // Adjust Y based on pivot to get distance from bottom edge
-            float yPosFromBottom = localPoint.y + panelHeight * panelRectTransform.pivot.y;
-            // Normalize (0 at bottom, 1 at top)
-            float normalizedY = Mathf.Clamp01(yPosFromBottom / panelHeight);
+        float totalGridSizeUI = wordGridManager.gridSize * wordGridManager.cellSize + (wordGridManager.gridSize - 1) * wordGridManager.spacing;
+        float gridStartX = -totalGridSizeUI / 2f;
+        float gridStartY = -totalGridSizeUI / 2f;
 
-            // Convert normalized Y (0=bottom, 1=top) to row index (0=top, 3=bottom)
-            int rowIndex = Mathf.FloorToInt((1f - normalizedY) * wordGridManager.GridSize); // Invert Y
-                                                                                            // Clamp to ensure it's within valid grid bounds
-            rowIndex = Mathf.Clamp(rowIndex, 0, wordGridManager.GridSize - 1);
-            // Debug.Log($"Screen Pos: {screenPos} -> Local Pos: {localPoint} -> Norm Y: {normalizedY} -> Row Index: {rowIndex}");
-            return rowIndex;
+        float relativeX = localPosition.x - gridStartX;
+        float relativeY = localPosition.y - gridStartY;
 
-        }
-        return -1; // Return -1 if conversion fails
+        targetCol = Mathf.FloorToInt(relativeX / cellSizeWithSpacing);
+        targetRow = wordGridManager.gridSize - 1 - Mathf.FloorToInt(relativeY / cellSizeWithSpacing);
+
+        // Clamp values just in case, although dragging outside should end the drag
+        targetCol = Mathf.Clamp(targetCol, 0, wordGridManager.gridSize - 1);
+        targetRow = Mathf.Clamp(targetRow, 0, wordGridManager.gridSize - 1);
+        // Debug.Log($"CalculateTargetRowCol: LocalPos {localPosition} -> Relative ({relativeX}, {relativeY}) -> Target (R:{targetRow}, C:{targetCol})"); // Spammy
     }
-
-    private int GetColIndexFromScreenPosition(Vector2 screenPos)
-    {
-        if (panelRectTransform == null || wordGridManager == null) return -1;
-
-        // Convert screen position to local position within the panel's RectTransform
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            panelRectTransform, screenPos, (GetComponentInParent<Canvas>().renderMode == RenderMode.ScreenSpaceOverlay ? null : Camera.main), out Vector2 localPoint))
-        {
-            // Assuming panel pivot is center (0.5, 0.5)
-            // Normalize local position to range [0, 1] (0,0 being bottom-left based on localPoint)
-            float panelWidth = panelRectTransform.rect.width;
-            // Adjust X based on pivot to get distance from left edge
-            float xPosFromLeft = localPoint.x + panelWidth * panelRectTransform.pivot.x;
-            // Normalize (0 at left, 1 at right)
-            float normalizedX = Mathf.Clamp01(xPosFromLeft / panelWidth);
-
-            // Convert normalized X (0=left, 1=right) to col index (0=left, 3=right)
-            int colIndex = Mathf.FloorToInt(normalizedX * wordGridManager.GridSize);
-            // Clamp to ensure it's within valid grid bounds
-            colIndex = Mathf.Clamp(colIndex, 0, wordGridManager.GridSize - 1);
-            // Debug.Log($"Screen Pos: {screenPos} -> Local Pos: {localPoint} -> Norm X: {normalizedX} -> Col Index: {colIndex}");
-            return colIndex;
-        }
-        return -1; // Return -1 if conversion fails
-    }
-
-    // --- Need access to GridSize from WordGridManager ---
-    // Add a public property to WordGridManager:
-    // public int GridSize => gridSize; // Assuming private int gridSize;
 }
