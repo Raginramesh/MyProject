@@ -340,7 +340,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 29763512}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3312d7739989d2b4e91e6319e9a96d76, type: 3}
   m_Name: 
@@ -529,11 +529,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2cd82ee15ff64a14d903d5a4aec35f8c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridSize: 4
+  gridSize: 5
   wordValidator: {fileID: 593137152}
   letterCellPrefab: {fileID: 9110838812193733251, guid: cc9c4ccdc67a2564f96eadc2f42672d0, type: 3}
   gridContainer: {fileID: 450983248}
-  cellSize: {x: 210, y: 210}
+  cellSize: {x: 175, y: 175}
   spacing: {x: 10, y: 10}
   scrollAnimationDuration: 0.2
   scrollEaseType: 3
@@ -570,7 +570,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordGridManager: {fileID: 593137150}
   scoreTextDisplay: {fileID: 1345162615}
-  wordListAsset: {fileID: 4900000, guid: 7ce0682035e54af429542f52a1a79e9f, type: 3}
+  wordListAsset: {fileID: 4900000, guid: a1509d1fb32837c4ea2bbc447528b1e2, type: 3}
 --- !u!1 &975267542
 GameObject:
   m_ObjectHideFlags: 0
