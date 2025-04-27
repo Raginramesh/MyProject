@@ -232,7 +232,17 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void UpdateScoreUI() { /* ... */ }
+    private void UpdateScoreUI()
+    {
+        if (scoreText != null)
+        { // Check if UI element is assigned
+            scoreText.text = "Score: " + Score;
+        }
+        else
+        {
+            // Debug.LogWarning("ScoreText UI element not assigned in GameManager Inspector."); // Only if needed
+        }
+    }
     private void UpdateTimerUI() { /* ... */ }
     private void UpdateMovesUI() { /* ... */ }
 

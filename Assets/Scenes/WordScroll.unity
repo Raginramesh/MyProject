@@ -1456,8 +1456,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2cd82ee15ff64a14d903d5a4aec35f8c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _gridSize: 5
-  _cellSize: 170
+  _gridSize: 4
+  _cellSize: 210
   _spacing: 10
   letterCellPrefab: {fileID: 9110838812193733251, guid: cc9c4ccdc67a2564f96eadc2f42672d0, type: 3}
   gridParent: {fileID: 450983248}
@@ -1495,8 +1495,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   wordGridManager: {fileID: 593137150}
-  wordListTextAsset: {fileID: 4900000, guid: a1509d1fb32837c4ea2bbc447528b1e2, type: 3}
-  minWordLength: 5
+  gameManager: {fileID: 1480404336}
+  wordListFile: {fileID: 4900000, guid: 7ce0682035e54af429542f52a1a79e9f, type: 3}
+  minWordLength: 3
 --- !u!1 &773578373
 GameObject:
   m_ObjectHideFlags: 0
