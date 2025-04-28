@@ -362,6 +362,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1ff21a9eed2223143b83aff4880596b2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  initialMoves: 10
+  initialMoves: 25
   enableMoves: 1
   movesTextDisplay: {fileID: 7140160136770179494}

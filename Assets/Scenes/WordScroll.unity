@@ -938,7 +938,7 @@ GameObject:
   - component: {fileID: 331589044}
   - component: {fileID: 331589043}
   m_Layer: 5
-  m_Name: BG
+  m_Name: TimerBG
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -955,7 +955,8 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 582632625}
   m_Father: {fileID: 773578374}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -1390,12 +1391,12 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 582632624}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 773578374}
+  m_Father: {fileID: 331589042}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -1571,7 +1572,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordGridManager: {fileID: 593137150}
   gameManager: {fileID: 1480404336}
-  wordListFile: {fileID: 4900000, guid: fc510260ebc7b144ba8e189b51013c8f, type: 3}
+  wordListFile: {fileID: 4900000, guid: 18e3f9beda31baa46be256b20b84d7fc, type: 3}
   minWordLength: 4
 --- !u!1 &773578373
 GameObject:
@@ -1603,7 +1604,6 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 331589042}
-  - {fileID: 582632625}
   m_Father: {fileID: 196797812}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -2369,11 +2369,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
+  isTimerEnabled: 1
   gameTimeLimit: 120
   startingMoves: 50
   currentScoringMode: 1
   pointsPerLetter: 10
   scoreText: {fileID: 1345162615}
+  timerDisplayGroup: {fileID: 331589041}
   timerText: {fileID: 582632626}
   movesText: {fileID: 292332009}
   gameOverPanel: {fileID: 2019866155}
