@@ -1,254 +1,309 @@
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
-using UnityEngine.SceneManagement;
+using TMPro; // Required for TextMeshPro UI elements
+using UnityEngine.SceneManagement; // Required for scene reloading (like RestartGame)
 
 public class GameManager : MonoBehaviour
 {
-    public enum GameState
-    {
-        // Adding a state before Playing helps ensure the first transition works
-        Initializing,
-        Playing,
-        Paused,
-        GameOver
-    }
-    // Initialize to a state other than Playing to ensure the first SetState(Playing) runs fully
-    public GameState CurrentState { get; private set; } = GameState.Initializing;
+    public enum GameState { Initializing, Playing, Paused, GameOver }
 
-    [Header("Game Mode Settings")]
-    [SerializeField] private bool enableTimer = false;
-    [SerializeField] private bool enableMoveLimit = false;
+    [SerializeField] private GameState currentState = GameState.Initializing;
+    public GameState CurrentState => currentState; // Public read-only property
 
-    public int Score { get; private set; }
+    [Header("Game Settings")]
+    [SerializeField] private float gameTimeLimit = 120f; // Seconds
+    [SerializeField] private int startingMoves = 50;
 
-    [Header("Timer Settings (if enabled)")]
-    [SerializeField] private float maxTime = 60f;
-    private float currentTime;
-    private bool timerIsRunning = false;
-
-    [Header("Move Limit Settings (if enabled)")]
-    [SerializeField] private int maxMoves = 20;
-    private int currentMoves;
-
-    [Header("Scene Names")]
-    [SerializeField] private string homeSceneName = "HomeScreen";
-
-    [Header("Core Components")]
-    [SerializeField] private WordGridManager wordGridManager;
-    [SerializeField] private GridInputHandler gridInputHandler;
-    [SerializeField] private WordValidator wordValidator;
-
-    [Header("UI Elements")]
+    [Header("UI References")]
     [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI movesText;
-    [SerializeField] private GameObject gameOverPanel;
-    [SerializeField] private TextMeshProUGUI finalStatusText;
-    [SerializeField] private Button restartButton;
-    [SerializeField] private Button homeButton;
+    [SerializeField] private GameObject gameOverPanel; // Assign your Game Over UI panel
+    [SerializeField] private GameObject pausePanel; // Assign your Pause Menu UI panel
+
+    [Header("Component References")]
+    [SerializeField] private WordGridManager wordGridManager;
+    [SerializeField] private WordValidator wordValidator;
+    [SerializeField] private GridInputHandler gridInputHandler;
+
+    [Header("Scoring")]
+    [SerializeField] private int pointsPerLetter = 10; // Points awarded for each letter in a valid word
+
+    // Internal State
+    private float currentTimeRemaining;
+    private int currentMovesRemaining;
+    private int currentScore = 0;
+
+    // --- Unity Lifecycle Methods ---
+
+    void Awake()
+    {
+        // Attempt to find references if not set in Inspector (robustness)
+        if (wordGridManager == null) wordGridManager = FindFirstObjectByType<WordGridManager>();
+        if (wordValidator == null) wordValidator = FindFirstObjectByType<WordValidator>();
+        if (gridInputHandler == null) gridInputHandler = FindFirstObjectByType<GridInputHandler>();
+
+        // Error checking for critical components
+        if (wordGridManager == null) Debug.LogError("GameManager: WordGridManager not found!", this);
+        if (wordValidator == null) Debug.LogError("GameManager: WordValidator not found!", this);
+        if (gridInputHandler == null) Debug.LogError("GameManager: GridInputHandler not found!", this);
+
+        // Ensure UI panels are initially hidden (or set active state based on design)
+        if (gameOverPanel != null) gameOverPanel.SetActive(false);
+        if (pausePanel != null) pausePanel.SetActive(false);
+
+        Debug.Log("GameManager Awake: Initializing references.", this);
+    }
 
     void Start()
     {
-        if (!ValidateReferences()) { enabled = false; return; }
-
-        // Setup button listeners
-        restartButton.onClick.AddListener(RestartGame);
-        homeButton.onClick.AddListener(GoToHome);
-
-        // Initialize references in other scripts
-        wordValidator.SetGameManager(this);
-        wordGridManager.SetGameManager(this);
-
-        // Explicitly start the game by transitioning to the Playing state
-        SetState(GameState.Playing);
-    }
-
-    bool ValidateReferences()
-    {
-        // ... (keep your existing validation code) ...
-        bool isValid = true;
-        if (wordGridManager == null || gridInputHandler == null || wordValidator == null)
-        {
-            Debug.LogError("GameManager: Core component references missing!"); isValid = false;
-        }
-        if (scoreText == null || gameOverPanel == null || finalStatusText == null || restartButton == null || homeButton == null)
-        {
-            Debug.LogError("GameManager: Core UI references missing (Score, GameOver Panel/Text, Restart, Home buttons)!"); isValid = false;
-        }
-        if (enableTimer && timerText == null)
-        {
-            Debug.LogError("GameManager: Timer is enabled, but Timer Text UI is not assigned!"); isValid = false;
-        }
-        if (enableMoveLimit && movesText == null)
-        {
-            Debug.LogError("GameManager: Move Limit is enabled, but Moves Text UI is not assigned!"); isValid = false;
-        }
-        if (string.IsNullOrEmpty(homeSceneName))
-        {
-            Debug.LogError("GameManager: Home Scene Name is not set in Inspector!"); isValid = false;
-        }
-        return isValid;
+        // Set initial state and start the game setup
+        SetState(GameState.Initializing);
+        StartGame(); // Start the game immediately or wait for player input
     }
 
     void Update()
     {
-        if (enableTimer && timerIsRunning && CurrentState == GameState.Playing)
+        // Only update timer if playing
+        if (currentState == GameState.Playing)
         {
-            currentTime -= Time.deltaTime;
-            UpdateTimerUI();
-            if (currentTime <= 0f)
-            {
-                currentTime = 0f;
-                timerIsRunning = false;
-                UpdateTimerUI();
-                EndGame("Time's Up!");
-            }
+            UpdateTimer();
         }
     }
 
-    void SetState(GameState newState)
+    // --- State Management ---
+
+    private void SetState(GameState newState)
     {
-        // Allow re-entry into Playing state for restart logic
-        // if (CurrentState == newState) return; // Removed this check
+        if (currentState == newState) return; // No change
 
-        GameState previousState = CurrentState;
-        CurrentState = newState;
-        Debug.Log($"Game State Changed: {previousState} -> {newState}");
+        currentState = newState;
+        Debug.Log($"GameManager: State changed to {currentState}");
 
-        // --- Configure based on NEW state ---
-        timerIsRunning = (newState == GameState.Playing && enableTimer);
-        gridInputHandler.enabled = (newState == GameState.Playing);
-        gameOverPanel.SetActive(newState == GameState.GameOver);
-        // pausePanel.SetActive(newState == GameState.Paused);
-
-        UpdateScoreUI();
-        UpdateTimerUI();
-        UpdateMovesUI();
-
-        // --- Actions on ENTERING the new state ---
-        switch (CurrentState)
+        // Handle state transitions
+        switch (currentState)
         {
             case GameState.Initializing:
-                // Should not really enter this state after Start()
-                Debug.LogWarning("Entered Initializing state unexpectedly.");
+                // Handled mostly in Awake/Start
+                Time.timeScale = 1f; // Ensure time isn't stopped from a previous game over/pause
                 break;
-
             case GameState.Playing:
-                // --- THIS BLOCK IS KEY ---
-                // Always reset score, timer, moves, and grid when entering Playing state
-                // (Handles both initial start and restart)
-                Debug.Log("Entering Playing State: Resetting game...");
-                Score = 0;
-                currentTime = maxTime;
-                currentMoves = maxMoves;
-                UpdateScoreUI(); // Update UI after resetting
-                if (enableTimer) UpdateTimerUI();
-                if (enableMoveLimit) UpdateMovesUI();
-
-                // Ensure GridManager reference is valid before calling
-                if (wordGridManager != null)
-                {
-                    wordGridManager.InitializeGrid(); // <<< CALL GRID INIT HERE
-                }
-                else
-                {
-                    Debug.LogError("Cannot Initialize Grid: WordGridManager reference is missing!");
-                    // Maybe force game over if grid can't init?
-                    // EndGame("Initialization Error!");
-                    break; // Exit case if grid manager is missing
-                }
-
-                // Ensure WordValidator reference is valid before calling
-                if (wordValidator != null)
-                {
-                    wordValidator.ValidateWords(); // Initial validation after grid setup
-                }
-                else
-                {
-                    Debug.LogError("WordValidator reference is missing! Cannot perform initial validation.");
-                }
+                Time.timeScale = 1f;
+                if (gridInputHandler != null) gridInputHandler.enabled = true;
+                if (pausePanel != null) pausePanel.SetActive(false);
                 break;
-
             case GameState.Paused:
-                // Logic for pausing (timer stops, input disabled - handled above)
+                Time.timeScale = 0f; // Pause game time
+                if (gridInputHandler != null) gridInputHandler.enabled = false;
+                if (pausePanel != null) pausePanel.SetActive(true);
                 break;
-
             case GameState.GameOver:
-                // Final status text is set in EndGame()
-                timerIsRunning = false; // Ensure timer is stopped
-                                        // --- MAKE SURE InitializeGrid() IS NOT CALLED HERE ---
+                Time.timeScale = 1f; // Keep time normal for game over animations/UI, but disable input
+                if (gridInputHandler != null) gridInputHandler.enabled = false;
+                // Game over panel activation is handled in EndGame()
                 break;
         }
     }
 
-    public void EndGame(string reason = "Game Over!")
+    private void StartGame()
     {
-        if (CurrentState == GameState.Playing || CurrentState == GameState.Paused) // Allow ending from Playing or Paused
-        {
-            Debug.Log($"Ending Game: {reason}");
-            finalStatusText.text = $"{reason}\nFinal Score: {Score}";
-            SetState(GameState.GameOver);
-        }
-        else { Debug.LogWarning($"EndGame called from non-Playing/Paused state: {CurrentState}. Ignoring."); }
-    }
+        Debug.Log("GameManager: Starting New Game Setup...");
+        SetState(GameState.Initializing); // Start in initializing state
 
-    public void RestartGame()
-    {
-        // Only allow restart if game is actually over
-        if (CurrentState == GameState.GameOver)
-        {
-            Debug.Log("Restarting Game...");
-            SetState(GameState.Playing); // Transition back to Playing, which handles reset
-        }
-        else { Debug.LogWarning($"RestartGame called from invalid state: {CurrentState}. Ignoring."); }
-    }
+        // Reset Score
+        currentScore = 0;
+        UpdateScoreUI(); // Update UI at the start
 
-    public void GoToHome()
-    {
-        Debug.Log($"Returning to Home Scene: {homeSceneName}");
-        SceneManager.LoadScene(homeSceneName);
-    }
+        // Reset Timer
+        currentTimeRemaining = gameTimeLimit;
+        UpdateTimerUI();
 
-    public void AddScore(int amount)
-    {
-        if (CurrentState == GameState.Playing)
-        {
-            Score += amount;
-            UpdateScoreUI();
-        }
-    }
-
-    public void DecrementMoves()
-    {
-        if (!enableMoveLimit || CurrentState != GameState.Playing) return;
-        currentMoves--;
+        // Reset Moves
+        currentMovesRemaining = startingMoves;
         UpdateMovesUI();
-        if (currentMoves <= 0)
+
+        // Reset/Initialize Grid
+        if (wordGridManager != null)
         {
-            currentMoves = 0;
-            UpdateMovesUI();
-            EndGame("Moves Used Up!");
+            wordGridManager.InitializeGrid();
+            // Pass reference to WordGridManager (if needed, though it finds GameManager)
+            // wordGridManager.SetGameManager(this);
         }
+        else { Debug.LogError("Cannot initialize grid - WordGridManager reference missing!", this); return; }
+
+        // Reset Validator (found words list) and pass reference
+        if (wordValidator != null)
+        {
+            wordValidator.ResetFoundWordsList();
+            wordValidator.SetGameManager(this); // Pass reference to WordValidator
+                                                // Initial validation after grid setup
+            wordValidator.ValidateWords();
+        }
+        else { Debug.LogError("Cannot reset validator - WordValidator reference missing!", this); }
+
+
+        // Enable Input Handler
+        if (gridInputHandler != null)
+        {
+            gridInputHandler.enabled = true;
+        }
+        else { Debug.LogError("Cannot enable input - GridInputHandler reference missing!", this); }
+
+        // Hide UI Panels
+        if (gameOverPanel != null) gameOverPanel.SetActive(false);
+        if (pausePanel != null) pausePanel.SetActive(false);
+
+        // Transition to Playing state
+        SetState(GameState.Playing);
+        Debug.Log("GameManager: New Game Started. State set to Playing.", this);
+    }
+
+    private void EndGame(bool timeout = false, bool noMoves = false)
+    {
+        if (currentState == GameState.GameOver) return; // Prevent multiple calls
+
+        string reason = timeout ? "Time Ran Out" : (noMoves ? "No Moves Left" : "Manual Trigger");
+        Debug.Log($"Game Over! Reason: {reason}");
+        SetState(GameState.GameOver);
+
+        // Show Game Over screen
+        if (gameOverPanel != null) gameOverPanel.SetActive(true);
+        else { Debug.LogWarning("GameManager: GameOver Panel reference not set!", this); }
+
+        // Optional: Display final score on the Game Over panel if it has a text element for it
+        // Example: Find a component like FinalScoreDisplay on the panel and set its text
+        // TextMeshProUGUI finalScoreText = gameOverPanel?.GetComponentInChildren<TextMeshProUGUI>(); // Be more specific if needed
+        // if (finalScoreText != null) finalScoreText.text = "Final Score: " + currentScore;
+    }
+
+    // --- NEW: Score Handling ---
+    /// <summary>
+    /// Called by WordValidator when a valid new word is found.
+    /// Calculates score and updates the total score and UI.
+    /// </summary>
+    /// <param name="word">The found word.</param>
+    public void AddScoreForWord(string word)
+    {
+        if (currentState != GameState.Playing) return; // Only add score while playing
+        if (string.IsNullOrEmpty(word)) return;
+
+        // Basic scoring: points per letter
+        int scoreToAdd = word.Length * pointsPerLetter;
+
+        // Optional: Add bonus for longer words, etc.
+        // if (word.Length > 5) scoreToAdd *= 2; // Example bonus
+
+        currentScore += scoreToAdd;
+        Debug.Log($"Added {scoreToAdd} points for word '{word}'. New Score: {currentScore}");
+
+        UpdateScoreUI();
     }
 
     private void UpdateScoreUI()
     {
         if (scoreText != null)
-        { // Check if UI element is assigned
-            scoreText.text = "Score: " + Score;
+        {
+            scoreText.text = "Score: " + currentScore.ToString();
         }
         else
         {
-            // Debug.LogWarning("ScoreText UI element not assigned in GameManager Inspector."); // Only if needed
+            // Only log warning once perhaps, or use a flag
+            // Debug.LogWarning("GameManager: Score Text UI element not assigned!", this);
         }
     }
-    private void UpdateTimerUI() { /* ... */ }
-    private void UpdateMovesUI() { /* ... */ }
 
-    void OnDestroy()
+    // --- Timer Handling ---
+
+    private void UpdateTimer()
     {
-        if (restartButton != null) restartButton.onClick.RemoveListener(RestartGame);
-        if (homeButton != null) homeButton.onClick.RemoveListener(GoToHome);
+        if (currentTimeRemaining > 0)
+        {
+            currentTimeRemaining -= Time.deltaTime;
+            UpdateTimerUI();
+
+            if (currentTimeRemaining <= 0)
+            {
+                currentTimeRemaining = 0; // Clamp to zero
+                UpdateTimerUI(); // Update UI one last time
+                EndGame(timeout: true); // End game due to time running out
+            }
+        }
     }
-}
+
+    private void UpdateTimerUI()
+    {
+        if (timerText != null)
+        {
+            // Format as minutes:seconds
+            int minutes = Mathf.FloorToInt(currentTimeRemaining / 60);
+            int seconds = Mathf.FloorToInt(currentTimeRemaining % 60);
+            timerText.text = $"{minutes:00}:{seconds:00}";
+        }
+        // else { Debug.LogWarning("GameManager: Timer Text UI element not assigned!"); }
+    }
+
+    // --- Moves Handling ---
+
+    public void DecrementMoves() // Made public if called externally, though usually internal
+    {
+        if (currentState != GameState.Playing) return; // Only decrement while playing
+
+        currentMovesRemaining--;
+        UpdateMovesUI();
+
+        if (currentMovesRemaining <= 0)
+        {
+            currentMovesRemaining = 0; // Clamp
+            UpdateMovesUI(); // Update UI one last time
+            EndGame(noMoves: true); // End game due to running out of moves
+        }
+    }
+
+    private void UpdateMovesUI()
+    {
+        if (movesText != null)
+        {
+            movesText.text = "Moves: " + currentMovesRemaining.ToString();
+        }
+        // else { Debug.LogWarning("GameManager: Moves Text UI element not assigned!"); }
+    }
+
+
+    // --- UI Button Actions ---
+
+    public void RestartGame()
+    {
+        Debug.Log("Restarting Game...");
+        // Ensure time scale is reset before loading scene, especially if paused
+        Time.timeScale = 1f;
+        // Reload the current scene
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        // Alternatively, call StartGame() directly if you want to reset without reloading
+        // StartGame();
+    }
+
+    public void PauseGame()
+    {
+        if (currentState == GameState.Playing)
+        {
+            SetState(GameState.Paused);
+        }
+    }
+
+    public void ResumeGame()
+    {
+        if (currentState == GameState.Paused)
+        {
+            SetState(GameState.Playing);
+        }
+    }
+
+    public void QuitGame() // Example Quit button action
+    {
+        Debug.Log("Quitting Game...");
+        Application.Quit(); // Note: This only works in standalone builds, not the editor
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false; // Stop playing in the editor
+#endif
+    }
+
+} // End of GameManager class

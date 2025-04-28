@@ -40,22 +40,31 @@ public class LetterCell : MonoBehaviour
     {
         if (movesTextDisplay != null)
         {
-            movesTextDisplay.text = movesLeft.ToString();
+            // --- NEW: Control visibility based on enableMoves ---
+            movesTextDisplay.gameObject.SetActive(enableMoves);
+
+            // Only update the text content if moves are enabled and visible
+            if (enableMoves)
+            {
+                movesTextDisplay.text = movesLeft.ToString();
+            }
+            // You might also want to change the visual appearance (e.g., color) based on moves left
         }
-        // You might also want to change the visual appearance based on moves left or the enabled state
     }
 
     // Optional: Method to set moves directly (if needed for debugging or other logic)
     public void SetMoves(int newMoves)
     {
         movesLeft = newMoves;
-        UpdateMovesDisplay();
+        UpdateMovesDisplay(); // Ensure display updates if moves are set directly
     }
 
     // Optional: Method to directly enable/disable moves (could be called from other scripts)
     public void SetEnableMoves(bool shouldEnable)
     {
         enableMoves = shouldEnable;
-        // You might want to update the visual appearance based on this state
+        // --- UPDATED: Call UpdateMovesDisplay after changing the state ---
+        UpdateMovesDisplay(); // Ensure the text visibility updates immediately
+        // You might want to update other visual appearance based on this state
     }
 }

@@ -2368,7 +2368,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 929d966678d7bb341bedd5250510a754, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  enableTimer: 0
+  enableTimer: 1
   enableMoveLimit: 0
   maxTime: 60
   maxMoves: 20
