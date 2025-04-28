@@ -1,32 +1,47 @@
 using UnityEngine;
-using TMPro; // Required for TextMeshPro UI elements
-using UnityEngine.SceneManagement; // Required for scene reloading (like RestartGame)
+using TMPro;
+using UnityEngine.SceneManagement;
+using System.Collections.Generic; // Needed for Dictionary
 
 public class GameManager : MonoBehaviour
 {
+    // --- NEW: Enum for Scoring Mode ---
+    public enum ScoringMode
+    {
+        LengthBased, // Original system: score = word.Length * pointsPerLetter
+        ScrabbleBased // New system: score = sum of letter values
+    }
+
     public enum GameState { Initializing, Playing, Paused, GameOver }
 
+    [Header("Game State")]
     [SerializeField] private GameState currentState = GameState.Initializing;
-    public GameState CurrentState => currentState; // Public read-only property
+    public GameState CurrentState => currentState;
 
     [Header("Game Settings")]
-    [SerializeField] private float gameTimeLimit = 120f; // Seconds
+    [SerializeField] private float gameTimeLimit = 120f;
     [SerializeField] private int startingMoves = 50;
+
+    [Header("Scoring")]
+    // --- NEW: Inspector setting to choose scoring mode ---
+    [SerializeField] private ScoringMode currentScoringMode = ScoringMode.LengthBased;
+    [Tooltip("Points per letter (Used only for LengthBased scoring)")]
+    [SerializeField] private int pointsPerLetter = 10; // Kept for LengthBased mode
+
+    // --- NEW: Dictionary for Scrabble letter values ---
+    private Dictionary<char, int> scrabbleLetterValues;
 
     [Header("UI References")]
     [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI movesText;
-    [SerializeField] private GameObject gameOverPanel; // Assign your Game Over UI panel
-    [SerializeField] private GameObject pausePanel; // Assign your Pause Menu UI panel
+    [SerializeField] private GameObject gameOverPanel;
+    [SerializeField] private GameObject pausePanel;
 
     [Header("Component References")]
     [SerializeField] private WordGridManager wordGridManager;
     [SerializeField] private WordValidator wordValidator;
     [SerializeField] private GridInputHandler gridInputHandler;
-
-    [Header("Scoring")]
-    [SerializeField] private int pointsPerLetter = 10; // Points awarded for each letter in a valid word
 
     // Internal State
     private float currentTimeRemaining;
@@ -37,7 +52,10 @@ public class GameManager : MonoBehaviour
 
     void Awake()
     {
-        // Attempt to find references if not set in Inspector (robustness)
+        // --- NEW: Initialize Scrabble values ---
+        InitializeScrabbleValues();
+
+        // ... (rest of existing Awake logic for finding references) ...
         if (wordGridManager == null) wordGridManager = FindFirstObjectByType<WordGridManager>();
         if (wordValidator == null) wordValidator = FindFirstObjectByType<WordValidator>();
         if (gridInputHandler == null) gridInputHandler = FindFirstObjectByType<GridInputHandler>();
@@ -51,14 +69,31 @@ public class GameManager : MonoBehaviour
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
 
-        Debug.Log("GameManager Awake: Initializing references.", this);
+        Debug.Log($"GameManager Awake: Initializing references. Scoring Mode: {currentScoringMode}", this);
     }
+
+    // --- NEW: Method to set up Scrabble points ---
+    void InitializeScrabbleValues()
+    {
+        scrabbleLetterValues = new Dictionary<char, int>()
+        {
+            {'A', 1}, {'E', 1}, {'I', 1}, {'O', 1}, {'U', 1}, {'L', 1}, {'N', 1}, {'S', 1}, {'T', 1}, {'R', 1},
+            {'D', 2}, {'G', 2},
+            {'B', 3}, {'C', 3}, {'M', 3}, {'P', 3},
+            {'F', 4}, {'H', 4}, {'V', 4}, {'W', 4}, {'Y', 4},
+            {'K', 5},
+            {'J', 8}, {'X', 8},
+            {'Q', 10}, {'Z', 10}
+        };
+        Debug.Log("Initialized Scrabble letter values.");
+    }
+
 
     void Start()
     {
         // Set initial state and start the game setup
         SetState(GameState.Initializing);
-        StartGame(); // Start the game immediately or wait for player input
+        StartGame();
     }
 
     void Update()
@@ -71,7 +106,7 @@ public class GameManager : MonoBehaviour
     }
 
     // --- State Management ---
-
+    // ... (Keep existing SetState method) ...
     private void SetState(GameState newState)
     {
         if (currentState == newState) return; // No change
@@ -83,8 +118,7 @@ public class GameManager : MonoBehaviour
         switch (currentState)
         {
             case GameState.Initializing:
-                // Handled mostly in Awake/Start
-                Time.timeScale = 1f; // Ensure time isn't stopped from a previous game over/pause
+                Time.timeScale = 1f;
                 break;
             case GameState.Playing:
                 Time.timeScale = 1f;
@@ -92,17 +126,17 @@ public class GameManager : MonoBehaviour
                 if (pausePanel != null) pausePanel.SetActive(false);
                 break;
             case GameState.Paused:
-                Time.timeScale = 0f; // Pause game time
+                Time.timeScale = 0f;
                 if (gridInputHandler != null) gridInputHandler.enabled = false;
                 if (pausePanel != null) pausePanel.SetActive(true);
                 break;
             case GameState.GameOver:
-                Time.timeScale = 1f; // Keep time normal for game over animations/UI, but disable input
+                Time.timeScale = 1f;
                 if (gridInputHandler != null) gridInputHandler.enabled = false;
-                // Game over panel activation is handled in EndGame()
                 break;
         }
     }
+
 
     private void StartGame()
     {
@@ -125,8 +159,6 @@ public class GameManager : MonoBehaviour
         if (wordGridManager != null)
         {
             wordGridManager.InitializeGrid();
-            // Pass reference to WordGridManager (if needed, though it finds GameManager)
-            // wordGridManager.SetGameManager(this);
         }
         else { Debug.LogError("Cannot initialize grid - WordGridManager reference missing!", this); return; }
 
@@ -168,34 +200,55 @@ public class GameManager : MonoBehaviour
         // Show Game Over screen
         if (gameOverPanel != null) gameOverPanel.SetActive(true);
         else { Debug.LogWarning("GameManager: GameOver Panel reference not set!", this); }
-
-        // Optional: Display final score on the Game Over panel if it has a text element for it
-        // Example: Find a component like FinalScoreDisplay on the panel and set its text
-        // TextMeshProUGUI finalScoreText = gameOverPanel?.GetComponentInChildren<TextMeshProUGUI>(); // Be more specific if needed
-        // if (finalScoreText != null) finalScoreText.text = "Final Score: " + currentScore;
     }
 
-    // --- NEW: Score Handling ---
-    /// <summary>
-    /// Called by WordValidator when a valid new word is found.
-    /// Calculates score and updates the total score and UI.
-    /// </summary>
-    /// <param name="word">The found word.</param>
+    // --- MODIFIED: Score Handling ---
     public void AddScoreForWord(string word)
     {
-        if (currentState != GameState.Playing) return; // Only add score while playing
+        if (currentState != GameState.Playing) return;
         if (string.IsNullOrEmpty(word)) return;
 
-        // Basic scoring: points per letter
-        int scoreToAdd = word.Length * pointsPerLetter;
+        int scoreToAdd = 0;
 
-        // Optional: Add bonus for longer words, etc.
-        // if (word.Length > 5) scoreToAdd *= 2; // Example bonus
+        // --- Calculate score based on selected mode ---
+        switch (currentScoringMode)
+        {
+            case ScoringMode.LengthBased:
+                scoreToAdd = word.Length * pointsPerLetter;
+                // Debug.Log($"Scoring (LengthBased): Word '{word}', Length {word.Length}, Score {scoreToAdd}");
+                break;
 
-        currentScore += scoreToAdd;
-        Debug.Log($"Added {scoreToAdd} points for word '{word}'. New Score: {currentScore}");
+            case ScoringMode.ScrabbleBased:
+                scoreToAdd = 0; // Start score at 0 for this word
+                foreach (char letter in word)
+                {
+                    // Ensure dictionary lookup uses uppercase
+                    char upperLetter = char.ToUpperInvariant(letter);
+                    if (scrabbleLetterValues.TryGetValue(upperLetter, out int letterValue))
+                    {
+                        scoreToAdd += letterValue;
+                    }
+                    else
+                    {
+                        // Optional: Handle unexpected characters (e.g., punctuation if it somehow gets in)
+                        // Debug.LogWarning($"Scrabble scoring: Character '{upperLetter}' not found in value dictionary.");
+                    }
+                }
+                // Debug.Log($"Scoring (ScrabbleBased): Word '{word}', Score {scoreToAdd}");
+                break;
 
-        UpdateScoreUI();
+            default:
+                Debug.LogError($"Unknown Scoring Mode: {currentScoringMode}");
+                break;
+        }
+
+        // --- Add calculated score and update UI ---
+        if (scoreToAdd > 0)
+        {
+            currentScore += scoreToAdd;
+            Debug.Log($"Added {scoreToAdd} points (Mode: {currentScoringMode}) for word '{word}'. New Total Score: {currentScore}");
+            UpdateScoreUI();
+        }
     }
 
     private void UpdateScoreUI()
@@ -204,27 +257,25 @@ public class GameManager : MonoBehaviour
         {
             scoreText.text = "Score: " + currentScore.ToString();
         }
-        else
-        {
-            // Only log warning once perhaps, or use a flag
-            // Debug.LogWarning("GameManager: Score Text UI element not assigned!", this);
-        }
     }
 
     // --- Timer Handling ---
-
+    // ... (Keep existing UpdateTimer and UpdateTimerUI methods) ...
     private void UpdateTimer()
     {
-        if (currentTimeRemaining > 0)
+        if (currentState == GameState.Playing)
         {
-            currentTimeRemaining -= Time.deltaTime;
-            UpdateTimerUI();
-
-            if (currentTimeRemaining <= 0)
+            if (currentTimeRemaining > 0)
             {
-                currentTimeRemaining = 0; // Clamp to zero
-                UpdateTimerUI(); // Update UI one last time
-                EndGame(timeout: true); // End game due to time running out
+                currentTimeRemaining -= Time.deltaTime;
+                UpdateTimerUI();
+
+                if (currentTimeRemaining <= 0)
+                {
+                    currentTimeRemaining = 0; // Clamp to zero
+                    UpdateTimerUI(); // Update UI one last time
+                    EndGame(timeout: true); // End game due to time running out
+                }
             }
         }
     }
@@ -236,13 +287,14 @@ public class GameManager : MonoBehaviour
             // Format as minutes:seconds
             int minutes = Mathf.FloorToInt(currentTimeRemaining / 60);
             int seconds = Mathf.FloorToInt(currentTimeRemaining % 60);
+            // --- MODIFIED LINE: Removed "Time: " prefix ---
             timerText.text = $"{minutes:00}:{seconds:00}";
         }
-        // else { Debug.LogWarning("GameManager: Timer Text UI element not assigned!"); }
     }
 
-    // --- Moves Handling ---
 
+    // --- Moves Handling ---
+    // ... (Keep existing DecrementMoves and UpdateMovesUI methods) ...
     public void DecrementMoves() // Made public if called externally, though usually internal
     {
         if (currentState != GameState.Playing) return; // Only decrement while playing
@@ -264,21 +316,16 @@ public class GameManager : MonoBehaviour
         {
             movesText.text = "Moves: " + currentMovesRemaining.ToString();
         }
-        // else { Debug.LogWarning("GameManager: Moves Text UI element not assigned!"); }
     }
 
 
     // --- UI Button Actions ---
-
+    // ... (Keep existing RestartGame, PauseGame, ResumeGame, QuitGame methods) ...
     public void RestartGame()
     {
         Debug.Log("Restarting Game...");
-        // Ensure time scale is reset before loading scene, especially if paused
         Time.timeScale = 1f;
-        // Reload the current scene
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-        // Alternatively, call StartGame() directly if you want to reset without reloading
-        // StartGame();
     }
 
     public void PauseGame()
@@ -300,10 +347,11 @@ public class GameManager : MonoBehaviour
     public void QuitGame() // Example Quit button action
     {
         Debug.Log("Quitting Game...");
-        Application.Quit(); // Note: This only works in standalone builds, not the editor
+        Application.Quit();
 #if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false; // Stop playing in the editor
+        UnityEditor.EditorApplication.isPlaying = false;
 #endif
     }
+
 
 } // End of GameManager class

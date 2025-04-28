@@ -1571,8 +1571,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordGridManager: {fileID: 593137150}
   gameManager: {fileID: 1480404336}
-  wordListFile: {fileID: 4900000, guid: 7ce0682035e54af429542f52a1a79e9f, type: 3}
-  minWordLength: 3
+  wordListFile: {fileID: 4900000, guid: fc510260ebc7b144ba8e189b51013c8f, type: 3}
+  minWordLength: 4
 --- !u!1 &773578373
 GameObject:
   m_ObjectHideFlags: 0
@@ -2368,21 +2368,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 929d966678d7bb341bedd5250510a754, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  enableTimer: 1
-  enableMoveLimit: 0
-  maxTime: 60
-  maxMoves: 20
-  homeSceneName: HomeScene
-  wordGridManager: {fileID: 593137150}
-  gridInputHandler: {fileID: 450983252}
-  wordValidator: {fileID: 593137152}
+  currentState: 0
+  gameTimeLimit: 120
+  startingMoves: 50
+  currentScoringMode: 1
+  pointsPerLetter: 10
   scoreText: {fileID: 1345162615}
   timerText: {fileID: 582632626}
   movesText: {fileID: 292332009}
   gameOverPanel: {fileID: 2019866155}
-  finalStatusText: {fileID: 1289521930}
-  restartButton: {fileID: 1534631789}
-  homeButton: {fileID: 882356873}
+  pausePanel: {fileID: 0}
+  wordGridManager: {fileID: 593137150}
+  wordValidator: {fileID: 593137152}
+  gridInputHandler: {fileID: 450983252}
 --- !u!4 &1480404337
 Transform:
   m_ObjectHideFlags: 0
