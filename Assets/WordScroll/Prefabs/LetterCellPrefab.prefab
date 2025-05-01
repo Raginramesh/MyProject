@@ -363,5 +363,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   initialMoves: 25
-  enableMoves: 1
+  enableMoves: 0
   movesTextDisplay: {fileID: 7140160136770179494}

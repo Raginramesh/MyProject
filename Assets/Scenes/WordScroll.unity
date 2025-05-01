@@ -1229,8 +1229,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordGridManager: {fileID: 593137150}
   gridPanelRect: {fileID: 450983248}
-  dragThreshold: 1
+  dragThreshold: 0.1
   scrollThresholdFactor: 0.1
+  enableDragHighlight: 1
+  highlightScaleMultiplier: 1
+  highlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
 --- !u!1 &506179310
 GameObject:
   m_ObjectHideFlags: 0
@@ -1533,8 +1536,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2cd82ee15ff64a14d903d5a4aec35f8c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _gridSize: 4
-  _cellSize: 210
+  _gridSize: 5
+  _cellSize: 175
   _spacing: 10
   letterCellPrefab: {fileID: 9110838812193733251, guid: cc9c4ccdc67a2564f96eadc2f42672d0, type: 3}
   gridParent: {fileID: 450983248}
@@ -1574,7 +1577,7 @@ MonoBehaviour:
   wordGridManager: {fileID: 593137150}
   gameManager: {fileID: 1480404336}
   wordListFile: {fileID: 4900000, guid: 18e3f9beda31baa46be256b20b84d7fc, type: 3}
-  minWordLength: 4
+  minWordLength: 5
 --- !u!1 &773578373
 GameObject:
   m_ObjectHideFlags: 0
@@ -2518,14 +2521,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
-  currentDisplayMode: 0
+  currentDisplayMode: 2
   gameTimeLimit: 5
-  startingMoves: 2
+  startingMoves: 20
   homeSceneName: HomeScene
   currentScoringMode: 1
   pointsPerLetter: 10
   scoreText: {fileID: 1345162615}
-  statusDisplayGroup: {fileID: 773578373}
+  statusDisplayGroup: {fileID: 331589041}
   timerText: {fileID: 582632626}
   movesText: {fileID: 817405987}
   gameOverPanel: {fileID: 2019866155}
@@ -3215,9 +3218,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   wordGridManager: {fileID: 593137150}
-  gridPanelRect: {fileID: 450983248}
+  gridPanelRect: {fileID: 0}
   dragThreshold: 1
-  scrollThresholdFactor: 0.1
+  scrollThresholdFactor: 0.4
+  enableDragHighlight: 1
+  highlightScaleMultiplier: 1.08
+  highlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
 --- !u!114 &2028402608
 MonoBehaviour:
   m_ObjectHideFlags: 0
