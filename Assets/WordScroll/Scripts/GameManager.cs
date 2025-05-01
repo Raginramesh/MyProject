@@ -14,15 +14,29 @@ public class GameManager : MonoBehaviour
 
     public enum GameState { Initializing, Playing, Paused, GameOver }
 
+    // Enum to control what is displayed in the status group
+    public enum DisplayMode
+    {
+        Timer,
+        Moves,
+        None
+    }
+
     [Header("Game State")]
     [SerializeField] private GameState currentState = GameState.Initializing;
     public GameState CurrentState => currentState; // Public read-only property
 
-    [Header("Game Settings")]
-    [SerializeField] private bool isTimerEnabled = true; // Timer Enable Flag
-    [Tooltip("Time limit in seconds (Used only if Timer is Enabled)")]
+    [Header("Game Mode & Display")]
+    [Tooltip("Selects whether to use Timer, Moves limit, or None")]
+    [SerializeField] private DisplayMode currentDisplayMode = DisplayMode.Timer;
+    [Tooltip("Time limit in seconds (Used only if Display Mode is Timer)")]
     [SerializeField] private float gameTimeLimit = 120f;
+    [Tooltip("Starting number of moves (Used only if Display Mode is Moves)")]
     [SerializeField] private int startingMoves = 50;
+
+    [Header("Scene Navigation")] // Header for scene configuration
+    [Tooltip("The exact name of the scene to load when the Home button is pressed.")]
+    [SerializeField] private string homeSceneName = "HomeScreen"; // Configurable scene name
 
     [Header("Scoring")]
     [SerializeField] private ScoringMode currentScoringMode = ScoringMode.LengthBased; // Inspector setting for scoring mode
@@ -34,10 +48,11 @@ public class GameManager : MonoBehaviour
 
     [Header("UI References")]
     [SerializeField] private TextMeshProUGUI scoreText;
-    [Tooltip("Assign the parent GameObject containing the Timer Text and its Background")]
-    [SerializeField] private GameObject timerDisplayGroup; // Assign the parent 'BG' GameObject here
-    [Tooltip("Assign the TextMeshProUGUI component for the Timer (must be child of Timer Display Group)")]
-    [SerializeField] private TextMeshProUGUI timerText; // Still need this to update the text value
+    [Tooltip("Assign the parent GameObject containing the Timer and Moves Text elements")]
+    [SerializeField] private GameObject statusDisplayGroup; // Renamed from timerDisplayGroup
+    [Tooltip("Assign the TextMeshProUGUI component for the Timer (must be child of Status Display Group)")]
+    [SerializeField] private TextMeshProUGUI timerText;
+    [Tooltip("Assign the TextMeshProUGUI component for Moves display (must be child of Status Display Group)")]
     [SerializeField] private TextMeshProUGUI movesText;
     [SerializeField] private GameObject gameOverPanel; // Assign your Game Over UI panel
     [SerializeField] private GameObject pausePanel; // Assign your Pause Menu UI panel
@@ -68,17 +83,18 @@ public class GameManager : MonoBehaviour
         if (wordGridManager == null) Debug.LogError("GameManager: WordGridManager not found!", this);
         if (wordValidator == null) Debug.LogError("GameManager: WordValidator not found!", this);
         if (gridInputHandler == null) Debug.LogError("GameManager: GridInputHandler not found!", this);
-        // Check the timer group reference
-        if (timerDisplayGroup == null) Debug.LogWarning("GameManager: Timer Display Group reference not set. Timer UI cannot be shown/hidden.", this);
-        // Check the timer text reference only if the timer is meant to be enabled
-        if (timerText == null && isTimerEnabled) Debug.LogWarning("GameManager: Timer Text reference not set. Timer value cannot be updated.", this);
 
+        // Check UI references based on DisplayMode
+        if (statusDisplayGroup == null) Debug.LogWarning("GameManager: Status Display Group reference not set. Timer/Moves UI cannot be managed.", this);
+        if (timerText == null && currentDisplayMode == DisplayMode.Timer) Debug.LogWarning("GameManager: Timer Text reference not set, but Display Mode is Timer.", this);
+        if (movesText == null && currentDisplayMode == DisplayMode.Moves) Debug.LogWarning("GameManager: Moves Text reference not set, but Display Mode is Moves.", this);
+        if (string.IsNullOrEmpty(homeSceneName)) Debug.LogWarning("GameManager: Home Scene Name is not set in the Inspector!", this); // Check for scene name
 
         // Ensure UI panels are initially hidden (or set active state based on design)
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
 
-        Debug.Log($"GameManager Awake: Initializing references. Timer Enabled: {isTimerEnabled}, Scoring Mode: {currentScoringMode}", this);
+        Debug.Log($"GameManager Awake: Display Mode: {currentDisplayMode}, Scoring Mode: {currentScoringMode}, Home Scene: '{homeSceneName}'", this);
     }
 
     // Method to set up Scrabble points
@@ -94,21 +110,18 @@ public class GameManager : MonoBehaviour
             {'J', 8}, {'X', 8},
             {'Q', 10}, {'Z', 10}
         };
-        // Debug.Log("Initialized Scrabble letter values."); // Keep commented unless debugging
     }
-
 
     void Start()
     {
-        // Set initial state and start the game setup
         SetState(GameState.Initializing);
-        StartGame(); // Start the game immediately
+        StartGame();
     }
 
     void Update()
     {
-        // Only update timer if playing AND timer is enabled
-        if (currentState == GameState.Playing && isTimerEnabled)
+        // Only update timer if playing AND in Timer mode
+        if (currentState == GameState.Playing && currentDisplayMode == DisplayMode.Timer)
         {
             UpdateTimer();
         }
@@ -118,16 +131,15 @@ public class GameManager : MonoBehaviour
 
     private void SetState(GameState newState)
     {
-        if (currentState == newState) return; // No change
+        if (currentState == newState) return;
 
         currentState = newState;
         Debug.Log($"GameManager: State changed to {currentState}");
 
-        // Handle state transitions
         switch (currentState)
         {
             case GameState.Initializing:
-                Time.timeScale = 1f; // Ensure time isn't stopped
+                Time.timeScale = 1f;
                 break;
             case GameState.Playing:
                 Time.timeScale = 1f;
@@ -135,7 +147,7 @@ public class GameManager : MonoBehaviour
                 if (pausePanel != null) pausePanel.SetActive(false);
                 break;
             case GameState.Paused:
-                Time.timeScale = 0f; // Pause game time
+                Time.timeScale = 0f;
                 if (gridInputHandler != null) gridInputHandler.enabled = false;
                 if (pausePanel != null) pausePanel.SetActive(true);
                 break;
@@ -150,39 +162,47 @@ public class GameManager : MonoBehaviour
     private void StartGame()
     {
         Debug.Log("GameManager: Starting New Game Setup...");
-        SetState(GameState.Initializing); // Start in initializing state
+        SetState(GameState.Initializing);
 
-        // Reset Score
         currentScore = 0;
-        UpdateScoreUI(); // Update UI at the start
+        UpdateScoreUI();
 
-        // Timer Setup (Enable/Disable UI Group and set time)
-        if (timerDisplayGroup != null)
+        // Setup Status Display Group based on DisplayMode
+        if (statusDisplayGroup != null)
         {
-            // Activate/Deactivate the entire timer group based on the setting
-            timerDisplayGroup.SetActive(isTimerEnabled);
+            bool isGroupActive = currentDisplayMode != DisplayMode.None;
+            statusDisplayGroup.SetActive(isGroupActive);
 
-            if (isTimerEnabled)
+            if (isGroupActive)
             {
-                // Only proceed if the group is now active (which it should be if isTimerEnabled is true)
-                currentTimeRemaining = gameTimeLimit;
-                UpdateTimerUI(); // Update text value
-                Debug.Log($"Timer Initialized and Enabled: {gameTimeLimit}s");
+                // Activate/Deactivate Timer and Moves Text elements within the group
+                if (timerText != null) timerText.gameObject.SetActive(currentDisplayMode == DisplayMode.Timer);
+                if (movesText != null) movesText.gameObject.SetActive(currentDisplayMode == DisplayMode.Moves);
+
+                // Initialize the correct value based on the mode
+                if (currentDisplayMode == DisplayMode.Timer)
+                {
+                    currentTimeRemaining = gameTimeLimit;
+                    UpdateTimerUI();
+                    Debug.Log($"Display Mode: Timer Initialized ({gameTimeLimit}s)");
+                }
+                else if (currentDisplayMode == DisplayMode.Moves)
+                {
+                    currentMovesRemaining = startingMoves;
+                    UpdateMovesUI();
+                    Debug.Log($"Display Mode: Moves Initialized ({startingMoves} moves)");
+                }
             }
             else
             {
-                Debug.Log("Timer Disabled by Setting. Timer UI Hidden.");
+                Debug.Log("Display Mode: None. Status Group Hidden.");
             }
         }
-        else if (isTimerEnabled) // Log warning only if timer should be enabled but group UI is missing
+        else // Log warning only if a mode requires the group but it's missing
         {
-            Debug.LogWarning("Timer is enabled, but Timer Display Group not assigned!");
+            if (currentDisplayMode != DisplayMode.None)
+                Debug.LogWarning("Status Display Group not assigned! Cannot show Timer or Moves.");
         }
-
-
-        // Reset Moves
-        currentMovesRemaining = startingMoves;
-        UpdateMovesUI();
 
         // Reset/Initialize Grid
         if (wordGridManager != null)
@@ -191,40 +211,41 @@ public class GameManager : MonoBehaviour
         }
         else { Debug.LogError("Cannot initialize grid - WordGridManager reference missing!", this); return; }
 
-        // Reset Validator (found words list) and pass reference
+        // Reset Validator
         if (wordValidator != null)
         {
             wordValidator.ResetFoundWordsList();
-            wordValidator.SetGameManager(this); // Pass reference to WordValidator
-                                                // Initial validation after grid setup
+            wordValidator.SetGameManager(this);
             wordValidator.ValidateWords();
         }
         else { Debug.LogError("Cannot reset validator - WordValidator reference missing!", this); }
 
-
-        // Enable Input Handler
+        // Enable Input
         if (gridInputHandler != null)
         {
             gridInputHandler.enabled = true;
         }
         else { Debug.LogError("Cannot enable input - GridInputHandler reference missing!", this); }
 
-        // Hide UI Panels that shouldn't be visible at start
+        // Hide Panels
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
 
-        // Transition to Playing state
         SetState(GameState.Playing);
         Debug.Log("GameManager: New Game Started. State set to Playing.", this);
     }
 
     private void EndGame(bool timeout = false, bool noMoves = false)
     {
-        // Prevent timeout end if timer is disabled
-        if (timeout && !isTimerEnabled)
+        // Check DisplayMode before triggering game over reason
+        if (timeout && currentDisplayMode != DisplayMode.Timer)
         {
-            // This case should ideally not happen if UpdateTimer isn't called, but check defensively
-            Debug.LogWarning("EndGame called with timeout=true, but timer is disabled. Ignoring timeout reason.");
+            Debug.LogWarning("EndGame called with timeout=true, but not in Timer mode. Ignoring timeout reason.");
+            return;
+        }
+        if (noMoves && currentDisplayMode != DisplayMode.Moves)
+        {
+            Debug.LogWarning("EndGame called with noMoves=true, but not in Moves mode. Ignoring noMoves reason.");
             return;
         }
 
@@ -234,56 +255,37 @@ public class GameManager : MonoBehaviour
         Debug.Log($"Game Over! Reason: {reason}");
         SetState(GameState.GameOver);
 
-        // Show Game Over screen
         if (gameOverPanel != null) gameOverPanel.SetActive(true);
         else { Debug.LogWarning("GameManager: GameOver Panel reference not set!", this); }
-
-        // Optional: Display final score on the Game Over panel
-        // TextMeshProUGUI finalScoreText = gameOverPanel?.GetComponentInChildren<TextMeshProUGUI>();
-        // if (finalScoreText != null) finalScoreText.text = "Final Score: " + currentScore;
     }
 
-    // --- Score Handling (Supports both modes) ---
+    // --- Score Handling ---
     public void AddScoreForWord(string word)
     {
-        if (currentState != GameState.Playing) return; // Only add score while playing
-        if (string.IsNullOrEmpty(word)) return;
+        if (currentState != GameState.Playing || string.IsNullOrEmpty(word)) return;
 
         int scoreToAdd = 0;
-
-        // Calculate score based on selected mode
         switch (currentScoringMode)
         {
             case ScoringMode.LengthBased:
                 scoreToAdd = word.Length * pointsPerLetter;
-                // Debug.Log($"Scoring (LengthBased): Word '{word}', Length {word.Length}, Score {scoreToAdd}");
                 break;
-
             case ScoringMode.ScrabbleBased:
-                scoreToAdd = 0; // Start score at 0 for this word
+                scoreToAdd = 0;
                 foreach (char letter in word)
                 {
-                    // Ensure dictionary lookup uses uppercase
                     char upperLetter = char.ToUpperInvariant(letter);
                     if (scrabbleLetterValues.TryGetValue(upperLetter, out int letterValue))
                     {
                         scoreToAdd += letterValue;
                     }
-                    else
-                    {
-                        // Optional: Handle unexpected characters
-                        // Debug.LogWarning($"Scrabble scoring: Character '{upperLetter}' not found in value dictionary.");
-                    }
                 }
-                // Debug.Log($"Scoring (ScrabbleBased): Word '{word}', Score {scoreToAdd}");
                 break;
-
             default:
                 Debug.LogError($"Unknown Scoring Mode: {currentScoringMode}");
                 break;
         }
 
-        // Add calculated score and update UI
         if (scoreToAdd > 0)
         {
             currentScore += scoreToAdd;
@@ -298,85 +300,72 @@ public class GameManager : MonoBehaviour
         {
             scoreText.text = "Score: " + currentScore.ToString();
         }
-        else
-        {
-            // Debug.LogWarning("GameManager: Score Text UI element not assigned!"); // Keep commented unless needed
-        }
     }
 
     // --- Timer Handling ---
-
     private void UpdateTimer()
     {
-        // This method is only called if isTimerEnabled is true (checked in Update)
+        // Redundant check (already in Update), but safe
+        if (currentDisplayMode != DisplayMode.Timer) return;
+
         if (currentTimeRemaining > 0)
         {
             currentTimeRemaining -= Time.deltaTime;
-            UpdateTimerUI(); // Update the display
+            UpdateTimerUI();
 
             if (currentTimeRemaining <= 0)
             {
-                currentTimeRemaining = 0; // Clamp to zero
-                UpdateTimerUI(); // Update UI one last time to show 00:00
-                EndGame(timeout: true); // End game due to time running out
+                currentTimeRemaining = 0;
+                UpdateTimerUI();
+                EndGame(timeout: true);
             }
         }
     }
 
     private void UpdateTimerUI()
     {
-        // Only update the text if the text component is assigned AND the parent group is active
-        // (The parent group check is implicitly handled by StartGame setting its active state)
-        if (timerText != null)
+        // Check mode and references
+        if (currentDisplayMode == DisplayMode.Timer && timerText != null && statusDisplayGroup != null && statusDisplayGroup.activeSelf)
         {
-            // Check if the parent group is actually active before trying to update text.
-            // This prevents potential errors if UpdateTimerUI was somehow called while disabled.
-            if (timerDisplayGroup != null && timerDisplayGroup.activeSelf)
-            {
-                int minutes = Mathf.FloorToInt(currentTimeRemaining / 60);
-                int seconds = Mathf.FloorToInt(currentTimeRemaining % 60);
-                timerText.text = $"{minutes:00}:{seconds:00}"; // Format M:SS
-            }
+            int minutes = Mathf.FloorToInt(currentTimeRemaining / 60);
+            int seconds = Mathf.FloorToInt(currentTimeRemaining % 60);
+            timerText.text = $"{minutes:00}:{seconds:00}";
         }
-        // else { Debug.LogWarning("GameManager: Timer Text UI element not assigned!"); } // Keep commented unless needed
     }
 
-
     // --- Moves Handling ---
-
-    public void DecrementMoves() // Can be called by GridInputHandler or other actions
+    public void DecrementMoves()
     {
-        if (currentState != GameState.Playing) return; // Only decrement while playing
+        // Only decrement if playing AND in Moves mode
+        if (currentState != GameState.Playing || currentDisplayMode != DisplayMode.Moves) return;
 
         currentMovesRemaining--;
+        Debug.Log($"Move Used. Remaining Moves: {currentMovesRemaining}");
         UpdateMovesUI();
 
         if (currentMovesRemaining <= 0)
         {
-            currentMovesRemaining = 0; // Clamp
-            UpdateMovesUI(); // Update UI one last time
-            EndGame(noMoves: true); // End game due to running out of moves
+            currentMovesRemaining = 0;
+            UpdateMovesUI();
+            EndGame(noMoves: true);
         }
     }
 
     private void UpdateMovesUI()
     {
-        if (movesText != null)
+        // Check mode and references
+        if (currentDisplayMode == DisplayMode.Moves && movesText != null && statusDisplayGroup != null && statusDisplayGroup.activeSelf)
         {
             movesText.text = "Moves: " + currentMovesRemaining.ToString();
         }
-        // else { Debug.LogWarning("GameManager: Moves Text UI element not assigned!"); } // Keep commented unless needed
     }
-
 
     // --- UI Button Actions ---
 
     public void RestartGame()
     {
         Debug.Log("Restarting Game...");
-        // Ensure time scale is reset before loading scene, especially if paused
-        Time.timeScale = 1f;
-        // Reload the current scene
+        Time.timeScale = 1f; // Ensure time scale is reset
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
@@ -395,6 +384,25 @@ public class GameManager : MonoBehaviour
             SetState(GameState.Playing);
         }
     }
+
+    // MODIFIED FUNCTION for the Home Button
+    public void GoToHomeScreen()
+    {
+        // Check if a scene name has been provided in the inspector
+        if (string.IsNullOrEmpty(homeSceneName))
+        {
+            Debug.LogError("Home button pressed, but Home Scene Name is not set in GameManager Inspector!", this);
+            return;
+        }
+
+        Debug.Log($"Going to Home Screen: '{homeSceneName}'...");
+        Time.timeScale = 1f; // Ensure time scale is reset before leaving scene
+
+        // Load the scene using the name specified in the inspector
+        // --- Make sure the scene named 'homeSceneName' is added to File > Build Settings... ---
+        SceneManager.LoadScene(homeSceneName);
+    }
+
 
     public void QuitGame() // Example Quit button action
     {

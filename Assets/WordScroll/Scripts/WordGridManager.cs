@@ -538,44 +538,63 @@ public class WordGridManager : MonoBehaviour
         else { Debug.LogError("Cannot trigger validation: WordValidator reference missing!", this); }
     }
 
-    // --- NEW: Method to apply move reduction after grid settles ---
+    // --- Method to apply move reduction after grid settles ---
     /// <summary>
     /// Applies the move reduction logic to the specified row or column.
     /// Called by GridInputHandler from Update when pendingMoveReduction is true and grid is not animating.
+    /// Also triggers the GameManager's move decrement.
     /// </summary>
-    /// <param name="row">The row index to reduce moves for (-1 if reducing a column).</param>
-    /// <param name="col">The column index to reduce moves for (-1 if reducing a row).</param>
+    /// <param name="row">The row index that was scrolled (-1 if a column was scrolled).</param>
+    /// <param name="col">The column index that was scrolled (-1 if a row was scrolled).</param>
     public void ApplyPendingMoveReduction(int row, int col)
     {
         if (row >= 0 && col >= 0) { Debug.LogError($"ApplyPendingMoveReduction called with both valid row ({row}) and col ({col})!", this); return; }
         if (row < 0 && col < 0) { Debug.LogWarning($"ApplyPendingMoveReduction called with invalid row ({row}) and col ({col}).", this); return; }
 
-        bool wasRowReduction = row >= 0;
-        int index = wasRowReduction ? row : col;
-        string type = wasRowReduction ? "row" : "column";
+        bool wasRowScroll = row >= 0;
+        int index = wasRowScroll ? row : col;
+        string type = wasRowScroll ? "row" : "column";
 
-        Debug.Log($"ApplyPendingMoveReduction: Applying moves reduction for {type} {index}");
-        bool anyMovesReduced = false;
+        // --- Trigger GameManager Move Decrement ---
+        // <<< NEW: Call DecrementMoves in GameManager for EVERY completed scroll action
+        if (gameManager != null)
+        {
+            Debug.Log($"ApplyPendingMoveReduction: Triggering move decrement for completed scroll of {type} {index}.");
+            gameManager.DecrementMoves(); // This will internally check if moves are enabled
+        }
+        else
+        {
+            Debug.LogError("ApplyPendingMoveReduction: Cannot decrement moves, GameManager reference is missing!", this);
+        }
 
-        if (wasRowReduction) // Reduce moves for a Row
+
+        // --- Original LetterCell Move Reduction Logic (Optional based on LetterCell settings) ---
+        // This part still handles the individual moves *on* the cells, if enabled on the LetterCell component.
+        // It's separate from the main game move count.
+        Debug.Log($"ApplyPendingMoveReduction: Applying LetterCell moves reduction (if enabled on cells) for {type} {index}");
+        bool anyCellMovesReduced = false;
+
+        if (wasRowScroll) // Reduce moves for LetterCells in a Row
         {
             for (int c = 0; c < gridSize; c++)
             {
                 LetterCell cell = GetLetterCellAt(row, c);
-                if (cell != null && cell.ReduceMove() && cell.EnableMoves) { anyMovesReduced = true; }
+                // Only count if ReduceMove returns true AND the cell actually has moves enabled
+                if (cell != null && cell.ReduceMove() && cell.EnableMoves) { anyCellMovesReduced = true; }
             }
         }
-        else // Reduce moves for a Column
+        else // Reduce moves for LetterCells in a Column
         {
             for (int r = 0; r < gridSize; r++)
             {
                 LetterCell cell = GetLetterCellAt(r, col);
-                if (cell != null && cell.ReduceMove() && cell.EnableMoves) { anyMovesReduced = true; }
+                // Only count if ReduceMove returns true AND the cell actually has moves enabled
+                if (cell != null && cell.ReduceMove() && cell.EnableMoves) { anyCellMovesReduced = true; }
             }
         }
 
-        if (anyMovesReduced) { Debug.Log($"ApplyPendingMoveReduction: Finished reducing moves for {type} {index}."); }
-        else { Debug.Log($"ApplyPendingMoveReduction: No moves were reduced for {type} {index}."); }
+        if (anyCellMovesReduced) { Debug.Log($"ApplyPendingMoveReduction: Finished reducing LetterCell moves for {type} {index}."); }
+        else { Debug.Log($"ApplyPendingMoveReduction: No LetterCell moves were reduced for {type} {index} (or cells have moves disabled)."); }
     }
 
     // --- Public method to get LetterCell component ---
