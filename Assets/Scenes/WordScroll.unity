@@ -1229,11 +1229,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordGridManager: {fileID: 593137150}
   gridPanelRect: {fileID: 450983248}
+  uiCamera: {fileID: 24250974}
   dragThreshold: 0.1
   scrollThresholdFactor: 0.1
   enableDragHighlight: 1
   highlightScaleMultiplier: 1
   highlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+  gameManager: {fileID: 1480404336}
 --- !u!1 &506179310
 GameObject:
   m_ObjectHideFlags: 0
@@ -1537,10 +1539,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _gridSize: 5
-  _cellSize: 175
+  _cellSize: 170
   _spacing: 10
   letterCellPrefab: {fileID: 9110838812193733251, guid: cc9c4ccdc67a2564f96eadc2f42672d0, type: 3}
   gridParent: {fileID: 450983248}
+  cellFadeInDuration: 0.3
   wordValidator: {fileID: 593137152}
   gameManager: {fileID: 1480404336}
 --- !u!224 &593137151
@@ -2501,6 +2504,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1480404337}
   - component: {fileID: 1480404336}
+  - component: {fileID: 1480404338}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -2536,6 +2540,8 @@ MonoBehaviour:
   wordGridManager: {fileID: 593137150}
   wordValidator: {fileID: 593137152}
   gridInputHandler: {fileID: 450983252}
+  effectsManager: {fileID: 1480404338}
+  replacementDelayFactor: 1
 --- !u!4 &1480404337
 Transform:
   m_ObjectHideFlags: 0
@@ -2551,6 +2557,28 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1480404338
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1480404335}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 025125069ede12648af069326479d7aa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  flyingLetterPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
+  flyingLetterParent: {fileID: 54221075}
+  scoreTextRect: {fileID: 1345162614}
+  initialFlyingLetterScale: {x: 2, y: 2, z: 1}
+  flyUpDistance: 30
+  flyUpDuration: 0.2
+  floatDuration: 0.3
+  flyToScoreDuration: 0.5
+  delayBetweenLetters: 0.08
+  flyEase: 7
 --- !u!1 &1534631787
 GameObject:
   m_ObjectHideFlags: 0
@@ -3219,11 +3247,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wordGridManager: {fileID: 593137150}
   gridPanelRect: {fileID: 0}
+  uiCamera: {fileID: 0}
   dragThreshold: 1
   scrollThresholdFactor: 0.4
   enableDragHighlight: 1
   highlightScaleMultiplier: 1.08
   highlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+  gameManager: {fileID: 0}
 --- !u!114 &2028402608
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -283,11 +283,10 @@ GameObject:
   - component: {fileID: 3233307849644284744}
   - component: {fileID: 4365498406366874264}
   - component: {fileID: 1357002703121201769}
-  - component: {fileID: 1936806771700022223}
   - component: {fileID: 1597977628884059058}
-  - component: {fileID: 1102557962842954070}
+  - component: {fileID: 9208462698177897164}
   m_Layer: 5
-  m_Name: LetterCellPrefab
+  m_Name: FlyingLetterCellPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -352,18 +351,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!225 &1936806771700022223
-CanvasGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9110838812193733251}
-  m_Enabled: 1
-  m_Alpha: 1
-  m_Interactable: 1
-  m_BlocksRaycasts: 1
-  m_IgnoreParentGroups: 0
 --- !u!114 &1597977628884059058
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -379,17 +366,15 @@ MonoBehaviour:
   initialMoves: 25
   enableMoves: 0
   movesTextDisplay: {fileID: 7140160136770179494}
---- !u!114 &1102557962842954070
-MonoBehaviour:
+--- !u!225 &9208462698177897164
+CanvasGroup:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9110838812193733251}
   m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 131f98910833d8048b7319cc3f8e7d8c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  letterText: {fileID: 0}
-  canvasGroup: {fileID: 0}
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
