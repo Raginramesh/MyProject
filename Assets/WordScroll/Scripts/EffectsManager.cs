@@ -1,20 +1,21 @@
 using UnityEngine;
-using UnityEngine.UI; // For CanvasGroup
+using UnityEngine.UI; // For CanvasGroup if used on prefab
 using TMPro; // For TextMeshProUGUI
 using DG.Tweening; // For DOTween animations
 using System.Collections.Generic; // For List
+using System; // For Action<int>
 
 public class EffectsManager : MonoBehaviour
 {
     [Header("Fly-To-Score Effect Config")]
-    [Tooltip("The prefab used for the flying letter animation.")]
+    [Tooltip("The prefab used for the flying letter animation. Must have RectTransform, TextMeshProUGUI, CanvasGroup.")]
     [SerializeField] private GameObject flyingLetterPrefab;
     [Tooltip("The parent transform (usually the Canvas) for instantiated flying letters.")]
     [SerializeField] private Transform flyingLetterParent;
     [Tooltip("The RectTransform of the score text UI element (the target).")]
     [SerializeField] private RectTransform scoreTextRect;
     [Tooltip("Explicit starting scale for the flying letter prefab.")]
-    [SerializeField] private Vector3 initialFlyingLetterScale = Vector3.one; // <<< Configurable scale
+    [SerializeField] private Vector3 initialFlyingLetterScale = Vector3.one;
     [Tooltip("Vertical distance the letter floats up initially.")]
     [SerializeField] private float flyUpDistance = 30f;
     [Tooltip("Duration of the initial float up animation.")]
@@ -28,16 +29,20 @@ public class EffectsManager : MonoBehaviour
     [Tooltip("Ease type for the fly-to-score movement.")]
     [SerializeField] private Ease flyEase = Ease.InOutQuad;
 
-    // Public property for GameManager to get the delay needed before replacement
-    // Specific name in case other effects have different timing properties later.
-    public float FlyToScorePreFlyDelay => flyUpDuration + floatDuration;
+    // --- Animation State Tracking ---
+    /// <summary>
+    /// Gets whether the fly-to-score effect is currently playing.
+    /// </summary>
+    public bool IsAnimating { get; private set; } = false;
 
-    // --- Add other Effect Configurations Here (e.g., Particle Prefabs, Sound Clips) ---
+    // --- Other Effect Configs (e.g., Particle Prefabs, Sound Clips) ---
 
 
     void Awake()
     {
-        // Validate references for Fly-To-Score
+        IsAnimating = false; // Ensure state is false on awake
+
+        // Validate essential references for Fly-To-Score
         if (flyingLetterPrefab == null) Debug.LogError("EffectsManager: Flying Letter Prefab missing!", this);
         if (flyingLetterParent == null) Debug.LogError("EffectsManager: Flying Letter Parent missing!", this);
         if (scoreTextRect == null) Debug.LogError("EffectsManager: Score Text Rect missing!", this);
@@ -46,27 +51,56 @@ public class EffectsManager : MonoBehaviour
 
     /// <summary>
     /// Plays the visual effect for letters flying from source cells to the score text.
+    /// Triggers a callback for each letter animation completion with its score value.
+    /// Sets the IsAnimating flag during the effect.
     /// </summary>
     /// <param name="sourceCellRects">List of RectTransforms of the original cells (for position).</param>
     /// <param name="word">The word being animated.</param>
-    public void PlayFlyToScoreEffect(List<RectTransform> sourceCellRects, string word)
+    /// <param name="letterScores">List of score values for each corresponding letter in the word.</param>
+    /// <param name="onLetterScoreCallback">Action invoked when EACH letter animation ends, passing its score value.</param>
+    public void PlayFlyToScoreEffect(
+        List<RectTransform> sourceCellRects,
+        string word,
+        List<int> letterScores,
+        Action<int> onLetterScoreCallback)
     {
-        // Basic validation
-        if (flyingLetterPrefab == null || scoreTextRect == null || flyingLetterParent == null || sourceCellRects == null || sourceCellRects.Count == 0)
+        // --- Pre-flight Checks ---
+        if (IsAnimating)
         {
-            Debug.LogError("EffectsManager: Cannot PlayFlyToScoreEffect - missing refs or cells.", this); return;
+            Debug.LogWarning("EffectsManager: PlayFlyToScoreEffect called while already animating. Ignoring.");
+            return; // Don't start a new animation if one is running
+        }
+        // Validate parameters
+        if (flyingLetterPrefab == null || scoreTextRect == null || flyingLetterParent == null ||
+            sourceCellRects == null || sourceCellRects.Count == 0 || letterScores == null || string.IsNullOrEmpty(word) ||
+            word.Length != sourceCellRects.Count || word.Length != letterScores.Count)
+        {
+            Debug.LogError("EffectsManager: Cannot PlayFlyToScoreEffect - invalid parameters or mismatched list counts. " +
+                           $"Word Length: {word?.Length}, Source Rects: {sourceCellRects?.Count}, Scores: {letterScores?.Count}", this);
+            return;
         }
 
-        // Debug.Log($"EffectsManager: Playing Fly-To-Score for word: {word}");
-        Vector3 targetPosition = scoreTextRect.position; // World position of the score text
+        // --- Start Animation ---
+        IsAnimating = true; // Set animation flag
+        // Debug.Log($"EffectsManager: Playing Fly-To-Score for word: {word}. IsAnimating = true.");
+
+        Vector3 targetPosition = scoreTextRect.position; // World position of the score text target
         Sequence masterSequence = DOTween.Sequence(); // Manages all letter animations together
-        int lettersToAnimate = Mathf.Min(word.Length, sourceCellRects.Count); // Handle potential mismatches
+        int lettersToAnimate = word.Length; // Use word length, assuming lists match counts
 
         for (int i = 0; i < lettersToAnimate; i++)
         {
-            RectTransform sourceRect = sourceCellRects[i]; // Use the provided RectTransform for position
-            if (sourceRect == null) continue; // Skip if the source rect is missing
-            char letterChar = word[i];
+            // Capture loop variables for the closure to ensure correct values are used in callbacks
+            int currentIndex = i;
+            int scoreForThisLetter = letterScores[currentIndex]; // Get score for this specific letter
+
+            RectTransform sourceRect = sourceCellRects[currentIndex];
+            if (sourceRect == null)
+            {
+                Debug.LogWarning($"EffectsManager: Source RectTransform at index {currentIndex} is null. Skipping letter '{word[currentIndex]}'.");
+                continue; // Skip this letter if its source position is missing
+            }
+            char letterChar = word[currentIndex];
 
             // --- Instantiate and Setup Clone ---
             GameObject cloneGO = Instantiate(flyingLetterPrefab, flyingLetterParent);
@@ -84,7 +118,7 @@ public class EffectsManager : MonoBehaviour
 
             // --- Initialize Clone State ---
             cloneRect.position = sourceRect.position; // Match world position of the source cell
-            cloneRect.localScale = initialFlyingLetterScale; // <<< Use the configured initial scale
+            cloneRect.localScale = initialFlyingLetterScale; // Use the configured initial scale
             cloneText.text = letterChar.ToString(); // Set the letter
             cloneCanvasGroup.alpha = 1f; // Ensure it's visible
             cloneRect.SetAsLastSibling(); // Render on top of other UI elements in the parent
@@ -105,8 +139,12 @@ public class EffectsManager : MonoBehaviour
             // Fade out during the flight (can adjust duration multiplier for faster/slower fade)
             cloneSequence.Insert(flyStartTime, cloneCanvasGroup.DOFade(0f, flyToScoreDuration * 0.8f).SetEase(Ease.InQuad));
 
-            // Cleanup: Destroy the clone GameObject when its animation finishes
+            // --- Callback and Cleanup for Individual Letter ---
             cloneSequence.OnComplete(() => {
+                // Invoke the callback passed from GameManager with the score for THIS letter
+                onLetterScoreCallback?.Invoke(scoreForThisLetter);
+
+                // Destroy the clone GameObject when its animation finishes
                 if (cloneGO != null) Destroy(cloneGO);
             });
 
@@ -114,8 +152,12 @@ public class EffectsManager : MonoBehaviour
             masterSequence.Insert(i * delayBetweenLetters, cloneSequence);
         }
 
-        // Optional: Add a callback for when all letters have finished animating
-        // masterSequence.OnComplete(() => Debug.Log("EffectsManager: Fly-To-Score Master Sequence Complete."));
+        // --- Master Sequence Completion ---
+        // Set IsAnimating to false ONLY when the *entire* master sequence finishes
+        masterSequence.OnComplete(() => {
+            IsAnimating = false;
+            // Debug.Log("EffectsManager: Fly-To-Score Master Sequence Complete. IsAnimating = false.");
+        });
 
         masterSequence.Play(); // Start the entire animation process
     }

@@ -1,8 +1,13 @@
 using UnityEngine;
 using TMPro; // Required for TextMeshPro UI elements
 using UnityEngine.SceneManagement; // Required for scene reloading
-using System.Collections.Generic; // Needed for Dictionary
-using DG.Tweening; // Still needed for DelayedCall
+using System.Collections.Generic; // Needed for Dictionary, List
+using DG.Tweening; // Required for DOTween animations (DelayedCall, DOShakePosition)
+using System.Linq; // Required for LINQ Select
+
+// --- Struct defined outside GameManager or inside if preferred ---
+// (Ensure it's defined only once, matching the definition in WordValidator)
+// public struct FoundWordData { ... } // Assuming it's defined elsewhere or already present
 
 public class GameManager : MonoBehaviour
 {
@@ -13,7 +18,10 @@ public class GameManager : MonoBehaviour
 
     [Header("Game State")]
     [SerializeField] private GameState currentState = GameState.Initializing;
+    /// <summary>Gets the current high-level state of the game.</summary>
     public GameState CurrentState => currentState;
+    /// <summary>Gets whether any major game animation (grid scroll or effects) is currently playing.</summary>
+    public bool IsAnyAnimationPlaying => (wordGridManager != null && wordGridManager.isAnimating) || (effectsManager != null && effectsManager.IsAnimating);
 
     [Header("Game Mode & Display")]
     [SerializeField] private DisplayMode currentDisplayMode = DisplayMode.Timer;
@@ -25,12 +33,15 @@ public class GameManager : MonoBehaviour
 
     [Header("Scoring")]
     [SerializeField] private ScoringMode currentScoringMode = ScoringMode.LengthBased;
+    [Tooltip("Points per letter, ONLY used if Scoring Mode is LengthBased.")]
     [SerializeField] private int pointsPerLetter = 10;
-    private Dictionary<char, int> scrabbleLetterValues;
+    private Dictionary<char, int> scrabbleLetterValues; // Populated in Awake
 
     [Header("UI References")]
     [SerializeField] private TextMeshProUGUI scoreText;
-    [SerializeField] private GameObject statusDisplayGroup;
+    [Tooltip("RectTransform of the Score Text, used for shake effect.")]
+    [SerializeField] private RectTransform scoreTextRectTransform;
+    [SerializeField] private GameObject statusDisplayGroup; // Parent for Timer/Moves text
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI movesText;
     [SerializeField] private GameObject gameOverPanel;
@@ -40,62 +51,84 @@ public class GameManager : MonoBehaviour
     [SerializeField] private WordGridManager wordGridManager;
     [SerializeField] private WordValidator wordValidator;
     [SerializeField] private GridInputHandler gridInputHandler;
-    [SerializeField] private EffectsManager effectsManager; // Reference to the effects handler
+    [SerializeField] private EffectsManager effectsManager;
 
     [Header("Timing")]
-    [Tooltip("Delay factor (multiplies animation pre-fly delay) before replacing letters & scoring.")]
-    [SerializeField] private float replacementDelayFactor = 1.0f;
+    [Tooltip("Delay after the fly-to-score effect STARTS before letters are replaced in the grid.")]
+    [SerializeField] private float replacementDelayAfterEffectStart = 0.4f;
+
+    [Header("Effects")]
+    [Tooltip("Duration of the score text shake effect when score increases.")]
+    [SerializeField] private float scoreShakeDuration = 0.2f;
+    [Tooltip("Strength of the score text shake effect (pixels).")]
+    [SerializeField] private float scoreShakeStrength = 3f;
+    [Tooltip("Vibrato indicates how much the shake will vibrate.")]
+    [SerializeField] private int scoreShakeVibrato = 15;
 
     // Internal State
     private float currentTimeRemaining;
     private int currentMovesRemaining;
     private int currentScore = 0;
-    private static GameManager instance;
+    private static GameManager instance; // Basic singleton pattern
 
     // --- Unity Lifecycle Methods ---
     void Awake()
     {
         // Singleton setup
-        if (instance == null) { instance = this; /* DontDestroyOnLoad(gameObject); */ }
-        else if (instance != this) { Destroy(gameObject); return; }
+        if (instance == null)
+        {
+            instance = this;
+            // Optional: Keep the GameManager alive across scene loads
+            // DontDestroyOnLoad(gameObject);
+        }
+        else if (instance != this)
+        {
+            // If another instance exists, destroy this one
+            Destroy(gameObject);
+            return;
+        }
 
-        InitializeScrabbleValues();
+        InitializeScrabbleValues(); // Setup letter scores
 
         // Attempt to find references if not set in Inspector
         if (wordGridManager == null) wordGridManager = FindFirstObjectByType<WordGridManager>();
         if (wordValidator == null) wordValidator = FindFirstObjectByType<WordValidator>();
         if (gridInputHandler == null) gridInputHandler = FindFirstObjectByType<GridInputHandler>();
         if (effectsManager == null) effectsManager = FindFirstObjectByType<EffectsManager>();
+        // Automatically get RectTransform from scoreText if not assigned separately
+        if (scoreTextRectTransform == null && scoreText != null)
+        {
+            scoreTextRectTransform = scoreText.GetComponent<RectTransform>();
+        }
 
-        // Error checking for critical components
-        if (wordGridManager == null) Debug.LogError("GM: WordGridManager missing!", this);
-        if (wordValidator == null) Debug.LogError("GM: WordValidator missing!", this);
-        if (gridInputHandler == null) Debug.LogError("GM: GridInputHandler missing!", this);
-        if (effectsManager == null) Debug.LogError("GM: EffectsManager missing!", this);
-        if (scoreText == null) Debug.LogError("GM: Score Text missing!", this);
-        if (statusDisplayGroup == null && currentDisplayMode != DisplayMode.None) Debug.LogWarning("GM: Status Display Group missing!", this);
-        if (timerText == null && currentDisplayMode == DisplayMode.Timer) Debug.LogWarning("GM: Timer Text missing!", this);
-        if (movesText == null && currentDisplayMode == DisplayMode.Moves) Debug.LogWarning("GM: Moves Text missing!", this);
-        if (string.IsNullOrEmpty(homeSceneName)) Debug.LogWarning("GM: Home Scene Name is not set.", this);
+        // --- Validate Critical References ---
+        if (wordGridManager == null) Debug.LogError("GM: WordGridManager missing! Assign in Inspector or ensure it exists in the scene.", this);
+        if (wordValidator == null) Debug.LogError("GM: WordValidator missing! Assign in Inspector or ensure it exists in the scene.", this);
+        if (gridInputHandler == null) Debug.LogError("GM: GridInputHandler missing! Assign in Inspector or ensure it exists in the scene.", this);
+        if (effectsManager == null) Debug.LogError("GM: EffectsManager missing! Assign in Inspector or ensure it exists in the scene.", this);
+        if (scoreText == null) Debug.LogError("GM: Score Text (TMP) missing! Assign in Inspector.", this);
+        if (scoreTextRectTransform == null) Debug.LogError("GM: Score Text RectTransform missing! Needed for shake effect. Assign in Inspector or ensure Score Text has one.", this);
+        // Optional checks for other non-critical UI elements... (as before)
 
         // Ensure UI panels are initially hidden
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
     }
 
+    // Populates the Scrabble score dictionary
     void InitializeScrabbleValues()
     {
-        // Standard Scrabble values
         scrabbleLetterValues = new Dictionary<char, int>() {
-            {'A', 1}, {'E', 1}, {'I', 1}, {'O', 1}, {'U', 1}, {'L', 1}, {'N', 1}, {'S', 1}, {'T', 1}, {'R', 1},
-            {'D', 2}, {'G', 2}, {'B', 3}, {'C', 3}, {'M', 3}, {'P', 3}, {'F', 4}, {'H', 4}, {'V', 4},
-            {'W', 4}, {'Y', 4}, {'K', 5}, {'J', 8}, {'X', 8}, {'Q', 10}, {'Z', 10}
+            {'A', 1}, {'B', 3}, {'C', 3}, {'D', 2}, {'E', 1}, {'F', 4}, {'G', 2},
+            {'H', 4}, {'I', 1}, {'J', 8}, {'K', 5}, {'L', 1}, {'M', 3}, {'N', 1},
+            {'O', 1}, {'P', 3}, {'Q', 10},{'R', 1}, {'S', 1}, {'T', 1}, {'U', 1},
+            {'V', 4}, {'W', 4}, {'X', 8}, {'Y', 4}, {'Z', 10}
         };
     }
 
     void Start()
     {
-        SetState(GameState.Initializing);
+        if (currentState != GameState.Initializing) { SetState(GameState.Initializing); }
         StartGame();
     }
 
@@ -112,23 +145,40 @@ public class GameManager : MonoBehaviour
     {
         if (currentState == newState) return;
         currentState = newState;
-        Debug.Log($"GameManager: State changed to {currentState}");
+        // Debug.Log($"GameManager: State changed to {currentState}");
+
         switch (currentState)
         {
-            case GameState.Initializing: Time.timeScale = 1f; break;
-            case GameState.Playing: Time.timeScale = 1f; if (gridInputHandler != null) gridInputHandler.enabled = true; if (pausePanel != null) pausePanel.SetActive(false); break;
-            case GameState.Paused: Time.timeScale = 0f; if (gridInputHandler != null) gridInputHandler.enabled = false; if (pausePanel != null) pausePanel.SetActive(true); break;
-            case GameState.GameOver: Time.timeScale = 1f; if (gridInputHandler != null) gridInputHandler.enabled = false; break;
+            case GameState.Initializing:
+                Time.timeScale = 1f;
+                if (gridInputHandler != null) gridInputHandler.enabled = false;
+                break;
+            case GameState.Playing:
+                Time.timeScale = 1f;
+                if (gridInputHandler != null) gridInputHandler.enabled = true;
+                if (pausePanel != null) pausePanel.SetActive(false);
+                break;
+            case GameState.Paused:
+                Time.timeScale = 0f;
+                if (gridInputHandler != null) gridInputHandler.enabled = false;
+                if (pausePanel != null) pausePanel.SetActive(true);
+                break;
+            case GameState.GameOver:
+                Time.timeScale = 1f;
+                if (gridInputHandler != null) gridInputHandler.enabled = false;
+                break;
         }
     }
 
+    // Sets up a new game or restarts the current one
     private void StartGame()
     {
-        Debug.Log("GM: Starting New Game Setup...");
+        // Debug.Log("GM: Starting New Game Setup...");
         SetState(GameState.Initializing);
+
         currentScore = 0; UpdateScoreUI();
 
-        // Setup Status Display Group
+        // Configure Timer/Moves display
         if (statusDisplayGroup != null)
         {
             bool isGroupActive = currentDisplayMode != DisplayMode.None;
@@ -141,134 +191,260 @@ public class GameManager : MonoBehaviour
                 else if (currentDisplayMode == DisplayMode.Moves) { currentMovesRemaining = startingMoves; UpdateMovesUI(); }
             }
         }
+        else { Debug.LogWarning("GM: StatusDisplayGroup not assigned."); }
 
-        // Reset/Initialize Grid & Validator
-        if (wordGridManager != null) wordGridManager.InitializeGrid(); else { Debug.LogError("GM: Cannot init grid!", this); return; }
-        if (wordValidator != null) { wordValidator.ResetFoundWordsList(); wordValidator.SetGameManager(this); wordValidator.ValidateWords(); } else { Debug.LogError("GM: Cannot reset validator!", this); }
+        // Initialize Grid
+        if (wordGridManager != null) { wordGridManager.InitializeGrid(); }
+        else { Debug.LogError("GM: Cannot initialize grid - WordGridManager reference missing!", this); return; }
+
+        // Reset Validator & Perform Initial Check
+        if (wordValidator != null)
+        {
+            wordValidator.ResetFoundWordsList();
+            wordValidator.SetGameManager(this);
+            // --- Trigger initial validation check ---
+            // Call TriggerValidationCheck on WordGridManager which now handles passing results to HandleValidationResult
+            if (wordGridManager != null)
+            {
+                wordGridManager.TriggerValidationCheck();
+            }
+            else
+            {
+                Debug.LogError("GM StartGame: Cannot perform initial validation - WordGridManager missing!");
+            }
+        }
+        else { Debug.LogError("GM: Cannot reset validator - WordValidator reference missing!", this); }
 
         // Enable Input & Hide Panels
-        if (gridInputHandler != null) gridInputHandler.enabled = true; else { Debug.LogError("GM: Cannot enable input!", this); }
+        if (gridInputHandler != null) gridInputHandler.enabled = true;
+        else { Debug.LogError("GM: Cannot enable input - GridInputHandler reference missing!", this); }
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
 
-        SetState(GameState.Playing); Debug.Log("GM: New Game Started.", this);
+        SetState(GameState.Playing);
+        // Debug.Log("GM: New Game Started. State set to Playing.", this);
     }
 
+    // Ends the current game session
     private void EndGame(bool timeout = false, bool noMoves = false)
     {
+        if (currentState == GameState.GameOver) return;
         if (timeout && currentDisplayMode != DisplayMode.Timer) return;
         if (noMoves && currentDisplayMode != DisplayMode.Moves) return;
-        if (currentState == GameState.GameOver) return;
-        string reason = timeout ? "Time Ran Out" : (noMoves ? "No Moves Left" : "Manual");
-        Debug.Log($"Game Over! Reason: {reason}"); SetState(GameState.GameOver);
-        if (gameOverPanel != null) gameOverPanel.SetActive(true); else { Debug.LogWarning("GM: GameOver Panel missing!", this); }
+
+        string reason = timeout ? "Time Ran Out" : (noMoves ? "No Moves Left" : "Game Over");
+        // Debug.Log($"Game Over! Reason: {reason}");
+        SetState(GameState.GameOver);
+
+        if (gameOverPanel != null) { gameOverPanel.SetActive(true); }
+        else { Debug.LogWarning("GM: GameOver Panel reference missing!", this); }
     }
 
-    // --- Scoring & Word Processing ---
 
-    // Orchestrator called by WordValidator
-    public void ProcessFoundWord(string word, List<Vector2Int> wordCoords)
+    // --- <<< Word Processing Chain Reaction Logic >>> ---
+
+    /// <summary>
+    /// Entry point for handling the results of a grid validation check.
+    /// If words were found, processes the first one and schedules the next validation.
+    /// Called by WordGridManager's TriggerValidationCheck.
+    /// </summary>
+
+    public void HandleValidationResult(List<FoundWordData> foundWords)
     {
-        if (currentState != GameState.Playing || string.IsNullOrEmpty(word) || wordCoords == null || wordCoords.Count == 0) return;
-        if (effectsManager == null || wordGridManager == null) { Debug.LogError("GM: Missing EffectsManager or WordGridManager!", this); return; }
+        if (foundWords == null || foundWords.Count == 0) { return; } // Base case: Stop chain
+        // Process the FIRST word found in this batch.
+        FoundWordData wordToProcess = foundWords[0];
+        ProcessSingleWordInternal(wordToProcess);
+    }
 
-        // 1. Get RectTransforms for animation source positions
-        List<RectTransform> sourceCellRects = GetRectTransformsForCoords(wordCoords);
-        if (sourceCellRects == null || sourceCellRects.Count == 0) { Debug.LogError($"ProcessFoundWord: Could not get RectTransforms for '{word}'.", this); return; }
+    private void ProcessSingleWordInternal(FoundWordData wordData)
+    {
+        // Prerequisite checks (state, refs, wordData validity)
+        if (currentState != GameState.Playing || string.IsNullOrEmpty(wordData.Word) || wordData.Coordinates == null || wordData.Coordinates.Count == 0) { return; }
+        if (effectsManager == null || wordGridManager == null || wordValidator == null) { return; }
 
-        // 2. Immediately fade out original cells using CellController
-        foreach (Vector2Int coord in wordCoords)
+        List<RectTransform> sourceCellRects = GetRectTransformsForCoords(wordData.Coordinates);
+        if (sourceCellRects == null) { return; } // Exit if coords invalid
+
+        // Hide original cells
+        foreach (Vector2Int coord in wordData.Coordinates)
         {
             CellController cell = wordGridManager.GetCellController(coord);
-            cell?.FadeOutImmediate(); // Fade out the original cell instantly
+            cell?.FadeOutImmediate();
         }
 
-        // 3. Start the visual effect animation via EffectsManager
-        effectsManager.PlayFlyToScoreEffect(sourceCellRects, word);
+        // Calculate scores & start effect
+        List<int> individualLetterScores = wordData.Word.Select(letter => CalculateScoreValueForLetter(letter)).ToList();
+        effectsManager.PlayFlyToScoreEffect(sourceCellRects, wordData.Word, individualLetterScores, HandleSingleLetterScore);
 
-        // 4. Schedule the scoring and replacement/fade-in
-        float baseDelay = effectsManager.FlyToScorePreFlyDelay; // Get timing from EffectsManager
-        float actualDelay = baseDelay * replacementDelayFactor; // Apply user-defined factor
+        // Schedule Replacement and NEXT Validation
+        DOVirtual.DelayedCall(replacementDelayAfterEffectStart, () => {
+            // --- Phase 1: Replace Letters & Mark Word ---
+            if (this == null || wordGridManager == null || wordValidator == null) { return; } // Safety check
 
-        DOVirtual.DelayedCall(actualDelay, () => {
-            // This code runs after the fly-up and float pause duration
-            if (this == null || wordGridManager == null) return; // Safety check if GM was destroyed during delay
+            wordGridManager.ReplaceLettersAt(wordData.Coordinates, true); // Replace & Start Fade-In
 
-            int scoreToAdd = CalculateScoreValue(word); // Calculate score
-            if (scoreToAdd > 0) { AddScoreForWord(word, scoreToAdd); } // Add score (updates value and UI)
+            // --- <<< FIX: Mark word as found AFTER replacement starts >>> ---
+            wordValidator.MarkWordAsFoundInSession(wordData.Word);
+            // Debug.Log($"[{Time.time:F3}] Marked '{wordData.Word}' as found in session.");
+            // --- <<< END FIX >>> ---
 
-            // Replace letters in the grid AND tell WordGridManager to fade them in
-            wordGridManager.ReplaceLettersAt(wordCoords, true); // Pass 'true' to enable fade-in
 
-        }, false); // ignoreTimeScale = false (usually desired for UI animations)
+            // --- Phase 2: Schedule NEXT Validation AFTER Fade-In ---
+            float fadeInDuration = wordGridManager.CellFadeInDuration;
+            DOVirtual.DelayedCall(fadeInDuration, () => {
+                // --- Phase 3: Trigger Next Validation ---
+                if (this == null || wordValidator == null || wordGridManager == null) { return; } // Safety check 2
+
+                // Check state before triggering next validation
+                if (currentState == GameState.Playing && !IsAnyAnimationPlaying)
+                {
+                    // Debug.Log($"[{Time.time:F3}] DelayedCall (Validation): Triggering next validation check.");
+                    wordGridManager.TriggerValidationCheck(); // Trigger the cycle again
+                }
+                else { Debug.LogWarning($"[{Time.time:F3}] DelayedCall (Validation): Skipped validation chain (State={currentState}, Animating={IsAnyAnimationPlaying})."); }
+
+            }, false); // ignoreTimeScale for validation delay
+
+        }, false); // ignoreTimeScale for replacement delay
     }
 
-    // Only updates score value and UI (called by delayed action)
-    private void AddScoreForWord(string wordForLog, int scoreToAdd)
+    // --- Scoring Callbacks & Calculations ---
+
+    /// <summary>
+    /// Callback function invoked by EffectsManager for each letter that completes its fly animation.
+    /// Increments the score and triggers a UI shake effect.
+    /// </summary>
+    private void HandleSingleLetterScore(int pointsToAdd)
     {
-        if (currentState != GameState.Playing || scoreToAdd <= 0) return;
-        currentScore += scoreToAdd;
-        // Debug.Log($"Scored {scoreToAdd} points for word '{wordForLog}'. New Total Score: {currentScore}");
-        UpdateScoreUI(); // Update UI (Consider DOCounter later for smooth update)
+        if (pointsToAdd <= 0) return; // Ignore zero/negative points
+
+        currentScore += pointsToAdd;
+        UpdateScoreUI();
+
+        if (scoreTextRectTransform != null)
+        {
+            scoreTextRectTransform.DOKill(complete: true); // Kill previous shake
+            scoreTextRectTransform.DOShakePosition(
+                duration: scoreShakeDuration,
+                strength: new Vector3(scoreShakeStrength, scoreShakeStrength, 0),
+                vibrato: scoreShakeVibrato,
+                randomness: 90,
+                snapping: false,
+                fadeOut: true
+            );
+        }
     }
 
-    // Helper to calculate score value based on current mode
-    private int CalculateScoreValue(string word)
+    /// <summary>Calculates score value for a single letter based on scoring mode.</summary>
+    private int CalculateScoreValueForLetter(char letter)
     {
         int scoreValue = 0;
+        char upperLetter = char.ToUpperInvariant(letter);
         switch (currentScoringMode)
         {
-            case ScoringMode.LengthBased: scoreValue = word.Length * pointsPerLetter; break;
-            case ScoringMode.ScrabbleBased: scoreValue = 0; foreach (char c in word.ToUpperInvariant()) { if (scrabbleLetterValues.TryGetValue(c, out int val)) scoreValue += val; } break;
-            default: Debug.LogError($"Unknown Scoring Mode: {currentScoringMode}"); break;
+            case ScoringMode.LengthBased: scoreValue = pointsPerLetter; break;
+            case ScoringMode.ScrabbleBased: if (!scrabbleLetterValues.TryGetValue(upperLetter, out scoreValue)) { scoreValue = 0; } break;
+            default: Debug.LogError($"Unhandled Scoring Mode: {currentScoringMode}"); break;
         }
         return scoreValue;
     }
 
-    // Updates score UI text
-    private void UpdateScoreUI() { if (scoreText != null) { scoreText.text = "Score: " + currentScore.ToString(); } }
+    /// <summary>Updates the score UI text element.</summary>
+    private void UpdateScoreUI()
+    {
+        if (scoreText != null) { scoreText.text = "Score: " + currentScore.ToString(); }
+    }
 
     // --- Timer Handling ---
-    private void UpdateTimer() { if (currentTimeRemaining > 0) { currentTimeRemaining -= Time.deltaTime; UpdateTimerUI(); if (currentTimeRemaining <= 0) { currentTimeRemaining = 0; UpdateTimerUI(); EndGame(timeout: true); } } }
-    private void UpdateTimerUI() { if (currentDisplayMode == DisplayMode.Timer && timerText != null && statusDisplayGroup != null && statusDisplayGroup.activeSelf) { int min = Mathf.FloorToInt(currentTimeRemaining / 60); int sec = Mathf.FloorToInt(currentTimeRemaining % 60); timerText.text = $"{min:00}:{sec:00}"; } }
+    private void UpdateTimer()
+    {
+        if (currentTimeRemaining > 0)
+        {
+            currentTimeRemaining -= Time.deltaTime;
+            UpdateTimerUI();
+            if (currentTimeRemaining <= 0)
+            {
+                currentTimeRemaining = 0; UpdateTimerUI(); EndGame(timeout: true);
+            }
+        }
+    }
+    // Updates timer UI text, formatting as MM:SS
+    private void UpdateTimerUI()
+    {
+        if (currentDisplayMode == DisplayMode.Timer && timerText != null && statusDisplayGroup != null && statusDisplayGroup.activeSelf)
+        {
+            int minutes = Mathf.FloorToInt(currentTimeRemaining / 60);
+            int seconds = Mathf.FloorToInt(currentTimeRemaining % 60);
+            timerText.text = $"{minutes:00}:{seconds:00}";
+        }
+    }
 
     // --- Moves Handling ---
-    public void DecrementMoves() { if (currentState != GameState.Playing || currentDisplayMode != DisplayMode.Moves) return; currentMovesRemaining--; UpdateMovesUI(); if (currentMovesRemaining <= 0) { currentMovesRemaining = 0; UpdateMovesUI(); EndGame(noMoves: true); } }
-    private void UpdateMovesUI() { if (currentDisplayMode == DisplayMode.Moves && movesText != null && statusDisplayGroup != null && statusDisplayGroup.activeSelf) { movesText.text = "Moves: " + currentMovesRemaining.ToString(); } }
+    /// <summary>Decrements remaining moves. Called by WordGridManager after scroll.</summary>
+    public void DecrementMoves()
+    {
+        if (currentState != GameState.Playing || currentDisplayMode != DisplayMode.Moves) return;
+        currentMovesRemaining--; UpdateMovesUI();
+        if (currentMovesRemaining <= 0)
+        {
+            currentMovesRemaining = 0; UpdateMovesUI(); EndGame(noMoves: true);
+        }
+    }
+    // Updates moves UI text
+    private void UpdateMovesUI()
+    {
+        if (currentDisplayMode == DisplayMode.Moves && movesText != null && statusDisplayGroup != null && statusDisplayGroup.activeSelf)
+        {
+            movesText.text = "Moves: " + currentMovesRemaining.ToString();
+        }
+    }
 
     // --- UI Button Actions ---
-    public void RestartGame() { Time.timeScale = 1f; SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); }
-    public void PauseGame() { if (currentState == GameState.Playing) SetState(GameState.Paused); }
-    public void ResumeGame() { if (currentState == GameState.Paused) SetState(GameState.Playing); }
-    public void GoToHomeScreen() { if (string.IsNullOrEmpty(homeSceneName)) { Debug.LogError("Home Scene Name not set!", this); return; } Time.timeScale = 1f; SceneManager.LoadScene(homeSceneName); }
+    /// <summary>Restarts the current game scene.</summary>
+    public void RestartGame()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+    /// <summary>Pauses the game if playing and not animating.</summary>
+    public void PauseGame()
+    {
+        if (currentState == GameState.Playing && !IsAnyAnimationPlaying) { SetState(GameState.Paused); }
+    }
+    /// <summary>Resumes the game if paused.</summary>
+    public void ResumeGame()
+    {
+        if (currentState == GameState.Paused) { SetState(GameState.Playing); }
+    }
+    /// <summary>Loads the home screen scene.</summary>
+    public void GoToHomeScreen()
+    {
+        if (string.IsNullOrEmpty(homeSceneName)) { Debug.LogError("Home Scene Name not set!", this); return; }
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(homeSceneName);
+    }
+    /// <summary>Quits the application.</summary>
     public void QuitGame()
     {
         Application.Quit();
-        #if UNITY_EDITOR 
-        UnityEditor.EditorApplication.isPlaying = false; 
-        #endif 
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#endif
     }
 
-
-        // Helper to get RectTransforms from coordinates using CellControllers
-        private List<RectTransform> GetRectTransformsForCoords(List<Vector2Int> coords)
+    /// <summary>Helper to get RectTransforms for coordinates. Returns null if any fail.</summary>
+    private List<RectTransform> GetRectTransformsForCoords(List<Vector2Int> coords)
+    {
+        List<RectTransform> rects = new List<RectTransform>();
+        if (wordGridManager == null || coords == null) { Debug.LogError("GetRectTransformsForCoords: WGM or coords null."); return null; }
+        foreach (var coord in coords)
         {
-            List<RectTransform> rects = new List<RectTransform>();
-            if (wordGridManager == null || coords == null)
-            {
-                Debug.LogError("GetRectTransformsForCoords: WordGridManager or coords is null."); return rects;
-            }
-            foreach (var coord in coords)
-            {
-                CellController cell = wordGridManager.GetCellController(coord); // Get controller from grid manager
-                if (cell != null)
-                {
-                    rects.Add(cell.RectTransform); // Get RectTransform from CellController
-                }
-                else { Debug.LogWarning($"GetRectTransformsForCoords: No CellController found at {coord}"); }
-            }
-            // No need to check count mismatch here as we iterate coords directly
-            return rects;
+            CellController cell = wordGridManager.GetCellController(coord);
+            if (cell != null && cell.RectTransform != null) { rects.Add(cell.RectTransform); }
+            else { Debug.LogWarning($"GetRectTransformsForCoords: No valid Cell/RectTransform at {coord}"); return null; } // Fail fast
         }
+        return rects;
+    }
 
-    } // End of GameManager class
+} // End of GameManager class
