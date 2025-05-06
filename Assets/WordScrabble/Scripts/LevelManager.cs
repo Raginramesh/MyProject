@@ -59,10 +59,10 @@ public class LevelManager : MonoBehaviour
         // scoreManager?.ResetScore();
 
         // 2. Reset Validator State (Important for first word rule)
-        wordPlacementValidator?.ResetValidator(); // Use the reference assigned above
+        //wordPlacementValidator.ResetValidator(); // Use the reference assigned above
 
-        // 3. Create Grid (Use the reference assigned above)
-        gridManager.CreateGrid(currentLevelData);
+        // In LevelManager.cs, line 65 (or wherever CreateGrid is called)
+        gridManager.CreateGrid(); // Calls the parameterless version
 
         // 4. Populate Word Inventory (Use the reference assigned above)
         wordInventory.PopulateInventory(currentLevelData.wordsForLevel);

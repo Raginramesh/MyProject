@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 662e48d4abb765e429876078501de83b, type: 3}
   m_Name: LevelData_00
   m_EditorClassIdentifier: 
-  gridWidth: 8
-  gridHeight: 10
+  gridWidth: 7
+  gridHeight: 7
   targetScore: 10
   wordsForLevel:
   - FUNNY
   - genny
   - Gun
-  - BroomGun
-  - croom
+  - Broom
+  - cream

@@ -1,296 +1,231 @@
 using UnityEngine;
-using UnityEngine.UI; // Required for GridLayoutGroup, LayoutRebuilder
+using UnityEngine.UI;
 using System.Collections.Generic;
-using TMPro; // If using TextMeshPro for tile letters
-
-// Represents the data stored for each tile on the grid
-public class TileData
-{
-    public Vector2Int Coordinates { get; private set; }
-    public char Letter { get; set; } = '\0'; // '\0' indicates empty
-    public bool IsOccupied => Letter != '\0'; // Property to check if occupied
-    public GameObject VisualTile { get; set; } // Reference to the instantiated tile GameObject
-    // Add other properties later: IsBlocker, BonusType (e.g., DL, TW), etc.
-
-    public TileData(Vector2Int coords)
-    {
-        Coordinates = coords;
-    }
-}
+using System.Linq; // Required for .Except()
+using TMPro;
 
 public class GridManager : MonoBehaviour
 {
-    [Header("References (Assign in Inspector)")]
-    [SerializeField] private GameObject tilePrefab;         // The prefab for a single visual tile
-    [SerializeField] private RectTransform gridPanelParent; // The UI Panel GameObject containing the GridLayoutGroup
+    [Header("Grid Settings")]
+    [SerializeField] private int gridWidth = 10;
+    [SerializeField] private int gridHeight = 10;
+    [SerializeField] private GameObject tilePrefab; // Your visual tile prefab
 
-    // Runtime Data
-    private Dictionary<Vector2Int, TileData> gridState = new Dictionary<Vector2Int, TileData>();
-    private int gridWidth;
-    private int gridHeight;
+    [Header("References")]
+    [SerializeField] private RectTransform gridPanelParent; // The UI Panel that will hold the grid tiles
 
-    /// <summary>
-    /// Clears the existing grid and creates a new one based on LevelData.
-    /// Relies on a GridLayoutGroup component attached to gridPanelParent for layout.
-    /// </summary>
-    /// <param name="levelData">The data defining the level's grid dimensions.</param>
-    public void CreateGrid(LevelData levelData)
+    [Header("Debug")]
+    [SerializeField] private bool logCoordinateConversion = false;
+    [Tooltip("Pixel offset to correct pointer-to-cell mapping. If highlight is (X_offset_cells, Y_offset_cells) away from pointer, set this to approx (X_offset_cells * cellWidthWithSpacing, Y_offset_cells * cellHeightWithSpacing). Positive values shift highlight left/up.")]
+    [SerializeField] private Vector2 coordinatePixelOffsetCorrection = Vector2.zero;
+
+
+    private TileData[,] gridData;
+    private GridLayoutGroup gridLayoutGroup;
+    private List<Vector2Int> _currentPreviewCoords = new List<Vector2Int>();
+
+    void Awake()
     {
-        if (tilePrefab == null || gridPanelParent == null)
+        if (gridPanelParent == null)
         {
-            Debug.LogError("GridManager Error: Missing Tile Prefab or Grid Panel Parent reference in the Inspector!", this);
+            Debug.LogError("GridManager: gridPanelParent is not assigned in Inspector!", this);
             return;
         }
-
-        // --- Check for the essential GridLayoutGroup component ---
-        GridLayoutGroup gridLayout = gridPanelParent.GetComponent<GridLayoutGroup>();
-        if (gridLayout == null)
+        gridLayoutGroup = gridPanelParent.GetComponent<GridLayoutGroup>();
+        if (gridLayoutGroup == null)
         {
-            Debug.LogError("GridManager Error: The assigned Grid Panel Parent is MISSING the GridLayoutGroup component! Please add it in the Inspector.", gridPanelParent.gameObject);
-            return; // Cannot proceed without the layout group
+            Debug.LogError("GridManager: gridPanelParent is missing a GridLayoutGroup component!", this);
         }
-
-        gridWidth = levelData.gridWidth;
-        gridHeight = levelData.gridHeight;
-
-        ClearGrid(); // Remove any old tiles first
-
-        // --- Ensure GridLayoutGroup Constraint matches Level Data (Optional but Recommended) ---
-        // This helps if you reuse the same panel for different sized grids.
-        // Configure the GridLayoutGroup primarily in the Inspector (Padding, Spacing, Start Corner, Cell Size).
-        if (gridLayout.constraint == GridLayoutGroup.Constraint.FixedColumnCount)
-        {
-            if (gridLayout.constraintCount != gridWidth)
-            {
-                Debug.LogWarning($"GridManager: Updating GridLayoutGroup constraintCount to {gridWidth} to match LevelData.", gridPanelParent.gameObject);
-                gridLayout.constraintCount = gridWidth;
-            }
-        }
-        else if (gridLayout.constraint == GridLayoutGroup.Constraint.FixedRowCount)
-        {
-            if (gridLayout.constraintCount != gridHeight)
-            {
-                Debug.LogWarning($"GridManager: Updating GridLayoutGroup constraintCount to {gridHeight} to match LevelData.", gridPanelParent.gameObject);
-                gridLayout.constraintCount = gridHeight;
-            }
-        }
-        // We don't calculate or set Cell Size here - rely on Inspector settings.
-
-        // --- Instantiate Tiles ---
-        // The GridLayoutGroup will automatically position and size them.
-        int totalTilesToCreate = gridWidth * gridHeight;
-        for (int i = 0; i < totalTilesToCreate; i++)
-        {
-            // Calculate coordinates based on index and grid width
-            // Assumes GridLayoutGroup settings: Start Corner=UpperLeft, Start Axis=Horizontal
-            int x = i % gridWidth;
-            int y = i / gridWidth;
-            Vector2Int coords = new Vector2Int(x, y);
-
-            // Instantiate the tile as a child of the panel
-            GameObject tileInstance = Instantiate(tilePrefab, gridPanelParent);
-            tileInstance.name = $"Tile_{x}_{y}";
-
-            // Create and store the logical data for this tile
-            TileData newTileData = new TileData(coords);
-            newTileData.VisualTile = tileInstance;
-            gridState.Add(coords, newTileData);
-
-            // Optional: Add AspectRatioFitter if needed for square tiles, configured on prefab is better
-            // Ensure the Tile Prefab itself doesn't have a LayoutElement overriding the grid layout.
-        }
-
-        // Optional: Force layout rebuild if needed, though usually not necessary
-        // LayoutRebuilder.ForceRebuildLayoutImmediate(gridPanelParent);
-
-        Debug.Log($"GridManager: Grid created successfully. Dimensions: {gridWidth}x{gridHeight}. Tiles instantiated: {gridState.Count}");
     }
 
-    /// <summary>
-    /// Destroys all child GameObjects under the grid panel parent and clears the grid state data.
-    /// </summary>
-    private void ClearGrid()
+    public void CreateGrid() // Overload for default size
     {
-        // Efficiently destroy existing children
+        CreateGrid(gridWidth, gridHeight);
+    }
+
+    public void CreateGrid(int width, int height)
+    {
+        this.gridWidth = width;
+        this.gridHeight = height;
+
+        if (gridPanelParent == null) { Debug.LogError("GridPanelParent not set in GridManager", this); return; }
+        if (gridLayoutGroup == null) { Debug.LogError("GridLayoutGroup not found on GridPanelParent", this); return; }
+        if (tilePrefab == null) { Debug.LogError("GridManager: tilePrefab is not assigned in Inspector!", this); return; }
+
+
+        // 1. Clear existing visual tiles from the panel
         foreach (Transform child in gridPanelParent)
         {
             Destroy(child.gameObject);
         }
-        // Clear the dictionary holding the logical tile data
-        gridState.Clear();
+        _currentPreviewCoords.Clear(); // Clear any lingering preview data
+
+        // 2. Initialize gridData array
+        gridData = new TileData[width, height];
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                GameObject tileInstance = Instantiate(tilePrefab, gridPanelParent);
+                tileInstance.name = $"Tile_{x}_{y}";
+                gridData[x, y] = new TileData(new Vector2Int(x, y), tileInstance);
+            }
+        }
+        Debug.Log($"GridManager: Grid created ({width}x{height}) with fresh tiles. First tile (0,0) TextMeshPro: {gridData[0, 0]?.VisualTile?.GetComponentInChildren<TextMeshProUGUI>(true)?.gameObject.name}");
     }
 
-    /// <summary>
-    /// Checks if a given coordinate is within the bounds of the current grid.
-    /// </summary>
-    /// <param name="coordinate">The coordinate to check.</param>
-    /// <returns>True if the coordinate is valid, false otherwise.</returns>
-    public bool IsValidCoordinate(Vector2Int coordinate)
+    // Call this from LevelManager or similar when a level starts/restarts
+    public void ClearAndResetGridVisuals()
     {
-        return coordinate.x >= 0 && coordinate.x < gridWidth &&
-               coordinate.y >= 0 && coordinate.y < gridHeight;
+        if (gridData == null) return;
+        _currentPreviewCoords.Clear();
+
+        for (int y = 0; y < gridHeight; y++)
+        {
+            for (int x = 0; x < gridWidth; x++)
+            {
+                gridData[x, y]?.ResetTile();
+            }
+        }
+        Debug.Log("GridManager: Grid visuals cleared and reset.");
     }
 
-    /// <summary>
-    /// Retrieves the TileData for a specific coordinate.
-    /// </summary>
-    /// <param name="coordinate">The coordinate of the tile.</param>
-    /// <returns>The TileData object if the coordinate is valid, otherwise null.</returns>
     public TileData GetTileData(Vector2Int coordinate)
     {
-        gridState.TryGetValue(coordinate, out TileData tileData);
-        return tileData; // Returns null if the key (coordinate) doesn't exist
+        if (coordinate.x >= 0 && coordinate.x < gridWidth && coordinate.y >= 0 && coordinate.y < gridHeight)
+        {
+            return gridData[coordinate.x, coordinate.y];
+        }
+        // Debug.LogWarning($"GridManager.GetTileData: Coordinate {coordinate} is out of bounds.");
+        return null;
     }
 
-    /// <summary>
-    /// Attempts to place a letter onto the grid at the specified coordinate.
-    /// Updates the TileData and the visual representation (Text).
-    /// </summary>
-    /// <param name="coordinate">The target coordinate.</param>
-    /// <param name="letter">The letter to place.</param>
-    /// <returns>True if the letter was successfully placed or matched an existing letter, false otherwise.</returns>
     public bool TrySetLetter(Vector2Int coordinate, char letter)
     {
+        Debug.Log($"GridManager.TrySetLetter: Attempting to set '{letter}' at {coordinate}.");
         TileData tileData = GetTileData(coordinate);
-        if (tileData != null) // Check if coordinate is valid first
+        if (tileData != null)
         {
-            // Allow placement if the tile is empty OR if the letter matches what's already there (for overlaps)
+            Debug.Log($"GridManager.TrySetLetter: TileData found for {coordinate}. IsOccupied: {tileData.IsOccupied}, CurrentLetter: '{tileData.Letter}'");
+            // Allow placement if tile is not occupied OR if it's occupied by the *same letter* (for overlaps)
             if (!tileData.IsOccupied || tileData.Letter == char.ToUpper(letter))
             {
-                bool wasEmpty = !tileData.IsOccupied; // Track if this is a new placement vs overlap confirmation
-                tileData.Letter = char.ToUpper(letter);
-
-                // --- Update Visual Tile ---
-                // Find the TextMeshProUGUI component expected to be on the tile prefab (likely a child)
-                TextMeshProUGUI textComponent = tileData.VisualTile.GetComponentInChildren<TextMeshProUGUI>();
-                if (textComponent != null)
-                {
-                    textComponent.text = tileData.Letter.ToString();
-                    // Optional: Change text color or tile background based on placement/overlap?
-                }
-                else
-                {
-                    // Log warning only once per unique tile prefab instance if issue persists
-                    Debug.LogWarning($"GridManager: Tile at {coordinate} has no TextMeshProUGUI child to display the letter '{letter}'. Check the Tile Prefab.", tileData.VisualTile);
-                }
-                // ---
-
-                if (wasEmpty)
-                {
-                    // Debug.Log($"GridManager: Set letter '{tileData.Letter}' at {coordinate}"); // Reduce log spam
-                }
-                else
-                {
-                    // Debug.Log($"GridManager: Letter '{tileData.Letter}' at {coordinate} confirmed (overlap)."); // Reduce log spam
-                }
-                return true; // Placement successful or overlap confirmed
+                Debug.Log($"GridManager.TrySetLetter: Placement condition met for '{letter}' at {coordinate}. Calling tileData.SetPlacedLetter.");
+                tileData.SetPlacedLetter(char.ToUpper(letter)); // This will call TileData.UpdateVisuals()
+                return true;
             }
             else
             {
-                // Tile exists, is occupied, and the new letter is different
-                Debug.LogWarning($"GridManager: Cannot set letter '{letter}' at {coordinate}. Tile already occupied with '{tileData.Letter}'.");
-                return false; // Placement blocked
+                Debug.LogWarning($"GridManager.TrySetLetter: CANNOT set letter '{letter}' at {coordinate}. Tile already occupied with DIFFERENT letter '{tileData.Letter}'.");
+                return false;
             }
         }
         else
         {
-            // GetTileData returned null, meaning the coordinate was invalid
-            Debug.LogWarning($"GridManager: Cannot set letter '{letter}' at {coordinate}. Invalid coordinate.");
-            return false; // Invalid coordinate
+            Debug.LogWarning($"GridManager.TrySetLetter: CANNOT set letter '{letter}' at {coordinate}. Invalid coordinate (TileData is NULL).");
+            return false;
         }
     }
 
-    /// <summary>
-    /// Converts a screen point (like mouse position) to grid coordinates.
-    /// Requires the gridPanelParent to have a correctly configured GridLayoutGroup.
-    /// </summary>
-    /// <param name="screenPoint">The screen point (e.g., Input.mousePosition).</param>
-    /// <param name="uiCamera">The camera associated with the Canvas (null for ScreenSpaceOverlay).</param>
-    /// <param name="gridCoords">The calculated grid coordinates (output).</param>
-    /// <returns>True if the screen point maps to a valid coordinate within the grid, false otherwise.</returns>
+    public void ShowWordPreview(List<Vector2Int> wordCoords, string word, bool isValidPlacement)
+    {
+        if (wordCoords == null) wordCoords = new List<Vector2Int>();
+
+        List<Vector2Int> coordsToClearPreview = _currentPreviewCoords.Except(wordCoords).ToList();
+        foreach (Vector2Int coord in coordsToClearPreview)
+        {
+            TileData tile = GetTileData(coord);
+            tile?.ClearPreviewState();
+        }
+
+        for (int i = 0; i < wordCoords.Count; i++)
+        {
+            Vector2Int coord = wordCoords[i];
+            char letterToShow = (i < word.Length) ? word[i] : '?'; // Fallback for safety
+
+            TileData tile = GetTileData(coord);
+            tile?.SetPreviewState(letterToShow, isValidPlacement);
+        }
+        _currentPreviewCoords = new List<Vector2Int>(wordCoords); // Update current preview list
+    }
+
+    public void ClearWordPreview()
+    {
+        foreach (Vector2Int coord in _currentPreviewCoords)
+        {
+            TileData tile = GetTileData(coord);
+            tile?.ClearPreviewState();
+        }
+        _currentPreviewCoords.Clear();
+    }
+
     public bool ScreenPointToGridCoords(Vector2 screenPoint, Camera uiCamera, out Vector2Int gridCoords)
     {
-        gridCoords = Vector2Int.zero; // Default output
-        GridLayoutGroup gridLayout = gridPanelParent.GetComponent<GridLayoutGroup>();
-        if (gridLayout == null)
+        gridCoords = Vector2Int.zero;
+        if (gridPanelParent == null || gridLayoutGroup == null)
         {
-            Debug.LogError("GridManager.ScreenPointToGridCoords: Cannot perform conversion, GridPanelParent is missing GridLayoutGroup component.", gridPanelParent);
+            if (logCoordinateConversion) Debug.LogError("GridManager: gridPanelParent or gridLayoutGroup is null.");
             return false;
         }
 
-        // Convert screen point to the local coordinate system of the grid panel
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelParent, screenPoint, uiCamera, out Vector2 localPoint))
+        Vector2 rawLocalPoint;
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelParent, screenPoint, uiCamera, out rawLocalPoint))
         {
-            // Adjust the local point based on the panel's pivot point to get position relative to the panel's bottom-left corner (conceptually)
-            Rect panelRect = gridPanelParent.rect;
-            localPoint.x += panelRect.width * gridPanelParent.pivot.x;
-            localPoint.y += panelRect.height * gridPanelParent.pivot.y;
+            if (logCoordinateConversion) Debug.Log($"ScreenPoint: {screenPoint}, RawLocalPoint (Pivot Relative): {rawLocalPoint}");
 
-            // Get layout properties directly from the GridLayoutGroup
-            Vector2 cellSize = gridLayout.cellSize;
-            Vector2 spacing = gridLayout.spacing;
-            RectOffset padding = gridLayout.padding;
+            // Adjust for pivot to get coordinates relative to the top-left corner of the gridPanelParent's rect.
+            float xFromPanelLeft = rawLocalPoint.x + gridPanelParent.pivot.x * gridPanelParent.rect.width;
+            float yFromPanelTop = (1.0f - gridPanelParent.pivot.y) * gridPanelParent.rect.height - rawLocalPoint.y;
 
-            // Calculate the total size occupied by a cell plus its spacing
-            // Handle potential zero values gracefully, though layout usually ensures > 0
-            float effectiveCellWidth = cellSize.x + spacing.x;
-            float effectiveCellHeight = cellSize.y + spacing.y;
+            if (logCoordinateConversion) Debug.Log($"PanelPivot: {gridPanelParent.pivot}, PanelRect: {gridPanelParent.rect}, xFromPanelLeft: {xFromPanelLeft}, yFromPanelTop: {yFromPanelTop}");
 
-            // Prevent division by zero if the grid layout results in zero-sized cells
-            if (effectiveCellWidth <= 0 || effectiveCellHeight <= 0)
+            // Adjust for padding within the GridLayoutGroup to get coordinates relative to the content area.
+            float contentX = xFromPanelLeft - gridLayoutGroup.padding.left;
+            float contentY = yFromPanelTop - gridLayoutGroup.padding.top;
+
+            if (logCoordinateConversion) Debug.Log($"Padding: L{gridLayoutGroup.padding.left} T{gridLayoutGroup.padding.top}, ContentX (pre-correction): {contentX}, ContentY (pre-correction): {contentY}");
+
+            // Apply the explicit pixel offset correction
+            contentX -= coordinatePixelOffsetCorrection.x;
+            contentY -= coordinatePixelOffsetCorrection.y;
+
+            if (logCoordinateConversion) Debug.Log($"coordinatePixelOffsetCorrection: {coordinatePixelOffsetCorrection}, ContentX (post-correction): {contentX}, ContentY (post-correction): {contentY}");
+
+            float cellWidthWithSpacing = gridLayoutGroup.cellSize.x + gridLayoutGroup.spacing.x;
+            float cellHeightWithSpacing = gridLayoutGroup.cellSize.y + gridLayoutGroup.spacing.y;
+
+            if (cellWidthWithSpacing <= 0 || cellHeightWithSpacing <= 0)
             {
-                Debug.LogWarning("GridManager.ScreenPointToGridCoords: Effective cell size is zero or negative. Check GridLayoutGroup settings (Cell Size, Spacing).", gridPanelParent);
+                if (logCoordinateConversion) Debug.LogError($"GridManager: Invalid cell size or spacing. Width: {cellWidthWithSpacing}, Height: {cellHeightWithSpacing}. Check GridLayoutGroup settings.");
                 return false;
             }
+            if (logCoordinateConversion) Debug.Log($"CellSize: {gridLayoutGroup.cellSize}, Spacing: {gridLayoutGroup.spacing}, CellW_Spacing: {cellWidthWithSpacing}, CellH_Spacing: {cellHeightWithSpacing}");
 
-            // Adjust the local point for the grid's padding from the edges
-            localPoint.x -= padding.left;
-            // Adjust Y coordinate: In UI space, Y typically increases upwards.
-            // We need to calculate from the top edge considering padding.
-            localPoint.y = (panelRect.height - padding.top) - localPoint.y; // Invert Y axis relative to top padding
+            int x = Mathf.FloorToInt(contentX / cellWidthWithSpacing);
+            int y = Mathf.FloorToInt(contentY / cellHeightWithSpacing);
 
-            // Clamp localPoint to be within the padded area to avoid negative indices from clicks in padding
-            localPoint.x = Mathf.Max(0, localPoint.x);
-            localPoint.y = Mathf.Max(0, localPoint.y);
+            if (logCoordinateConversion) Debug.Log($"Pre-division: contentX = {contentX}, contentY = {contentY}");
+            if (logCoordinateConversion) Debug.Log($"Pre-division: cellWidthWithSpacing = {cellWidthWithSpacing}, cellHeightWithSpacing = {cellHeightWithSpacing}");
+            if (logCoordinateConversion) Debug.Log($"Pre-division: Calculated Grid X (from contentX) = {Mathf.FloorToInt(contentX / cellWidthWithSpacing)}, Calculated Grid Y (from contentY) = {Mathf.FloorToInt(contentY / cellHeightWithSpacing)}");
+            if (logCoordinateConversion) Debug.Log($"Calculated Grid Coords (before boundary check): ({x}, {y})");
 
 
-            // Calculate the grid indices by dividing the adjusted local point by the effective cell size
-            int x = Mathf.FloorToInt(localPoint.x / effectiveCellWidth);
-            int y = Mathf.FloorToInt(localPoint.y / effectiveCellHeight);
-
-            // Assign the calculated coordinates to the output parameter
-            gridCoords = new Vector2Int(x, y);
-
-            // Final check: Is the calculated coordinate actually within the logical grid bounds?
-            return IsValidCoordinate(gridCoords);
-        }
-
-        // ScreenPointToLocalPointInRectangle failed (e.g., point is outside the RectTransform)
-        return false;
-    }
-
-    /// <summary>
-    /// Placeholder method for visually highlighting tiles on the grid.
-    /// </summary>
-    /// <param name="coordinates">A list of grid coordinates to highlight.</param>
-    /// <param name="color">The color to use for highlighting.</param>
-    public void HighlightTiles(List<Vector2Int> coordinates, Color color)
-    {
-        // TODO: Implement visual highlighting logic.
-        // Example: Iterate through coordinates, get TileData, get VisualTile, change its Image color.
-        // Remember to have a way to reset the highlight later.
-        foreach (Vector2Int coord in coordinates)
-        {
-            TileData tileData = GetTileData(coord);
-            if (tileData != null && tileData.VisualTile != null)
+            if (x >= 0 && x < gridWidth && y >= 0 && y < gridHeight)
             {
-                Image tileImage = tileData.VisualTile.GetComponent<Image>(); // Or GetComponentInChildren<Image>()
-                if (tileImage != null)
-                {
-                    // tileImage.color = color; // Apply highlight
-                }
+                gridCoords = new Vector2Int(x, y);
+                if (logCoordinateConversion) Debug.Log($"Final Grid Coords: {gridCoords}");
+                return true;
+            }
+            else
+            {
+                if (logCoordinateConversion) Debug.LogWarning($"Calculated coords ({x},{y}) are out of grid bounds ({gridWidth}x{gridHeight}).");
             }
         }
-        Debug.Log($"GridManager: Placeholder - Highlighting {coordinates.Count} tiles with {color}.");
+        else
+        {
+            if (logCoordinateConversion) Debug.LogWarning($"ScreenPointToLocalPointInRectangle failed for screenPoint: {screenPoint}");
+        }
+        return false;
     }
 }

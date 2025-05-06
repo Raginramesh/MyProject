@@ -2,153 +2,125 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using TMPro;
-using System.Collections; // Required for Coroutines
-using System.Collections.Generic; // Required for List
+using System.Collections.Generic;
+using System.Linq; // For Select in logging
+
 
 [RequireComponent(typeof(RectTransform))]
 [RequireComponent(typeof(CanvasGroup))]
-// Ensure HorizontalLayoutGroup and ContentSizeFitter are present (or add dynamically if preferred)
-[RequireComponent(typeof(HorizontalLayoutGroup))]
-[RequireComponent(typeof(ContentSizeFitter))]
+[RequireComponent(typeof(Image))] // Assuming you use an Image for background color
 public class WordListItemUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
-    // --- Remove old wordText reference ---
-    // [SerializeField] private TextMeshProUGUI wordText;
-
-    [Header("UI References")]
-    [SerializeField] private Image backgroundImage; // Optional: Background for the whole word item
-    [SerializeField] private GameObject letterTileMiniPrefab; // *** ASSIGN your LetterTileMiniPrefab ***
-    [SerializeField] private Transform letterContainer; // *** ASSIGN the GameObject THIS script is on (it has the HorizontalLayoutGroup) ***
+    [Header("UI Elements")]
+    [SerializeField] private Image backgroundImage; // Main background of the word item
+    [SerializeField] private GameObject letterTileMiniPrefab; // Prefab for individual letter display within this item
+    [SerializeField] private Transform letterContainer; // Parent for instantiated letter tiles
 
     [Header("Appearance")]
     [SerializeField] private Color normalColor = Color.white;
-    [SerializeField] private Color dragColor = Color.yellow;
-    [SerializeField] private Color invalidDropColor = Color.red;
-    [SerializeField] private float placementAnimationDelay = 0.08f; // Delay between each letter appearing on grid
+    [SerializeField] private Color dragColor = Color.yellow; // Color when dragging and placement is valid
+    [SerializeField] private Color invalidDropColor = Color.red; // Color when dragging and placement is invalid
 
-    // --- Highlight State ---
-    private bool isInHighlightZone = false; // Can this item be dragged?
-    private Vector3 targetScale = Vector3.one;
-    private float currentScaleLerpSpeed = 8f;
+    [Header("Highlight Zone Behavior")]
+    // [SerializeField] // No longer serialized, set by WordInventoryDisplay
+    private bool isInHighlightZone = false;
+    private Vector3 currentNormalScaleValue = Vector3.one;
+    private Vector3 currentHighlightScaleValue = Vector3.one * 1.1f; // Example scale
+    private float currentScaleLerpSpeed = 5f;
+
+    [Header("Dragging Behavior")]
+    [Tooltip("0-indexed offset of the letter in the word that the drag operation should align with the mouse pointer. E.g., for 'FUN', 0=F, 1=U, 2=N.")]
+    [SerializeField] private int dragAnchorLetterOffset = 0;
+
 
     // Data
     private string word;
-    private bool isNew; // Keep this if you still want 'new' word indication
+    private bool isNew; // If it's a newly drawn word, etc. (optional)
 
-    // Runtime References (Set by WordInventory during Setup)
+    // Runtime References (assigned via Setup or found)
     private WordPlacementValidator wordPlacementValidator;
-    private WordInventory wordInventory;
+    private WordInventory wordInventory; // Reference to the main inventory script
     private GridManager gridManager;
-    // private ScoreManager scoreManager; // Add later
-    private RectTransform itemRectTransform;
 
     // Dragging State
     private RectTransform rectTransform;
     private Canvas rootCanvas;
     private CanvasGroup canvasGroup;
-    private Vector3 originalPosition;
+    private Vector3 originalPosition; // For ScreenSpaceOverlay, world position
     private Transform originalParent;
     private int originalSiblingIndex;
     private bool isDragging = false;
     private bool currentPlacementValid = false;
-    private Coroutine placementCoroutine = null; // To manage the placement animation
 
-    // Keep track of instantiated letter tiles if needed (e.g., for pooling)
+    // Caches
+    private RectTransform itemRectTransform; // Cached RectTransform of this item
     private List<GameObject> currentLetterTiles = new List<GameObject>();
+    private Vector3 targetScale = Vector3.one;
+
 
     void Awake()
     {
         rectTransform = GetComponent<RectTransform>();
         canvasGroup = GetComponent<CanvasGroup>();
-        // Ensure letterContainer is assigned, default to this transform if needed
-        if (letterContainer == null)
+        backgroundImage = GetComponent<Image>(); // Ensure this is assigned or found
+        itemRectTransform = GetComponent<RectTransform>();
+
+        if (letterContainer == null) letterContainer = transform; // Default to self if not set
+        if (backgroundImage == null) Debug.LogWarning($"WordListItemUI ({gameObject.name}): backgroundImage reference not set or found!", this);
+        if (letterTileMiniPrefab == null) Debug.LogError($"WordListItemUI ({gameObject.name}): letterTileMiniPrefab reference not set!", this);
+
+        // Find Root Canvas for dragging
+        if (rootCanvas == null)
         {
-            letterContainer = transform;
+            Canvas parentCanvas = GetComponentInParent<Canvas>();
+            if (parentCanvas != null) rootCanvas = parentCanvas.rootCanvas;
+            if (rootCanvas == null) Debug.LogError($"WordListItemUI ({gameObject.name}): Could not find root Canvas for dragging!", this);
         }
-        if (letterTileMiniPrefab == null) Debug.LogError("WordListItemUI: letterTileMiniPrefab reference not set!", this);
-        itemRectTransform = GetComponent<RectTransform>(); // Cache this component
-        targetScale = transform.localScale; // Initialize target scale
+        targetScale = transform.localScale;
+        currentNormalScaleValue = transform.localScale; // Initialize from current
+        // currentHighlightScaleValue remains as set in Inspector or default (e.g., transform.localScale * 1.1f)
     }
 
     void Update()
     {
-        // --- Smoothly Lerp Scale ---
+        // Smoothly scale towards the target scale (for highlight zone effect)
         if (transform.localScale != targetScale)
         {
             transform.localScale = Vector3.Lerp(transform.localScale, targetScale, Time.deltaTime * currentScaleLerpSpeed);
         }
     }
 
-    // --- NEW Method called by WordInventory ---
-    public void UpdateHighlightState(RectTransform viewport, Camera canvasCam, float zoneMinNormY, float zoneMaxNormY, Vector3 normScale, Vector3 highScale, float lerpSpeed)
+
+    public void Setup(string word, bool isNew, WordPlacementValidator validator, WordInventory inventory, GridManager gridMgr)
     {
-        if (itemRectTransform == null || viewport == null) return; // Safety check
-
-        bool wasInZone = isInHighlightZone; // Store previous state
-
-        // Calculate item's center Y position relative to the viewport (normalized 0-1)
-        float normalizedY = CalculateNormalizedViewportY(viewport, canvasCam);
-
-        // Determine if it's within the defined zone
-        isInHighlightZone = (normalizedY >= zoneMinNormY && normalizedY <= zoneMaxNormY);
-
-        // Set the target scale based on whether it's in the zone
-        targetScale = isInHighlightZone ? highScale : normScale;
-        currentScaleLerpSpeed = lerpSpeed;
-
-        // Optional: Add visual feedback beyond scaling (e.g., change background color slightly?)
-        if (isInHighlightZone != wasInZone)
-        {
-            // Debug.Log($"{word} {(isInHighlightZone ? "entered" : "exited")} highlight zone.");
-            // UpdateAppearance(); // If appearance depends on highlight state
-        }
-    }
-
-    // --- Helper to Calculate Position ---
-    private float CalculateNormalizedViewportY(RectTransform viewport, Camera canvasCam)
-    {
-        // Get the center of this item's RectTransform in world space
-        Vector3 worldCenter = itemRectTransform.TransformPoint(itemRectTransform.rect.center);
-
-        // Convert world center to the viewport's local coordinate space
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(viewport, RectTransformUtility.WorldToScreenPoint(canvasCam, worldCenter), canvasCam, out Vector2 localPoint))
-        {
-            // Normalize the Y position within the viewport (0=bottom, 1=top)
-            // Adjust for the viewport's pivot
-            float normalizedY = (localPoint.y + viewport.rect.height * viewport.pivot.y) / viewport.rect.height;
-            return normalizedY;
-        }
-
-        // If conversion fails (e.g., item is completely off-screen relative to viewport), return value outside 0-1 range
-        return -1f;
-    }
-
-
-    public void Setup(string word, bool isNew, WordPlacementValidator validator, WordInventory inventory, GridManager gridMgr /*, ScoreManager scoreMgr */)
-    {
-        this.word = word.ToUpper(); // Store word consistently
+        this.word = word.ToUpper();
         this.isNew = isNew;
         this.wordPlacementValidator = validator;
         this.wordInventory = inventory;
         this.gridManager = gridMgr;
-        // this.scoreManager = scoreMgr;
+
+        if (this.wordPlacementValidator == null) Debug.LogError($"WordListItemUI ({this.word}): WordPlacementValidator is null in Setup.", this);
+        if (this.gridManager == null) Debug.LogError($"WordListItemUI ({this.word}): GridManager is null in Setup.", this);
+        // WordInventory can be null if not used in a particular scene/setup
+        // if (this.wordInventory == null) Debug.LogError($"WordListItemUI ({this.word}): WordInventory is null in Setup.", this);
+
 
         PopulateLetterTiles();
-        UpdateAppearance(); // Set initial background color etc.
+        UpdateAppearance();
+
+        // Initialize scales based on current state after setup
+        targetScale = transform.localScale;
+        currentNormalScaleValue = transform.localScale;
+        // currentHighlightScaleValue could be set here too if it depends on setup parameters
     }
 
     private void PopulateLetterTiles()
     {
-        // Clear existing tiles first (important if reusing items from a pool)
-        foreach (GameObject oldTile in currentLetterTiles)
-        {
-            Destroy(oldTile);
-        }
+        foreach (GameObject oldTile in currentLetterTiles) { Destroy(oldTile); }
         currentLetterTiles.Clear();
 
-        if (letterTileMiniPrefab == null) return;
+        if (letterTileMiniPrefab == null || string.IsNullOrEmpty(word)) return;
 
-        // Instantiate a mini tile for each letter in the word
         foreach (char letter in word)
         {
             GameObject tileInstance = Instantiate(letterTileMiniPrefab, letterContainer);
@@ -156,210 +128,248 @@ public class WordListItemUI : MonoBehaviour, IBeginDragHandler, IDragHandler, IE
             if (textComp != null)
             {
                 textComp.text = letter.ToString();
+                if (textComp.font == null) Debug.LogError($"WordListItemUI ({this.word}): TextMeshProUGUI in letterTileMiniPrefab instance is MISSING a Font Asset for letter '{letter}'!", tileInstance);
             }
             else
             {
-                Debug.LogWarning($"LetterTileMiniPrefab is missing TextMeshProUGUI child on instance for letter {letter}.", tileInstance);
+                Debug.LogWarning($"WordListItemUI ({this.word}): letterTileMiniPrefab instance is missing TextMeshProUGUI child for letter '{letter}'.", tileInstance);
             }
             currentLetterTiles.Add(tileInstance);
         }
+    }
 
-        // Optional: Force layout rebuild if ContentSizeFitter doesn't update immediately
-        // LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
+    // Called by WordInventoryDisplay or similar
+    public void UpdateHighlightState(RectTransform viewport, Camera canvasCam, float zoneMinNormY, float zoneMaxNormY, Vector3 normScale, Vector3 highScale, float lerpSpeed)
+    {
+        if (itemRectTransform == null || viewport == null) return;
+
+        currentNormalScaleValue = normScale;
+        currentHighlightScaleValue = highScale;
+        currentScaleLerpSpeed = lerpSpeed; // Store the lerp speed
+
+        float normalizedY = CalculateNormalizedViewportY(viewport, canvasCam);
+        isInHighlightZone = (normalizedY >= zoneMinNormY && normalizedY <= zoneMaxNormY);
+
+        targetScale = isInHighlightZone ? currentHighlightScaleValue : currentNormalScaleValue;
+    }
+
+    private float CalculateNormalizedViewportY(RectTransform viewport, Camera canvasCam)
+    {
+        if (itemRectTransform == null || viewport == null) return 0f;
+
+        Vector3 worldCenter = itemRectTransform.TransformPoint(itemRectTransform.rect.center); // Get world center of the item
+        Vector2 localPointInViewport;
+
+        // Convert item's world center to a point local to the viewport RectTransform
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(viewport, RectTransformUtility.WorldToScreenPoint(canvasCam, worldCenter), canvasCam, out localPointInViewport))
+        {
+            // Normalize the y-coordinate within the viewport's height
+            // localPointInViewport.y is relative to viewport's pivot.
+            // If pivot is (0.5, 0.5), localPointInViewport.y ranges from -height/2 to +height/2.
+            // We want 0 at bottom, 1 at top of viewport.
+            return (localPointInViewport.y + viewport.rect.height * viewport.pivot.y) / viewport.rect.height;
+        }
+        return -1f; // Indicate failure or out of bounds
     }
 
 
     private void UpdateAppearance()
     {
-        if (backgroundImage != null)
-        {
-            backgroundImage.color = isDragging ? (currentPlacementValid ? dragColor : invalidDropColor) : normalColor;
-        }
-        // Add other visual state changes here (e.g., based on 'isNew')
-    }
+        if (backgroundImage == null) return;
 
-    // --- Drag Handlers (Largely the same logic, dragging the root object) ---
+        if (isDragging)
+        {
+            backgroundImage.color = currentPlacementValid ? dragColor : invalidDropColor;
+        }
+        else
+        {
+            backgroundImage.color = normalColor;
+        }
+    }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        // --- DRAG CONTROL ADDED HERE ---
-        if (!isInHighlightZone)
+        // Allow drag only if in highlight zone OR if already dragging (to allow finishing a drag if it moves out)
+        if (!isInHighlightZone && !isDragging)
         {
-            // Prevent drag from starting if not in the zone
-            // Setting pointerDrag to null tells the EventSystem this object shouldn't handle the drag.
-            eventData.pointerDrag = null;
-            // Debug.Log($"Drag prevented for '{word}': Outside highlight zone.");
+            // Debug.Log($"BeginDrag prevented: Not in highlight zone for {word}");
+            eventData.pointerDrag = null; // Cancel drag
             return;
         }
-        // --- END DRAG CONTROL ---
+        if (string.IsNullOrEmpty(word) || wordPlacementValidator == null || gridManager == null || rootCanvas == null)
+        {
+            Debug.LogError($"WordListItemUI ({word}): OnBeginDrag PREVENTED. Critical refs missing. Validator: {wordPlacementValidator}, GridManager: {gridManager}, RootCanvas: {rootCanvas}", this);
+            eventData.pointerDrag = null; // Prevent drag if setup is incomplete
+            return;
+        }
 
-        if (string.IsNullOrEmpty(word) || wordPlacementValidator == null || gridManager == null || wordInventory == null || placementCoroutine != null) return; // Prevent drag during placement
 
         isDragging = true;
-        originalPosition = rectTransform.position;
+        originalPosition = rectTransform.position; // Store original world position
         originalParent = transform.parent;
         originalSiblingIndex = transform.GetSiblingIndex();
-        if (rootCanvas == null) rootCanvas = GetComponentInParent<Canvas>();
-        transform.SetParent(rootCanvas.transform, true);
-        transform.SetAsLastSibling();
-        canvasGroup.blocksRaycasts = false; // Raycasts hit things *behind* this item now
-        canvasGroup.alpha = 0.8f;
-        currentPlacementValid = false;
+
+        transform.SetParent(rootCanvas.transform, true); // worldPositionStays = true
+        transform.SetAsLastSibling(); // Render on top
+
+        canvasGroup.blocksRaycasts = false; // So it doesn't block raycasts to grid
+        canvasGroup.alpha = 0.8f; // Make it slightly transparent
+
+        currentPlacementValid = false; // Reset placement validity at start of drag
         UpdateAppearance();
+        // Debug.Log($"OnBeginDrag: {word}");
     }
 
     public void OnDrag(PointerEventData eventData)
     {
         if (!isDragging) return;
+        rectTransform.position = eventData.position; // For ScreenSpaceOverlay. Adjust if using WorldSpace camera for UI.
 
-        // Move the item
-        Vector3 globalMousePos;
-        if (RectTransformUtility.ScreenPointToWorldPointInRectangle(rectTransform, eventData.position, eventData.pressEventCamera, out globalMousePos))
-        { rectTransform.position = globalMousePos; }
+        Vector2Int pointerCellCoords; // This is where the ANCHOR letter (e.g., "U") should land
+        // Determine the correct camera for ScreenPointToRay or ScreenPointToLocalPointInRectangle
+        Camera uiCamera = (rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay) ? null : rootCanvas.worldCamera;
 
-        // Check validity (same as before)
-        Vector2Int potentialCoords;
-        Camera uiCamera = (rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay) ? null : eventData.pressEventCamera;
-        if (gridManager.ScreenPointToGridCoords(eventData.position, uiCamera, out potentialCoords))
+        if (gridManager.ScreenPointToGridCoords(eventData.position, uiCamera, out pointerCellCoords))
         {
-            bool isHorizontal = true; // TODO: Orientation toggle
-            PlacementResult previewResult = wordPlacementValidator.ValidatePlacement(word, potentialCoords, isHorizontal);
+            bool isHorizontal = true; // TODO: Implement orientation toggle later (e.g., right-click to rotate word)
+
+            // Adjust the word's logical start coordinate based on the dragAnchorLetterOffset
+            Vector2Int actualWordStartCoords;
+            if (isHorizontal)
+            {
+                actualWordStartCoords = new Vector2Int(pointerCellCoords.x - dragAnchorLetterOffset, pointerCellCoords.y);
+            }
+            else // Vertical orientation
+            {
+                actualWordStartCoords = new Vector2Int(pointerCellCoords.x, pointerCellCoords.y - dragAnchorLetterOffset);
+            }
+
+            PlacementResult previewResult = wordPlacementValidator.ValidatePlacement(word, actualWordStartCoords, isHorizontal);
+            // Show preview on grid based on validation result
+            gridManager.ShowWordPreview(previewResult.WordCoordinates, word, previewResult.IsValid);
             currentPlacementValid = previewResult.IsValid;
-            // TODO: Optional - Show visual preview/ghost on grid?
         }
-        else { currentPlacementValid = false; }
-        UpdateAppearance();
+        else
+        {
+            gridManager.ClearWordPreview(); // Clear preview if pointer is off-grid
+            currentPlacementValid = false;
+        }
+        UpdateAppearance(); // Updates the dragged item's appearance (e.g., color)
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (!isDragging) return;
-
+        Debug.Log($"WordListItemUI.OnEndDrag: Initiated for word '{word}'. IsDragging: {isDragging}");
+        if (!isDragging) return; // Should not happen if OnBeginDrag set it true
         isDragging = false;
-        // Don't immediately block raycasts or reset alpha if placement might be valid,
-        // wait for the animation/placement logic to finish.
 
-        Vector2Int finalCoords;
-        Camera uiCamera = (rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay) ? null : eventData.pressEventCamera;
-        bool droppedOnGrid = gridManager.ScreenPointToGridCoords(eventData.position, uiCamera, out finalCoords);
+        gridManager.ClearWordPreview(); // ALWAYS clear the preview visual on drop
+
+        Vector2Int pointerCellCoordsOnDrop; // Where the ANCHOR letter was dropped
+        Camera uiCamera = (rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay) ? null : rootCanvas.worldCamera;
+        bool droppedOnGrid = gridManager.ScreenPointToGridCoords(eventData.position, uiCamera, out pointerCellCoordsOnDrop);
+        bool placementSuccessful = false;
+
+        Debug.Log($"WordListItemUI.OnEndDrag: DroppedOnGrid: {droppedOnGrid}, PointerCoordsAtDrop: {pointerCellCoordsOnDrop}");
 
         if (droppedOnGrid)
         {
             bool isHorizontal = true; // TODO: Orientation toggle
-            PlacementResult finalResult = wordPlacementValidator.ValidatePlacement(word, finalCoords, isHorizontal);
+
+            // Adjust the word's logical start coordinate based on the dragAnchorLetterOffset
+            Vector2Int actualWordStartCoords;
+            if (isHorizontal)
+            {
+                actualWordStartCoords = new Vector2Int(pointerCellCoordsOnDrop.x - dragAnchorLetterOffset, pointerCellCoordsOnDrop.y);
+            }
+            else // Vertical
+            {
+                actualWordStartCoords = new Vector2Int(pointerCellCoordsOnDrop.x, pointerCellCoordsOnDrop.y - dragAnchorLetterOffset);
+            }
+            Debug.Log($"WordListItemUI.OnEndDrag: Calculated ActualWordStartCoords: {actualWordStartCoords} for word '{word}' with anchor offset {dragAnchorLetterOffset}");
+
+            PlacementResult finalResult = wordPlacementValidator.ValidatePlacement(word, actualWordStartCoords, isHorizontal);
+            Debug.Log($"WordListItemUI.OnEndDrag: Placement Validation for '{word}' - IsValid: {finalResult.IsValid}, Message: '{finalResult.ErrorMessage}', Coords: {(finalResult.WordCoordinates != null ? string.Join(";", finalResult.WordCoordinates.Select(c => c.ToString())) : "NULL_COORDS_LIST")}");
+
 
             if (finalResult.IsValid)
             {
-                Debug.Log($"Valid placement for '{word}' at {finalCoords}. Starting placement animation.");
-                // --- Start the Placement Animation ---
-                // Disable dragging visuals immediately
-                canvasGroup.alpha = 0; // Hide the dragged item
-                canvasGroup.blocksRaycasts = true; // Allow interaction with grid again
-
-                // Start the coroutine to place letters one by one
-                placementCoroutine = StartCoroutine(AnimatePlacement(finalResult));
-                // The coroutine will handle destroying this object upon completion
-
-                return; // Exit, letting the coroutine handle the rest
-            }
-            else { Debug.LogWarning($"Invalid placement for '{word}' at {finalCoords}: {finalResult.ErrorMessage}"); }
-        }
-        else { Debug.LogWarning($"Dropped '{word}' outside of grid."); }
-
-        // --- If placement failed or dropped outside grid ---
-        // Reset alpha and raycast blocking here since placement didn't start
-        canvasGroup.blocksRaycasts = true;
-        canvasGroup.alpha = 1.0f;
-        ResetPosition();
-        currentPlacementValid = false;
-        UpdateAppearance();
-    }
-
-    // --- Coroutine for Animated Placement ---
-    private IEnumerator AnimatePlacement(PlacementResult result)
-    {
-        bool firstLetter = true; // Flag for validator confirmation
-
-        // Place letters one by one onto the grid
-        for (int i = 0; i < result.WordCoordinates.Count; i++)
-        {
-            Vector2Int coord = result.WordCoordinates[i];
-            char letter = word[i]; // Get the correct letter from the original word
-
-            // Check if the tile is already occupied by the correct letter (overlap)
-            TileData targetTile = gridManager.GetTileData(coord);
-            bool isOverlap = targetTile != null && targetTile.IsOccupied && targetTile.Letter == letter;
-
-            // Only place/animate if it's not a pre-existing overlap tile
-            if (!isOverlap)
-            {
-                // 1. Place the letter logically on the grid data
-                bool placed = gridManager.TrySetLetter(coord, letter);
-
-                if (placed)
+                Debug.Log($"WordListItemUI.OnEndDrag: Placement IS VALID for '{word}'. Attempting to place letters.");
+                bool firstLetterPlacedThisTurn = false; // To ensure ConfirmFirstWordPlaced is called only once per successful multi-letter first word
+                for (int i = 0; i < finalResult.WordCoordinates.Count; i++)
                 {
-                    // TODO: Add actual animation here if desired
-                    // e.g., Instantiate a flying letter effect from list item pos to grid pos
-                    // For now, just wait
-                    yield return new WaitForSeconds(placementAnimationDelay);
+                    Vector2Int coord = finalResult.WordCoordinates[i];
+                    // Ensure we don't try to get a letter beyond the word's length if WordCoordinates is somehow longer
+                    // (e.g. if ValidatePlacement returns coordinates for a path, not just the word itself - though it shouldn't here)
+                    if (i < word.Length)
+                    {
+                        char letter = word[i];
+                        Debug.Log($"WordListItemUI.OnEndDrag: Attempting to place letter '{letter}' at {coord} (index {i} of word '{word}')");
+                        bool placed = gridManager.TrySetLetter(coord, letter); // This should trigger TileData.UpdateVisuals
+                        if (!placed)
+                        {
+                            Debug.LogError($"WordListItemUI.OnEndDrag: GridManager FAILED to set letter '{letter}' at {coord} for word '{word}'.");
+                        }
+                        else
+                        {
+                            Debug.Log($"WordListItemUI.OnEndDrag: GridManager SUCCEEDED to set letter '{letter}' at {coord}.");
+                            // Check if this is the first word being placed in the game
+                            if (!wordPlacementValidator.IsFirstWordPlaced())
+                            {
+                                if (!firstLetterPlacedThisTurn) // Only confirm once for this word placement
+                                {
+                                    Debug.Log("WordListItemUI.OnEndDrag: First word rule triggered. Confirming placement with validator.");
+                                    wordPlacementValidator.ConfirmFirstWordPlaced();
+                                    firstLetterPlacedThisTurn = true;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"WordListItemUI.OnEndDrag: Coordinate index {i} is out of bounds for word '{word}' (length {word.Length}). Skipping letter placement for this coord.");
+                    }
                 }
-                else
-                {
-                    // Should not happen if validation passed, but handle defensively
-                    Debug.LogError($"Placement Error: Failed to set letter {letter} at {coord} even after validation passed!");
-                    // Potentially break or revert? For now, continue.
-                }
+                Debug.Log($"WordListItemUI.OnEndDrag: Placement loop finished for '{word}'. Score: {finalResult.Score}");
+                wordInventory?.UseWord(word); // Assuming wordInventory exists and should be notified
+                placementSuccessful = true;
             }
             else
             {
-                // If it's just an overlap, we don't need to animate, just skip the delay
-                // Debug.Log($"Skipping animation for overlap letter '{letter}' at {coord}");
-            }
-
-
-            // 2. Confirm first word placement *after* the first valid letter is logically placed
-            if (firstLetter)
-            {
-                wordPlacementValidator.ConfirmFirstWordPlaced();
-                firstLetter = false; // Only do this once per word placement
+                Debug.LogWarning($"WordListItemUI.OnEndDrag: Placement IS INVALID for '{word}' (anchor offset {dragAnchorLetterOffset}) starting at {actualWordStartCoords}. Reason: {finalResult.ErrorMessage}");
             }
         }
+        else { Debug.LogWarning($"WordListItemUI.OnEndDrag: Dropped '{word}' outside of grid."); }
 
-        // --- Post-Placement Cleanup ---
-        Debug.Log($"Placement animation finished for '{word}'. Score: {result.Score}");
-
-        // 3. Add Score
-        // scoreManager?.AddScore(result.Score); // Uncomment when ScoreManager exists
-
-        // 4. Notify Inventory to remove word from available list
-        wordInventory?.UseWord(word);
-
-        // 5. Destroy this list item GameObject
-        Destroy(gameObject);
-
-        placementCoroutine = null; // Allow dragging again
+        // Post-placement actions
+        if (placementSuccessful)
+        {
+            Debug.Log($"WordListItemUI.OnEndDrag: Placement successful for '{word}'. Destroying item.");
+            Destroy(gameObject); // Word is used, remove from list
+        }
+        else
+        {
+            Debug.Log($"WordListItemUI.OnEndDrag: Placement FAILED for '{word}'. Resetting item position and appearance.");
+            // Restore item to its original state and position
+            canvasGroup.blocksRaycasts = true;
+            canvasGroup.alpha = 1.0f;
+            ResetPosition();
+            currentPlacementValid = false; // Reset this flag
+            UpdateAppearance(); // Revert color
+            // Restore scale based on whether it's in highlight zone or not
+            targetScale = isInHighlightZone ? currentHighlightScaleValue : currentNormalScaleValue;
+            transform.localScale = targetScale; // Snap back or let Update lerp
+        }
     }
-
 
     private void ResetPosition()
     {
-        // Return to original parent and position in the list
-        transform.SetParent(originalParent, false);
+        transform.SetParent(originalParent, false); // worldPositionStays = false to re-apply layout
         transform.SetSiblingIndex(originalSiblingIndex);
-        // Ensure layout group updates if needed
-        // LayoutRebuilder.ForceRebuildLayoutImmediate(originalParent as RectTransform);
-        Debug.Log($"Reset position for {word}");
-    }
-
-    public void MarkAsSeen() { /* ... */ }
-
-    // Ensure coroutine stops if object is destroyed prematurely
-    void OnDestroy()
-    {
-        if (placementCoroutine != null)
-        {
-            StopCoroutine(placementCoroutine);
-            placementCoroutine = null;
-        }
+        // If originalPosition was based on world space and parent is a layout group,
+        // simply re-parenting and setting sibling index is often enough for layout groups to reposition.
+        // If originalPosition is critical and layout groups are not complex or you need exact previous world pos:
+        // rectTransform.position = originalPosition; // This might fight with layout group if not careful
+        // Debug.Log($"Reset position for {word}");
     }
 }
