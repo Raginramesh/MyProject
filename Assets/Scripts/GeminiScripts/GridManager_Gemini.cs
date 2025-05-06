@@ -12,7 +12,7 @@ public enum GridPlane { XY_2D, XZ_3D }
 // *** UPDATED ENUM ***
 public enum CellShape { Square, HexPointyTop, HexFlatTop } // Added HexFlatTop
 
-public class GridManager : MonoBehaviour
+public class GridManager_Gemini : MonoBehaviour
 {
     [Header("Grid Settings")]
     [Min(1)] public int rows = 10;
