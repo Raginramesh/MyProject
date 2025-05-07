@@ -435,11 +435,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 569a30bfa7f09b540b3a76edab7c769c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridWidth: 7
-  gridHeight: 7
-  tilePrefab: {fileID: 4487109764738883345, guid: d8966d5e85d852447a05f1120c263178, type: 3}
+  desiredGridWidth: 15
+  desiredGridHeight: 15
+  desiredCellSize: {x: 50, y: 50}
+  desiredCellSpacing: {x: 5, y: 5}
+  enforceOddDimensions: 1
+  centerTileColor: {r: 0, g: 1, b: 1, a: 1}
   gridPanelParent: {fileID: 915565721}
-  logCoordinateConversion: 0
+  tilePrefab: {fileID: 4487109764738883345, guid: d8966d5e85d852447a05f1120c263178, type: 3}
+  logCoordinateConversion: 1
   coordinatePixelOffsetCorrection: {x: 210, y: 210}
 --- !u!4 &483924354
 Transform:
@@ -469,7 +473,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gridManager: {fileID: 483924353}
-  centerCoordinate: {x: 7, y: 7}
   requireFirstWordOnCenter: 1
   requireConnectionToExisting: 1
 --- !u!1 &813339688
@@ -723,9 +726,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8442375f92445a647b5634b548d10270, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentLevelData: {fileID: 11400000, guid: f0339371698668c448aaaea39f3f4c74, type: 2}
+  levelWords: []
   gridManager: {fileID: 483924353}
-  wordInventory: {fileID: 997665733}
   wordPlacementValidator: {fileID: 483924355}
 --- !u!4 &997665732
 Transform:

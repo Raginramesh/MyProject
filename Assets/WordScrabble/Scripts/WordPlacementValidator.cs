@@ -26,7 +26,7 @@ public class WordPlacementValidator : MonoBehaviour
     [SerializeField] private GridManager gridManager;
 
     [Header("Game Rules")]
-    [SerializeField] private Vector2Int centerCoordinate = new Vector2Int(7, 7); // Example, adjust to your grid center
+    private Vector2Int centerCoordinate = new Vector2Int(7, 7); // Example, adjust to your grid center
     [SerializeField] private bool requireFirstWordOnCenter = true;
     [SerializeField] private bool requireConnectionToExisting = true;
 
@@ -37,6 +37,19 @@ public class WordPlacementValidator : MonoBehaviour
         if (gridManager == null)
         {
             Debug.LogError("WordPlacementValidator: GridManager reference not set in Inspector!", this);
+        }
+    }
+
+    public void InitializeCenterCoordinate(GridManager gridManager) // Call this from LevelManager
+    {
+        if (gridManager != null && gridManager.CurrentGridWidth > 0 && gridManager.CurrentGridHeight > 0)
+        {
+            centerCoordinate = new Vector2Int(gridManager.CurrentGridWidth / 2, gridManager.CurrentGridHeight / 2);
+            Debug.Log($"WordPlacementValidator: Center coordinate for rules updated to {centerCoordinate}");
+        }
+        else
+        {
+            Debug.LogError("WordPlacementValidator: Could not initialize center coordinate from GridManager.");
         }
     }
 

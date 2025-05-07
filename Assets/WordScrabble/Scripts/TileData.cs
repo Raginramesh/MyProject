@@ -5,78 +5,62 @@ using TMPro;
 public class TileData
 {
     public Vector2Int Coordinates { get; private set; }
-    public char Letter { get; private set; } // The actual placed letter
-    public bool IsOccupied => Letter != '\0' && Letter != ' '; // Or your definition of empty
+    public char Letter { get; private set; }
+    public bool IsOccupied => Letter != '\0' && Letter != ' ';
 
-    public GameObject VisualTile { get; private set; } // Reference to the instantiated tile GameObject
-
-    // Visual Components (fetched from VisualTile)
+    public GameObject VisualTile { get; private set; }
     private Image backgroundImage;
-    private TextMeshProUGUI mainTextComponent; // For displaying the actual or preview letter
+    private TextMeshProUGUI mainTextComponent;
 
-    // --- Preview State ---
     public bool IsPreviewed { get; private set; }
     public char PreviewLetterChar { get; private set; }
     public bool IsPreviewPlacementValid { get; private set; }
 
-    // --- Configurable Colors (Consider moving to a Theme/Settings script for easier changes) ---
-    private Color defaultTileBackgroundColor = Color.white; // Example: light gray
-    private Color previewValidTileColor = new Color(0.8f, 1f, 0.8f, 1f); // Light green
-    private Color previewInvalidTileColor = new Color(1f, 0.8f, 0.8f, 1f); // Light red
+    // Color fields
+    private Color _initialPrefabBackgroundColor; // True color from the prefab
+    private Color previewValidTileColor = new Color(0.8f, 1f, 0.8f, 1f);
+    private Color previewInvalidTileColor = new Color(1f, 0.8f, 0.8f, 1f);
     private Color defaultLetterColor = Color.black;
-    private Color previewLetterColor = new Color(0.2f, 0.2f, 0.2f, 0.7f); // Dark semi-transparent
+    private Color previewLetterColor = new Color(0.2f, 0.2f, 0.2f, 0.7f);
+
+    // Center Tile specific
+    public bool IsDesignatedCenterTile { get; private set; } = false;
+    private Color _designatedCenterTileColor;
 
     public TileData(Vector2Int coordinates, GameObject visualTileInstance)
     {
         Coordinates = coordinates;
         VisualTile = visualTileInstance;
-        Letter = '\0'; // Initialize as empty
+        Letter = '\0';
 
         if (VisualTile != null)
         {
             backgroundImage = VisualTile.GetComponent<Image>();
-            // GetComponentInChildren<TextMeshProUGUI>(true) ensures we find it even if the child object holding text is initially inactive.
             mainTextComponent = VisualTile.GetComponentInChildren<TextMeshProUGUI>(true);
 
             if (backgroundImage != null)
             {
-                defaultTileBackgroundColor = backgroundImage.color; // Store initial color from prefab
+                _initialPrefabBackgroundColor = backgroundImage.color; // Store initial color from prefab
             }
-            else
-            {
-                Debug.LogWarning($"TileData for {coordinates}: VisualTile '{VisualTile.name}' is missing an Image component.");
-            }
+            else { Debug.LogWarning($"TileData for {coordinates}: VisualTile '{VisualTile.name}' is missing an Image component."); }
 
-            if (mainTextComponent == null)
-            {
-                Debug.LogWarning($"TileData for {coordinates}: VisualTile '{VisualTile.name}' is MISSING a TextMeshProUGUI child component. Text will not appear.");
-            }
+            if (mainTextComponent == null) { Debug.LogWarning($"TileData for {coordinates}: VisualTile '{VisualTile.name}' is MISSING a TextMeshProUGUI child component."); }
             else
             {
-                Debug.Log($"TileData for {coordinates}: TextMeshProUGUI component found on child: {mainTextComponent.gameObject.name}");
-                if (mainTextComponent.font == null)
-                {
-                    Debug.LogError($"TileData for {coordinates}: TextMeshProUGUI component on '{mainTextComponent.gameObject.name}' is MISSING a Font Asset!");
-                }
+                if (mainTextComponent.font == null) Debug.LogError($"TileData for {coordinates}: TextMeshProUGUI on '{mainTextComponent.gameObject.name}' is MISSING a Font Asset!");
             }
         }
-        else
-        {
-            Debug.LogError($"TileData for {coordinates}: visualTileInstance was NULL!");
-        }
-        ResetTile(); // Ensure it starts visually and logically empty
+        else { Debug.LogError($"TileData for {coordinates}: visualTileInstance was NULL!"); }
+        ResetTile(); // Initial visual state
     }
 
-    // Call this to set the actual, confirmed letter on the tile
     public void SetPlacedLetter(char newLetter)
     {
-        Debug.Log($"TileData ({Coordinates}): SetPlacedLetter CALLED with '{newLetter}'. Previous letter: '{Letter}'. Is mainTextComponent null? {mainTextComponent == null}");
         Letter = char.ToUpper(newLetter);
-        IsPreviewed = false; // Clear any preview state
+        IsPreviewed = false;
         UpdateVisuals();
     }
 
-    // Call this to show a temporary preview letter
     public void SetPreviewState(char previewChar, bool isValidPlacement)
     {
         IsPreviewed = true;
@@ -85,80 +69,79 @@ public class TileData
         UpdateVisuals();
     }
 
-    // Call this to remove the temporary preview
     public void ClearPreviewState()
     {
-        if (!IsPreviewed) return; // No need to update if not in preview mode
+        if (!IsPreviewed) return;
         IsPreviewed = false;
         PreviewLetterChar = '\0';
         UpdateVisuals();
     }
 
-    // Call this to reset the tile to its initial empty state (e.g., for new level or grid creation)
+    // Method to mark this tile as the special center tile
+    public void SetAsDesignatedCenterTile(Color centerColor)
+    {
+        IsDesignatedCenterTile = true;
+        _designatedCenterTileColor = centerColor;
+        // Update visuals immediately to reflect this change if it wasn't already set by initial creation
+        if (backgroundImage != null && backgroundImage.color != _designatedCenterTileColor && !IsPreviewed)
+        {
+            UpdateVisuals();
+        }
+    }
+
     public void ResetTile()
     {
-        // Debug.Log($"TileData ({Coordinates}): ResetTile CALLED."); // Can be noisy if called for every tile on grid creation
         Letter = '\0';
         IsPreviewed = false;
         PreviewLetterChar = '\0';
+        // The IsDesignatedCenterTile status persists. UpdateVisuals will handle the color.
         UpdateVisuals();
     }
 
-    // Central method to update the tile's appearance based on its current state
     public void UpdateVisuals()
     {
-        // This log can be very noisy, enable only if specifically debugging UpdateVisuals calls.
-        // Debug.Log($"TileData ({Coordinates}): UpdateVisuals CALLED. IsPreviewed: {IsPreviewed}, Letter: '{Letter}', IsOccupied: {IsOccupied}");
+        if (VisualTile == null) return;
 
-        if (VisualTile == null)
-        {
-            Debug.LogError($"TileData ({Coordinates}): UpdateVisuals - VisualTile is NULL. Cannot update visuals.");
-            return;
-        }
-
-        // Handle background color
+        // Background Color Logic
         if (backgroundImage != null)
         {
             if (IsPreviewed)
             {
                 backgroundImage.color = IsPreviewPlacementValid ? previewValidTileColor : previewInvalidTileColor;
             }
-            else
+            else if (IsDesignatedCenterTile) // Not previewed, but is it the special center tile?
             {
-                backgroundImage.color = defaultTileBackgroundColor; // Revert to default tile color
+                backgroundImage.color = _designatedCenterTileColor;
+            }
+            else // Not previewed, not special center - use initial prefab color
+            {
+                backgroundImage.color = _initialPrefabBackgroundColor;
             }
         }
 
-        // Handle text
+        // Text Logic
         if (mainTextComponent != null)
         {
             if (IsPreviewed)
             {
                 mainTextComponent.text = PreviewLetterChar.ToString();
                 mainTextComponent.color = previewLetterColor;
-                mainTextComponent.gameObject.SetActive(PreviewLetterChar != '\0' && PreviewLetterChar != ' '); // Show only if there's a preview char
+                mainTextComponent.gameObject.SetActive(PreviewLetterChar != '\0' && PreviewLetterChar != ' ');
             }
-            else // Not in preview mode, show actual placed letter or empty
+            else
             {
                 if (IsOccupied)
                 {
-                    // Debug.Log($"TileData ({Coordinates}): UpdateVisuals - IsOccupied. Setting text to '{Letter}'. Current TMP text: '{mainTextComponent.text}'");
                     mainTextComponent.text = Letter.ToString();
                     mainTextComponent.color = defaultLetterColor;
-                    mainTextComponent.gameObject.SetActive(true); // Ensure text object is active
+                    mainTextComponent.gameObject.SetActive(true);
                 }
                 else
                 {
-                    // Debug.Log($"TileData ({Coordinates}): UpdateVisuals - Not Occupied. Clearing text. Current TMP text: '{mainTextComponent.text}'");
-                    mainTextComponent.text = ""; // Empty
-                    // Decide if empty text objects should be active or inactive. Usually active but empty is fine.
-                    mainTextComponent.gameObject.SetActive(true);
+                    mainTextComponent.text = "";
+                    mainTextComponent.gameObject.SetActive(true); // Or false if you prefer to hide empty text objects
                 }
             }
-        }
-        else if (IsOccupied || (IsPreviewed && PreviewLetterChar != '\0')) // Log warning only if we expected to show text
-        {
-            Debug.LogWarning($"TileData ({Coordinates}): UpdateVisuals - mainTextComponent is NULL when trying to display a letter ('{(IsPreviewed ? PreviewLetterChar : Letter)}').");
         }
     }
 }
