@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems; // Required for drag interfaces (IBeginDragHandler, etc.)
 using UnityEngine.UI; // Required for Image component (for highlight color)
 using System.Collections.Generic; // Required for List (for highlight tracking)
+using System.Collections; // Required for Coroutines
 
 public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
@@ -14,8 +15,22 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
     [Header("Drag Settings")]
     [Tooltip("Minimum screen distance the pointer must move before a drag direction is locked.")]
     [SerializeField] private float dragThreshold = 20f;
-    [Tooltip("Factor of (cell size + spacing) the pointer must move along the locked axis to trigger a scroll action.")]
+    [Tooltip("Factor of (cell size + spacing) the pointer must move along the locked axis to trigger a direct scroll action during drag.")]
     [SerializeField] private float scrollThresholdFactor = 0.4f;
+
+    [Header("Inertia Settings")]
+    [Tooltip("Enable inertia scrolling after a flick.")]
+    [SerializeField] private bool enableInertia = true;
+    [Tooltip("Minimum release velocity (pixels/sec) to trigger inertia.")]
+    [SerializeField] private float minFlickVelocity = 300f;
+    [Tooltip("How quickly inertia slows down. Value is a factor applied each frame (e.g., 0.95 means 5% speed loss).")]
+    [Range(0.8f, 0.99f)]
+    [SerializeField] private float inertiaDampingFactor = 0.95f;
+    [Tooltip("Minimum speed (pixels/sec) for inertia to continue.")]
+    [SerializeField] private float minInertiaSpeed = 30f;
+    [Tooltip("How many of the latest drag samples to use for velocity calculation.")]
+    [SerializeField] private int velocityCalculationSamples = 5;
+
 
     [Header("Highlight Settings")]
     [Tooltip("If true, the dragged row/column will be visually highlighted.")]
@@ -35,14 +50,26 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
     private float accumulatedDrag = 0f; // Accumulated drag distance along the locked axis since the last scroll trigger
     private float cellSizeWithSpacing; // Cached value: wordGridManager.cellSize + wordGridManager.spacing
 
-    // --- State Flags for Delayed Actions (Processed in Update) ---
+    // --- Velocity Tracking for Inertia ---
+    private struct PointerSample
+    {
+        public Vector2 Position;
+        public float Time;
+        public PointerSample(Vector2 position, float time) { Position = position; Time = time; }
+    }
+    private List<PointerSample> pointerSamples = new List<PointerSample>();
+    private Coroutine inertiaCoroutine = null;
+    public bool IsPerformingInertiaScroll { get; private set; } = false; // Public getter for GameManager
+
+
+    // --- State Flags for Delayed Actions (Processed in Update) ---\
     private bool scrollOccurredThisDrag = false; // Tracks if ANY scroll happened during the current drag session
     private bool pendingValidationCheck = false; // Flag: Trigger word validation when grid settles?
     private bool pendingMoveReduction = false;   // Flag: Apply move reduction when grid settles?
     private int moveReductionRow = -1;           // Target row for pending move reduction
     private int moveReductionCol = -1;           // Target column for pending move reduction
 
-    // --- Highlight Tracking Variables ---
+    // --- Highlight Tracking Variables ---\
     private List<CellController> currentlyHighlightedCells = new List<CellController>(); // Stores controllers for reset
     private List<Image> highlightedImages = new List<Image>(); // Stores Image components for color reset
     private List<Color> originalColors = new List<Color>();    // Stores original colors of images
@@ -50,16 +77,17 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
     private bool isHighlightApplied = false;                   // Is highlight currently active?
 
 
-    // --- Initialization ---
+    // --- Initialization ---\
     void Awake()
     {
+        IsPerformingInertiaScroll = false;
         // Attempt to find references if not assigned in Inspector
         if (wordGridManager == null) wordGridManager = FindFirstObjectByType<WordGridManager>();
         if (gameManager == null) gameManager = FindFirstObjectByType<GameManager>();
         if (gridPanelRect == null) gridPanelRect = GetComponent<RectTransform>(); // Assume script is on the panel if not assigned
         if (uiCamera == null) uiCamera = Camera.main; // Default to main camera
 
-        // --- Validate Critical References ---
+        // --- Validate Critical References ---\
         if (wordGridManager == null) { Debug.LogError("GridInputHandler: WordGridManager reference missing!", this); enabled = false; return; }
         if (gameManager == null) { Debug.LogError("GridInputHandler: GameManager reference missing!", this); enabled = false; return; }
         if (gridPanelRect == null) { Debug.LogError("GridInputHandler: Grid Panel Rect reference missing!", this); enabled = false; return; }
@@ -68,164 +96,147 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
 
     void Start()
     {
+        IsPerformingInertiaScroll = false;
         // Pre-calculate cell size + spacing (ensure WordGridManager is available)
         if (wordGridManager != null)
         {
             cellSizeWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
-            // Debug.Log($"GridInputHandler Started. CellSizeWithSpacing: {cellSizeWithSpacing}");
         }
         else
         {
             Debug.LogError("GridInputHandler: Cannot calculate cellSizeWithSpacing in Start - WordGridManager is null!", this);
-            enabled = false; // Disable if critical calculation fails
+            enabled = false;
             return;
         }
 
-        // --- Highlight Initialization: Get Original Scale ---
-        UpdateOriginalScale(); // Get initial scale
-        isHighlightApplied = false; // Ensure reset on start
-
-        // Ensure flags are reset on start
+        UpdateOriginalScale();
+        isHighlightApplied = false;
         ResetPendingFlags();
         scrollOccurredThisDrag = false;
     }
 
-    // --- Enable / Disable Handling ---
     void OnEnable()
     {
-        // Reset state when the component is enabled (e.g., after scene load or re-activation)
         ResetDragState();
         ResetPendingFlags();
         scrollOccurredThisDrag = false;
+        IsPerformingInertiaScroll = false;
+        StopInertiaCoroutine();
 
-        // Reset highlight state as well
-        if (isHighlightApplied) ForceResetHighlightVisuals(); // Reset visuals if enabled while highlighted
+        if (isHighlightApplied) ForceResetHighlightVisuals();
         isHighlightApplied = false;
         ClearHighlightLists();
-
-        // Debug.Log("GridInputHandler Enabled");
     }
 
     void OnDisable()
     {
-        // Reset flags and state on disable
         ResetDragState();
         ResetPendingFlags();
         scrollOccurredThisDrag = false;
+        IsPerformingInertiaScroll = false;
+        StopInertiaCoroutine();
 
-        // Reset highlight state instantly if disabled while highlighted
         if (isHighlightApplied) ForceResetHighlightVisuals();
-        // No need to clear lists here, OnEnable handles it
-
-        // Debug.Log("GridInputHandler Disabled");
     }
 
-    // --- Update Loop for Delayed Actions ---
+    private void StopInertiaCoroutine()
+    {
+        if (inertiaCoroutine != null)
+        {
+            StopCoroutine(inertiaCoroutine);
+            inertiaCoroutine = null;
+        }
+        IsPerformingInertiaScroll = false;
+    }
+
+
+    // --- Update Loop for Delayed Actions ---\
     void Update()
     {
-        // --- IMPORTANT: Check Game State and Animation ---
-        // Do not process pending actions if game isn't playing or animations are running
-        if (gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing || gameManager.IsAnyAnimationPlaying)
+        // Do not process pending actions if game isn't playing or ANY animations are running (grid, effects, OR INERTIA)
+        if (gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing || gameManager.IsAnyAnimationPlaying)
         {
             return;
         }
-        // --- END CHECK ---
-
 
         // --- Process Pending Move Reduction ---
-        // Check flag AND ensure WordGridManager exists and is NOT animating its scroll
         if (pendingMoveReduction && wordGridManager != null && !wordGridManager.isAnimating)
         {
-            pendingMoveReduction = false; // Reset the flag FIRST to prevent re-entry
-            // Debug.Log($"GridInputHandler Update: Applying pending move reduction for Row:{moveReductionRow} Col:{moveReductionCol}.", this);
+            pendingMoveReduction = false;
             wordGridManager.ApplyPendingMoveReduction(moveReductionRow, moveReductionCol);
-            moveReductionRow = -1; // Reset target indices
+            moveReductionRow = -1;
             moveReductionCol = -1;
         }
 
         // --- Process Pending Validation Check ---
-        // Check flag AND ensure WordGridManager exists and is NOT animating its scroll
         if (pendingValidationCheck && wordGridManager != null && !wordGridManager.isAnimating)
         {
-            pendingValidationCheck = false; // Reset the flag FIRST
-            // Debug.Log("GridInputHandler Update: Applying pending validation check.", this);
+            pendingValidationCheck = false;
             wordGridManager.TriggerValidationCheck();
         }
     }
 
 
-    // --- Input Handling (Event System Interfaces) ---
+    // --- Input Handling (Event System Interfaces) ---\
 
     public void OnBeginDrag(PointerEventData eventData)
     {
         // --- Pre-Drag Checks ---
         if (!enabled || wordGridManager == null || gameManager == null ||
-            gameManager.CurrentState != GameManager.GameState.Playing || gameManager.IsAnyAnimationPlaying)
+            gameManager.CurrentStatePublic != GameManager.GameState.Playing || gameManager.IsAnyAnimationPlaying)
         {
             isDragging = false;
             return;
         }
+
+        StopInertiaCoroutine(); // Stop any ongoing inertia if a new drag starts
+        ResetPendingFlags();    // Also reset pending flags as inertia might have set one
 
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, eventData.position, uiCamera, out dragStartPosition))
         {
             isDragging = false; return;
         }
 
-        // --- Start the Drag Process ---
         isDragging = true;
         axisLocked = false;
         accumulatedDrag = 0f;
         CalculateTargetRowCol(dragStartPosition);
 
-        // --- Reset ONLY Pending Action Flags and Scroll Tracking ---
-        ResetPendingFlags();
+        ResetPendingFlags(); // Redundant? Already called above. Keeping for safety.
         scrollOccurredThisDrag = false;
 
-        // --- REMOVED Highlight Reset from here ---
-        // if (isHighlightApplied) ForceResetHighlightVisuals(); // REMOVED
-        // isHighlightApplied = false;                           // REMOVED
-        // ClearHighlightLists();                                // REMOVED
-        UpdateOriginalScale(); // Keep this - ensures correct scale is used for highlighting
+        pointerSamples.Clear();
+        AddPointerSample(eventData.position);
 
-        // Debug.Log($"OnBeginDrag: Started at Local Pos {dragStartPosition}. Target (R:{targetRow}, C:{targetCol}). Pending flags reset.");
+        UpdateOriginalScale();
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        // --- Pre-Drag Checks ---
-        // Ignore if not dragging or critical refs missing
         if (!isDragging || wordGridManager == null || gameManager == null)
         {
-            // If not dragging, ensure state is clean (though should be handled by OnEndDrag)
             if (!isDragging) ResetDragState();
             return;
         }
 
-        // --- <<< CHANGE HERE >>> ---
-        // If game isn't playing OR an animation is currently running,
-        // *ignore* further drag updates for this frame, but DON'T end the drag yet.
-        // The actual OnEndDrag event will handle cleanup when the user releases.
-        if (gameManager.CurrentState != GameManager.GameState.Playing || gameManager.IsAnyAnimationPlaying)
+        if (gameManager.CurrentStatePublic != GameManager.GameState.Playing ||
+            (wordGridManager.isAnimating && !IsPerformingInertiaScroll)) // Allow drag if inertia is causing wordGridManager animation
         {
-            // Debug.Log($"OnDrag: Ignoring drag update (State={gameManager.CurrentState}, Animating={gameManager.IsAnyAnimationPlaying})");
-            return; // Just return, don't call OnEndDrag
+            // If WordGridManager is animating due to a direct scroll (not inertia), wait for it.
+            if (wordGridManager.isAnimating && !IsPerformingInertiaScroll) return;
         }
-        // --- <<< END CHANGE >>> ---
 
-
-        // Get current pointer position in local panel coordinates
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, eventData.position, uiCamera, out Vector2 currentLocalPos))
         {
-            // Debug.Log("OnDrag: Dragged outside Grid Panel Rect, ending drag.");
-            // If dragged outside, THEN we can end the drag prematurely.
-            OnEndDrag(eventData);
+            OnEndDrag(eventData); // Dragged outside panel
             return;
         }
 
-        Vector2 dragVector = currentLocalPos - dragStartPosition; // Vector from start to current position
+        AddPointerSample(eventData.position); // Record pointer sample for velocity
+
+        Vector2 dragVector = currentLocalPos - dragStartPosition;
 
         // --- Axis Locking Logic ---
-        // (Rest of the OnDrag method remains the same as before)
         if (!axisLocked)
         {
             if (dragVector.magnitude > dragThreshold)
@@ -234,152 +245,236 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
                 isHorizontalDrag = Mathf.Abs(dragVector.x) > Mathf.Abs(dragVector.y);
                 if (enableDragHighlight)
                 {
-                    if (targetRow != -1 && targetCol != -1)
+                    if (targetRow != -1 && targetCol != -1) // Ensure valid start target
                     {
                         if (isHorizontalDrag) ApplyHighlightRow(targetRow);
                         else ApplyHighlightColumn(targetCol);
                     }
                 }
             }
-            else { return; }
+            else { return; } // Not enough movement to lock axis yet
         }
 
-        // --- Scroll Triggering Logic (Only if axis is locked) ---
-        if (axisLocked)
+        // --- Scroll Triggering Logic (Only if axis is locked and NOT performing inertia) ---
+        if (axisLocked && !IsPerformingInertiaScroll) // Inertia handles its own scrolling
         {
-            float dragAmount = isHorizontalDrag ? dragVector.x : dragVector.y;
-            float previousAccumulated = accumulatedDrag;
-            accumulatedDrag = dragAmount;
+            float dragAmountOnAxis = isHorizontalDrag ? dragVector.x : dragVector.y;
+            accumulatedDrag += dragAmountOnAxis; // Accumulate signed drag specific to this frame's movement along the axis
+
             float scrollTriggerDistance = cellSizeWithSpacing * scrollThresholdFactor;
             int scrollDirection = 0;
 
-            if (previousAccumulated < scrollTriggerDistance && accumulatedDrag >= scrollTriggerDistance)
+            // Check if accumulated drag has passed the threshold for a scroll
+            if (Mathf.Abs(accumulatedDrag) >= scrollTriggerDistance)
             {
-                scrollDirection = isHorizontalDrag ? 1 : -1;
-                accumulatedDrag -= scrollTriggerDistance;
-                dragStartPosition = currentLocalPos;
-            }
-            else if (previousAccumulated > -scrollTriggerDistance && accumulatedDrag <= -scrollTriggerDistance)
-            {
-                scrollDirection = isHorizontalDrag ? -1 : 1;
-                accumulatedDrag += scrollTriggerDistance;
-                dragStartPosition = currentLocalPos;
+                scrollDirection = (int)Mathf.Sign(accumulatedDrag);
+
+                // Reduce accumulated drag by what was "used" for this scroll
+                accumulatedDrag -= scrollDirection * scrollTriggerDistance;
             }
 
             if (scrollDirection != 0)
             {
                 if (targetRow == -1 || targetCol == -1) { return; } // Ignore if start target invalid
-                scrollOccurredThisDrag = true;
-                ResetPendingFlags(); // Cancel pending actions before new animation
 
-                if (isHorizontalDrag)
+                // Wait if grid is already animating from a previous quick scroll in the same drag
+                if (wordGridManager.isAnimating)
                 {
-                    wordGridManager.RequestRowScroll(targetRow, scrollDirection, 0f);
+                    // Postpone or queue. For now, we might have slight animation overlap
+                    // if user drags extremely fast over multiple scrollThresholds within WordGridManager's animation time.
+                    // We can add accumulatedDrag back if we decide to wait until next frame.
+                    // For now, allow the request.
                 }
                 else
                 {
-                    wordGridManager.RequestColumnScroll(targetCol, scrollDirection, 0f);
+                    scrollOccurredThisDrag = true;
+                    // ResetPendingFlags(); // This might be too aggressive, validation should occur after drag sequence or inertia
+
+                    if (isHorizontalDrag)
+                    {
+                        wordGridManager.RequestRowScroll(targetRow, scrollDirection, 0f);
+                    }
+                    else
+                    {
+                        wordGridManager.RequestColumnScroll(targetCol, -scrollDirection, 0f);
+                    }
                 }
             }
+            // Update dragStartPosition for the next OnDrag calculation to be relative to current pos
+            dragStartPosition = currentLocalPos;
         }
-    } // End of OnDrag
+    }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        // --- Reset Highlight FIRST ---
-        // Always reset highlight when drag ends, regardless of other conditions
         if (enableDragHighlight && isHighlightApplied)
         {
-            ResetHighlight(); // Instantly reset visuals
+            ResetHighlight();
         }
 
-        // Ignore if drag wasn't properly started or refs missing
         if (!isDragging || wordGridManager == null)
         {
-            // Ensure drag state is reset even if ignored early
             ResetDragState();
+            scrollOccurredThisDrag = false;
+            pointerSamples.Clear();
             return;
         }
 
-        // Debug.Log($"OnEndDrag: Drag finished. Target Start (R:{targetRow}, C:{targetCol}). scrollOccurredThisDrag={scrollOccurredThisDrag}", this);
-
-        // --- Set Pending Flags (based on whether a scroll happened) ---
-        // These flags will be processed by Update() when animations are complete
-
-        // 1. Pending Move Reduction (Only if a scroll actually occurred)
-        if (scrollOccurredThisDrag)
+        bool inertiaWillStart = false;
+        if (enableInertia && axisLocked) // Inertia needs a locked axis
         {
-            // Determine the target row/col based on the locked axis
-            if (axisLocked) // Ensure axis was determined
+            AddPointerSample(eventData.position); // Add final sample
+            Vector2 releaseVelocity = CalculateVelocity();
+            float speedOnAxis = isHorizontalDrag ? Mathf.Abs(releaseVelocity.x) : Mathf.Abs(releaseVelocity.y);
+
+            if (speedOnAxis > minFlickVelocity)
             {
-                pendingMoveReduction = true; // Set flag
+                float relevantVelocityComponent = isHorizontalDrag ? releaseVelocity.x : releaseVelocity.y;
+                inertiaCoroutine = StartCoroutine(InertiaScrollCoroutine(relevantVelocityComponent, isHorizontalDrag));
+                inertiaWillStart = true;
+            }
+        }
+
+        if (!inertiaWillStart)
+        {
+            // Original Pending Flags Logic (if no inertia starts)
+            if (scrollOccurredThisDrag && axisLocked) // Ensure scroll happened and axis was determined
+            {
+                pendingMoveReduction = true;
                 if (isHorizontalDrag) { moveReductionRow = targetRow; moveReductionCol = -1; }
                 else { moveReductionRow = -1; moveReductionCol = targetCol; }
-                // Debug.Log($"OnEndDrag: Scroll occurred. Set pendingMoveReduction=true for Row:{moveReductionRow} Col:{moveReductionCol}. Update() will handle.", this);
             }
-            else { Debug.LogWarning("OnEndDrag: Scroll occurred but axis wasn't locked? Cannot set pending move reduction target."); }
+            // Always set validation check if no inertia, or after inertia finishes (handled in coroutine)
+            pendingValidationCheck = true;
         }
-        // else { Debug.Log($"OnEndDrag: No scroll occurred. No move reduction pending.", this); }
 
-        // 2. Pending Validation Check (Always set after drag ends)
-        // Update() will wait for animations to finish before triggering validation.
-        pendingValidationCheck = true;
-        // Debug.Log("OnEndDrag: Set pendingValidationCheck=true. Update() will handle.", this);
-
-
-        // --- Reset Drag State Variables ---
         ResetDragState();
-        scrollOccurredThisDrag = false; // Reset scroll tracking for the next drag session
+        scrollOccurredThisDrag = false;
+        pointerSamples.Clear();
+    }
+
+    private void AddPointerSample(Vector2 screenPosition)
+    {
+        // Convert screen position to local panel position for consistent velocity calculation
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, screenPosition, uiCamera, out Vector2 localPos);
+        pointerSamples.Add(new PointerSample(localPos, Time.unscaledTime));
+        while (pointerSamples.Count > velocityCalculationSamples && velocityCalculationSamples > 0)
+        {
+            pointerSamples.RemoveAt(0);
+        }
+    }
+
+    private Vector2 CalculateVelocity()
+    {
+        if (pointerSamples.Count < 2) return Vector2.zero;
+
+        PointerSample firstSample = pointerSamples[0];
+        PointerSample lastSample = pointerSamples[pointerSamples.Count - 1];
+
+        float timeDelta = lastSample.Time - firstSample.Time;
+        if (timeDelta <= 0.001f) return Vector2.zero;
+
+        Vector2 positionDelta = lastSample.Position - firstSample.Position; // Using local positions
+        return positionDelta / timeDelta; // local units per second
     }
 
 
-    // --- Helper Methods ---
+    private IEnumerator InertiaScrollCoroutine(float initialAxisVelocity, bool forHorizontal)
+    {
+        IsPerformingInertiaScroll = true;
+        pendingValidationCheck = false; // Validation will be set at the end of inertia
 
-    // Calculates the target row and column based on the local position within the grid panel
+        float currentAxisVelocity = initialAxisVelocity;
+        float inertiaAccumulatedDistance = 0f;
+
+        // Target row/col for inertia is the one active when drag ended
+        int inertiaTargetRow = targetRow;
+        int inertiaTargetCol = targetCol;
+
+
+        while (Mathf.Abs(currentAxisVelocity) > minInertiaSpeed)
+        {
+            // Damp the velocity
+            currentAxisVelocity *= inertiaDampingFactor;
+
+            float moveAmountThisFrame = currentAxisVelocity * Time.deltaTime;
+            inertiaAccumulatedDistance += moveAmountThisFrame;
+
+            float distancePerCellScroll = cellSizeWithSpacing;
+
+            if (Mathf.Abs(inertiaAccumulatedDistance) >= distancePerCellScroll)
+            {
+                int scrollDirection = (int)Mathf.Sign(inertiaAccumulatedDistance);
+
+                // Wait for WordGridManager to be free AND game to be playing
+                yield return new WaitUntil(() => wordGridManager != null && !wordGridManager.isAnimating &&
+                                               gameManager != null && gameManager.CurrentStatePublic == GameManager.GameState.Playing);
+
+                if (wordGridManager == null || gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing)
+                {
+                    break; // Game state changed or refs lost, abort inertia
+                }
+
+                if (forHorizontal)
+                {
+                    if (inertiaTargetRow != -1)
+                        wordGridManager.RequestRowScroll(inertiaTargetRow, scrollDirection, 0f);
+                }
+                else
+                {
+                    if (inertiaTargetCol != -1)
+                        wordGridManager.RequestColumnScroll(inertiaTargetCol, -scrollDirection, 0f);
+                }
+
+                inertiaAccumulatedDistance -= scrollDirection * distancePerCellScroll;
+
+                if (gameManager.CurrentGameDisplayMode == GameManager.DisplayMode.Moves)
+                {
+                    pendingMoveReduction = true;
+                    if (forHorizontal) { moveReductionRow = inertiaTargetRow; moveReductionCol = -1; }
+                    else { moveReductionRow = -1; moveReductionCol = inertiaTargetCol; }
+                }
+            }
+
+            if (Mathf.Abs(currentAxisVelocity) <= minInertiaSpeed) break;
+
+            yield return null;
+        }
+
+        IsPerformingInertiaScroll = false;
+        inertiaCoroutine = null;
+        pendingValidationCheck = true; // Now that all inertia movement is done, flag for validation.
+    }
+
     void CalculateTargetRowCol(Vector2 localPosition)
     {
-        // Reset target first
         targetRow = -1;
         targetCol = -1;
 
-        if (wordGridManager == null || cellSizeWithSpacing <= 0)
-        {
-            // Debug.LogError("CalculateTargetRowCol: Cannot calculate - WordGridManager null or cellSizeWithSpacing invalid.");
-            return;
-        }
+        if (wordGridManager == null || cellSizeWithSpacing <= 0) return;
 
-        // Calculate total size and start offset based on grid settings (assuming centered grid)
         float totalGridSizeUI = wordGridManager.gridSize * wordGridManager.cellSize + (wordGridManager.gridSize - 1) * wordGridManager.spacing;
-        float gridOriginOffsetX = -totalGridSizeUI / 2f; // Offset from panel center to grid logical bottom-left
+        float gridOriginOffsetX = -totalGridSizeUI / 2f;
         float gridOriginOffsetY = -totalGridSizeUI / 2f;
 
-        // Calculate position relative to the grid's logical bottom-left corner
         float relativeX = localPosition.x - gridOriginOffsetX;
         float relativeY = localPosition.y - gridOriginOffsetY;
 
-        // Determine column and row based on relative position
         int calculatedCol = Mathf.FloorToInt(relativeX / cellSizeWithSpacing);
         int calculatedRowBasedOnBottom = Mathf.FloorToInt(relativeY / cellSizeWithSpacing);
 
-        // Check if the calculated indices are outside the valid range [0, gridSize-1]
         if (calculatedCol < 0 || calculatedCol >= wordGridManager.gridSize || calculatedRowBasedOnBottom < 0 || calculatedRowBasedOnBottom >= wordGridManager.gridSize)
         {
-            // Drag started outside the actual grid cell area (in spacing or beyond)
-            // Debug.Log("CalculateTargetRowCol: Drag started outside grid cell bounds.");
-            return; // Keep targetRow/Col as -1
+            return;
         }
 
-        // If within bounds, assign the calculated column
         targetCol = calculatedCol;
-        // Invert Row index because UI Y typically increases upwards, but grid arrays often start row 0 at the top
         targetRow = wordGridManager.gridSize - 1 - calculatedRowBasedOnBottom;
 
-        // Final clamp for safety, although the check above should handle bounds
         targetCol = Mathf.Clamp(targetCol, 0, wordGridManager.gridSize - 1);
         targetRow = Mathf.Clamp(targetRow, 0, wordGridManager.gridSize - 1);
     }
 
-    // Resets all flags related to pending actions
     private void ResetPendingFlags()
     {
         pendingValidationCheck = false;
@@ -388,16 +483,14 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
         moveReductionCol = -1;
     }
 
-    // Resets the core state variables related to an active drag
     private void ResetDragState()
     {
         isDragging = false;
         axisLocked = false;
         accumulatedDrag = 0f;
-        // Keep targetRow/Col as they are reset in OnEndDrag or OnBeginDrag
+        // targetRow and targetCol are determined at the start of a drag
     }
 
-    // Updates the cached originalScale value
     private void UpdateOriginalScale()
     {
         if (wordGridManager != null && wordGridManager.gridSize > 0)
@@ -407,21 +500,17 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
             {
                 originalScale = sampleCell.RectTransform.localScale;
             }
-            else { originalScale = Vector3.one; /* Default */ }
+            else { originalScale = Vector3.one; }
         }
-        else { originalScale = Vector3.one; /* Default */ }
+        else { originalScale = Vector3.one; }
     }
 
-
-    // --- Highlight Methods (Using CellController, Instant Apply/Reset) ---
-
-    // Applies highlight instantly to a row
+    // --- Highlight Methods ---
     private void ApplyHighlightRow(int rowIndex)
     {
-        if (isHighlightApplied || wordGridManager == null || rowIndex < 0 || rowIndex >= wordGridManager.gridSize) return;
-        // Debug.Log($"Applying highlight to row {rowIndex}");
+        if (!enableDragHighlight || isHighlightApplied || wordGridManager == null || rowIndex < 0 || rowIndex >= wordGridManager.gridSize) return;
 
-        ClearHighlightLists(); // Ensure lists are empty before adding
+        ClearHighlightLists();
 
         for (int c = 0; c < wordGridManager.gridSize; c++)
         {
@@ -429,12 +518,9 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
             if (cellController == null || cellController.RectTransform == null) continue;
 
             RectTransform cellRect = cellController.RectTransform;
-
-            // --- Apply Scale ---
             cellRect.localScale = originalScale * highlightScaleMultiplier;
-            currentlyHighlightedCells.Add(cellController); // Store CellController
+            currentlyHighlightedCells.Add(cellController);
 
-            // --- Apply Color ---
             Image cellImage = cellController.GetComponent<Image>() ?? cellController.GetComponentInChildren<Image>();
             if (cellImage != null)
             {
@@ -442,16 +528,14 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
                 originalColors.Add(cellImage.color);
                 cellImage.color = highlightColor;
             }
-            else { highlightedImages.Add(null); originalColors.Add(Color.clear); } // Keep lists aligned
+            else { highlightedImages.Add(null); originalColors.Add(Color.clear); }
         }
         isHighlightApplied = true;
     }
 
-    // Applies highlight instantly to a column
     private void ApplyHighlightColumn(int colIndex)
     {
-        if (isHighlightApplied || wordGridManager == null || colIndex < 0 || colIndex >= wordGridManager.gridSize) return;
-        // Debug.Log($"Applying highlight to column {colIndex}");
+        if (!enableDragHighlight || isHighlightApplied || wordGridManager == null || colIndex < 0 || colIndex >= wordGridManager.gridSize) return;
 
         ClearHighlightLists();
 
@@ -461,12 +545,9 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
             if (cellController == null || cellController.RectTransform == null) continue;
 
             RectTransform cellRect = cellController.RectTransform;
-
-            // --- Apply Scale ---
             cellRect.localScale = originalScale * highlightScaleMultiplier;
             currentlyHighlightedCells.Add(cellController);
 
-            // --- Apply Color ---
             Image cellImage = cellController.GetComponent<Image>() ?? cellController.GetComponentInChildren<Image>();
             if (cellImage != null)
             {
@@ -474,45 +555,37 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
                 originalColors.Add(cellImage.color);
                 cellImage.color = highlightColor;
             }
-            else { highlightedImages.Add(null); originalColors.Add(Color.clear); } // Keep lists aligned
+            else { highlightedImages.Add(null); originalColors.Add(Color.clear); }
         }
         isHighlightApplied = true;
     }
 
-    // --- Reset Highlight Methods ---
-
-    // Public method called by OnEndDrag to reset highlight
     private void ResetHighlight()
     {
-        ForceResetHighlightVisuals(); // Use the instant reset method
+        ForceResetHighlightVisuals();
     }
 
-    // Instantly resets visuals (used by ResetHighlight, OnDisable, OnEnable, OnBeginDrag)
     private void ForceResetHighlightVisuals()
     {
-        if (!isHighlightApplied) return; // Only reset if applied
+        if (!isHighlightApplied) return;
 
-        // Use the stored CellControllers to reset scale and color
         for (int i = 0; i < currentlyHighlightedCells.Count; i++)
         {
             CellController cellController = currentlyHighlightedCells[i];
             if (cellController != null && cellController.RectTransform != null)
             {
-                // Set Scale Instantly
                 cellController.RectTransform.localScale = originalScale;
 
-                // Set Color Instantly using stored Image and original Color
                 if (i < highlightedImages.Count && highlightedImages[i] != null && i < originalColors.Count)
                 {
                     highlightedImages[i].color = originalColors[i];
                 }
             }
         }
-        isHighlightApplied = false; // Mark as not applied AFTER resetting all
-        ClearHighlightLists(); // Clear lists after resetting
+        isHighlightApplied = false;
+        ClearHighlightLists();
     }
 
-    // Clears the lists used for tracking highlighted elements
     private void ClearHighlightLists()
     {
         currentlyHighlightedCells.Clear();
@@ -520,4 +593,4 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
         originalColors.Clear();
     }
 
-} // End of GridInputHandler class
+}

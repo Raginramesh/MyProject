@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI; // Required for Image component
 using TMPro; // Required for TextMeshPro components
 using DG.Tweening; // Required for DOTween animations
 using System.Collections.Generic; // Required for Lists
@@ -23,6 +24,12 @@ public class WordGridManager : MonoBehaviour
     [SerializeField] private float cellFadeInDuration = 0.3f;
     /// <summary>Gets the configured duration for cell fade-in animations.</summary>
     public float CellFadeInDuration => cellFadeInDuration;
+
+    // <<< NEW: Add these color fields >>>
+    [Tooltip("Primary color for grid cells.")]
+    [SerializeField] private Color cellColorPrimary = Color.white;
+    [Tooltip("Alternate color for grid cells (for checkerboard pattern).")]
+    [SerializeField] private Color cellColorAlternate = new Color(0.9f, 0.9f, 0.9f, 1f); // A light gray
 
     [Header("References")]
     [SerializeField] private WordValidator wordValidator; // Reference to the script that finds words
@@ -131,15 +138,17 @@ public class WordGridManager : MonoBehaviour
                 // --- Get Components ---
                 CellController cellController = cellGO.GetComponent<CellController>();
                 LetterCell cellComponent = cellGO.GetComponent<LetterCell>(); // Get LetterCell if exists
+                Image cellImage = cellGO.GetComponent<Image>(); // <<< NEW: Get the Image component
 
                 // --- Sanity Checks ---
-                if (cellController == null) { Debug.LogError($"Prefab '{letterCellPrefab.name}' missing CellController component!", cellGO); Destroy(cellGO); continue; }
-                // Optional check for RectTransform (should be implicitly present if UI element)
-                if (cellController.RectTransform == null) { Debug.LogError($"CellController on prefab '{letterCellPrefab.name}' missing RectTransform!", cellGO); Destroy(cellGO); continue; }
+                if (cellController == null) { Debug.LogError($"Prefab \'{letterCellPrefab.name}\' missing CellController component!", cellGO); Destroy(cellGO); continue; }
+                if (cellController.RectTransform == null) { Debug.LogError($"CellController on prefab \'{letterCellPrefab.name}\' missing RectTransform!", cellGO); Destroy(cellGO); continue; }
+                // <<< NEW: Check for Image component >>>
+                if (cellImage == null) { Debug.LogWarning($"Prefab \'{letterCellPrefab.name}\' missing Image component. Cannot set alternating colors.", cellGO); }
+
 
                 // --- Position and Scale ---
                 RectTransform cellRect = cellController.RectTransform;
-                // Calculate position based on grid center, cell size, spacing, and indices
                 float posX = startOffset + c * (cellSize + spacing);
                 float posY = startOffset + (gridSize - 1 - r) * (cellSize + spacing); // Origin assumed bottom-left for calculation, visually top-left
                 cellRect.anchoredPosition = new Vector2(posX, posY);
@@ -150,6 +159,19 @@ public class WordGridManager : MonoBehaviour
                 char letter = gridData[r, c];
                 cellController.SetLetter(letter); // Set the visual letter
                 cellController.SetAlpha(1f); // Ensure fully visible
+
+                // <<< NEW: Apply alternating color >>>
+                if (cellImage != null)
+                {
+                    if ((r + c) % 2 == 0)
+                    {
+                        cellImage.color = cellColorPrimary;
+                    }
+                    else
+                    {
+                        cellImage.color = cellColorAlternate;
+                    }
+                }
 
                 // --- Store References ---
                 gridCells[r, c] = cellController;
@@ -237,7 +259,7 @@ public class WordGridManager : MonoBehaviour
     public void RequestRowScroll(int rowIndex, int direction, float scrollAmount)
     {
         // Prevent scrolling if conditions not met
-        if (!enabled || isAnimating || gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing)
+        if (!enabled || isAnimating || gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing)
         {
             // Debug.LogWarning($"RequestRowScroll ignored: Enabled={enabled}, isAnimating={isAnimating}, State={gameManager?.CurrentState}", this);
             return;
@@ -250,7 +272,7 @@ public class WordGridManager : MonoBehaviour
     public void RequestColumnScroll(int colIndex, int direction, float scrollAmount)
     {
         // Prevent scrolling if conditions not met
-        if (!enabled || isAnimating || gameManager == null || gameManager.CurrentState != GameManager.GameState.Playing)
+        if (!enabled || isAnimating || gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing)
         {
             // Debug.LogWarning($"RequestColumnScroll ignored: Enabled={enabled}, isAnimating={isAnimating}, State={gameManager?.CurrentState}", this);
             return;
@@ -621,7 +643,7 @@ public class WordGridManager : MonoBehaviour
         // Check prerequisites: GameManager and WordValidator must exist
         if (gameManager == null || wordValidator == null) { Debug.LogError("WGM: Cannot TriggerValidationCheck - missing refs (GameManager or WordValidator)!", this); return; }
         // Check game state: Must be 'Playing'
-        if (gameManager.CurrentState != GameManager.GameState.Playing)
+        if (gameManager.CurrentStatePublic != GameManager.GameState.Playing)
         {
             // Debug.Log("TriggerValidationCheck skipped: Game not in Playing state.");
             return;
@@ -651,7 +673,7 @@ public class WordGridManager : MonoBehaviour
     /// Also triggers the GameManager's move decrement.
     /// </summary>
     /// <param name="row">The row index that was scrolled (-1 if a column was scrolled).</param>
-    /// <param name="col">The column index that was scrolled (-1 if a row was scrolled).</param>
+    /// <param name="col">The column index that was scrolled (-1 if a column was scrolled).</param>
     public void ApplyPendingMoveReduction(int row, int col)
     {
         // Validate input: exactly one of row or col should be valid index

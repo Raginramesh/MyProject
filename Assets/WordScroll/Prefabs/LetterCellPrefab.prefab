@@ -377,7 +377,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   initialMoves: 25
-  enableMoves: 0
+  enableMoves: 1
   movesTextDisplay: {fileID: 7140160136770179494}
 --- !u!114 &1102557962842954070
 MonoBehaviour:

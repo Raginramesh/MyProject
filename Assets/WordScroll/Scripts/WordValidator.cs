@@ -98,7 +98,7 @@ public class WordValidator : MonoBehaviour
     {
         List<FoundWordData> newlyFoundWords = new List<FoundWordData>();
         if (wordGridManager == null || wordGridManager.gridData == null || validWords == null || validWords.Count == 0) { return newlyFoundWords; }
-        if (gameManager != null && gameManager.CurrentState != GameManager.GameState.Playing) { return newlyFoundWords; }
+        if (gameManager != null && gameManager.CurrentStatePublic != GameManager.GameState.Playing) { return newlyFoundWords; }
 
         int gridSize = wordGridManager.gridSize;
         char[,] gridData = wordGridManager.gridData;

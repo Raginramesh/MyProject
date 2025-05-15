@@ -1231,8 +1231,13 @@ MonoBehaviour:
   gameManager: {fileID: 1480404336}
   gridPanelRect: {fileID: 450983248}
   uiCamera: {fileID: 24250974}
-  dragThreshold: 0.01
-  scrollThresholdFactor: 0.2
+  dragThreshold: 20
+  scrollThresholdFactor: 0.4
+  enableInertia: 1
+  minFlickVelocity: 300
+  inertiaDampingFactor: 0.95
+  minInertiaSpeed: 30
+  velocityCalculationSamples: 5
   enableDragHighlight: 1
   highlightScaleMultiplier: 1
   highlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
@@ -1544,6 +1549,8 @@ MonoBehaviour:
   letterCellPrefab: {fileID: 9110838812193733251, guid: cc9c4ccdc67a2564f96eadc2f42672d0, type: 3}
   gridParent: {fileID: 450983248}
   cellFadeInDuration: 0.5
+  cellColorPrimary: {r: 1, g: 1, b: 1, a: 1}
+  cellColorAlternate: {r: 1, g: 1, b: 1, a: 1}
   wordValidator: {fileID: 593137152}
   gameManager: {fileID: 1480404336}
 --- !u!224 &593137151
@@ -2526,7 +2533,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   currentState: 0
   currentDisplayMode: 2
-  gameTimeLimit: 5
+  gameTimeLimit: 120
   startingMoves: 20
   homeSceneName: HomeScene
   currentScoringMode: 1
@@ -3255,6 +3262,11 @@ MonoBehaviour:
   uiCamera: {fileID: 0}
   dragThreshold: 1
   scrollThresholdFactor: 0.4
+  enableInertia: 1
+  minFlickVelocity: 300
+  inertiaDampingFactor: 0.95
+  minInertiaSpeed: 30
+  velocityCalculationSamples: 5
   enableDragHighlight: 1
   highlightScaleMultiplier: 1.08
   highlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
