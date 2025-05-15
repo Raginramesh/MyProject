@@ -23,15 +23,26 @@ public class TileData
     private Color defaultLetterColor = Color.black;
     private Color previewLetterColor = new Color(0.2f, 0.2f, 0.2f, 0.7f);
 
+
     // Center Tile specific
     public bool IsDesignatedCenterTile { get; private set; } = false;
     private Color _designatedCenterTileColor;
 
-    public TileData(Vector2Int coordinates, GameObject visualTileInstance)
+    // Alternate cell color support
+    private Color _defaultCellColor;
+
+
+    public TileData(Vector2Int coordinates, GameObject visualTileInstance, Color defaultCellColor)
     {
         Coordinates = coordinates;
         VisualTile = visualTileInstance;
         Letter = '\0';
+        _defaultCellColor = defaultCellColor; // Store this
+        _initialPrefabBackgroundColor = defaultCellColor; // Use it as the base
+        if (backgroundImage != null)
+        {
+            backgroundImage.color = _initialPrefabBackgroundColor;
+        }
 
         if (VisualTile != null)
         {
@@ -40,18 +51,29 @@ public class TileData
 
             if (backgroundImage != null)
             {
-                _initialPrefabBackgroundColor = backgroundImage.color; // Store initial color from prefab
+                _initialPrefabBackgroundColor = defaultCellColor; // Set the initial color to the provided default
+                backgroundImage.color = _initialPrefabBackgroundColor; // Apply the initial color
             }
-            else { Debug.LogWarning($"TileData for {coordinates}: VisualTile '{VisualTile.name}' is missing an Image component."); }
-
-            if (mainTextComponent == null) { Debug.LogWarning($"TileData for {coordinates}: VisualTile '{VisualTile.name}' is MISSING a TextMeshProUGUI child component."); }
             else
             {
-                if (mainTextComponent.font == null) Debug.LogError($"TileData for {coordinates}: TextMeshProUGUI on '{mainTextComponent.gameObject.name}' is MISSING a Font Asset!");
+                Debug.LogWarning($"TileData for {coordinates}: VisualTile '{VisualTile.name}' is missing an Image component.");
+            }
+
+            if (mainTextComponent == null)
+            {
+                Debug.LogWarning($"TileData for {coordinates}: VisualTile '{VisualTile.name}' is MISSING a TextMeshProUGUI child component.");
+            }
+            else
+            {
+                if (mainTextComponent.font == null)
+                    Debug.LogError($"TileData for {coordinates}: TextMeshProUGUI on '{mainTextComponent.gameObject.name}' is MISSING a Font Asset!");
             }
         }
-        else { Debug.LogError($"TileData for {coordinates}: visualTileInstance was NULL!"); }
-        ResetTile(); // Initial visual state
+        else
+        {
+            Debug.LogError($"TileData for {coordinates}: visualTileInstance was NULL!");
+        }
+        ResetTile(); // Initialize the visual state
     }
 
     public void SetPlacedLetter(char newLetter)
@@ -82,11 +104,7 @@ public class TileData
     {
         IsDesignatedCenterTile = true;
         _designatedCenterTileColor = centerColor;
-        // Update visuals immediately to reflect this change if it wasn't already set by initial creation
-        if (backgroundImage != null && backgroundImage.color != _designatedCenterTileColor && !IsPreviewed)
-        {
-            UpdateVisuals();
-        }
+        UpdateVisuals(); // Update visuals to reflect the new center tile color
     }
 
     public void ResetTile()
@@ -113,9 +131,9 @@ public class TileData
             {
                 backgroundImage.color = _designatedCenterTileColor;
             }
-            else // Not previewed, not special center - use initial prefab color
+            else // Not previewed, not special center - use alternate or default color
             {
-                backgroundImage.color = _initialPrefabBackgroundColor;
+                backgroundImage.color = _defaultCellColor; // Use the alternating cell color based on initialization
             }
         }
 
@@ -139,7 +157,7 @@ public class TileData
                 else
                 {
                     mainTextComponent.text = "";
-                    mainTextComponent.gameObject.SetActive(true); // Or false if you prefer to hide empty text objects
+                    mainTextComponent.gameObject.SetActive(false); // Hide empty text objects for a cleaner grid
                 }
             }
         }

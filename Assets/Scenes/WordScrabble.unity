@@ -435,12 +435,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 569a30bfa7f09b540b3a76edab7c769c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  desiredGridWidth: 15
-  desiredGridHeight: 15
-  desiredCellSize: {x: 50, y: 50}
+  desiredGridWidth: 13
+  desiredGridHeight: 13
+  desiredCellSize: {x: 60, y: 60}
   desiredCellSpacing: {x: 5, y: 5}
   enforceOddDimensions: 1
-  centerTileColor: {r: 0, g: 1, b: 1, a: 1}
+  primaryCellColor: {r: 1, g: 1, b: 1, a: 1}
+  secondaryCellColor: {r: 0.8113208, g: 0.508989, b: 0.508989, a: 1}
+  centerTileColor: {r: 0.9339623, g: 0.88058877, b: 0.4008989, a: 1}
   gridPanelParent: {fileID: 915565721}
   tilePrefab: {fileID: 4487109764738883345, guid: d8966d5e85d852447a05f1120c263178, type: 3}
   logCoordinateConversion: 1
@@ -726,8 +728,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8442375f92445a647b5634b548d10270, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  levelWords: []
+  currentLevelData: {fileID: 11400000, guid: f0339371698668c448aaaea39f3f4c74, type: 2}
   gridManager: {fileID: 483924353}
+  wordInventory: {fileID: 997665733}
   wordPlacementValidator: {fileID: 483924355}
 --- !u!4 &997665732
 Transform:

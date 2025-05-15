@@ -16,6 +16,14 @@ public class GridManager : MonoBehaviour
     [SerializeField] private Vector2 desiredCellSpacing = new Vector2(5, 5);
     [Tooltip("If true, width and height will be incremented to the next odd number if an even number is entered.")]
     [SerializeField] private bool enforceOddDimensions = true;
+
+    // --- Added Cell Color Fields ---
+    [Header("Cell Colors")]
+    [Tooltip("Primary color for the grid cells (e.g., for even cells in checkerboard).")]
+    [SerializeField] private Color primaryCellColor = Color.white; // Example: white
+    [Tooltip("Secondary color for alternating grid cells (e.g., for odd cells in checkerboard).")]
+    [SerializeField] private Color secondaryCellColor = new Color(0.9f, 0.9f, 0.9f, 1f); // Example: light gray
+    // --- End Added Cell Color Fields ---
     [Tooltip("Color for the automatically designated center tile of the grid.")]
     [SerializeField] private Color centerTileColor = Color.cyan;
 
@@ -99,27 +107,35 @@ public class GridManager : MonoBehaviour
         }
 
         foreach (Transform child in gridPanelParent) { Destroy(child.gameObject); }
-        _currentPreviewCoords.Clear();
+        _currentPreviewCoords.Clear(); // Preserved this line
         gridData = new TileData[this.runtimeGridWidth, this.runtimeGridHeight];
 
+        // --- Modified Tile Instantiation Loop ---
         for (int y = 0; y < this.runtimeGridHeight; y++)
         {
             for (int x = 0; x < this.runtimeGridWidth; x++)
             {
                 GameObject tileInstance = Instantiate(tilePrefab, gridPanelParent);
                 tileInstance.name = $"Tile_{x}_{y}";
-                gridData[x, y] = new TileData(new Vector2Int(x, y), tileInstance);
+
+                // Determine the cell's default color for checkerboard pattern
+                Color defaultCellColorForTile = (x + y) % 2 == 0 ? primaryCellColor : secondaryCellColor;
+
+                // Pass the defaultCellColorForTile to the TileData constructor
+                // This assumes your TileData constructor is: TileData(Vector2Int coords, GameObject visualInstance, Color defaultCellColor)
+                gridData[x, y] = new TileData(new Vector2Int(x, y), tileInstance, defaultCellColorForTile);
             }
         }
+        // --- End Modified Tile Instantiation Loop ---
 
-        // Designate and color the center tile
+        // Designate and color the center tile (This logic remains the same and is correct)
         if (this.runtimeGridWidth > 0 && this.runtimeGridHeight > 0)
         {
             Vector2Int centerCoordinate = new Vector2Int(this.runtimeGridWidth / 2, this.runtimeGridHeight / 2);
             TileData centerTile = GetTileData(centerCoordinate);
             if (centerTile != null)
             {
-                centerTile.SetAsDesignatedCenterTile(centerTileColor);
+                centerTile.SetAsDesignatedCenterTile(centerTileColor); // TileData.UpdateVisuals will use this
                 Debug.Log($"GridManager: Center tile at {centerCoordinate} designated with color {centerTileColor}.");
             }
             else { Debug.LogWarning($"GridManager: Could not get TileData for center coordinate {centerCoordinate} to designate it."); }
@@ -129,6 +145,7 @@ public class GridManager : MonoBehaviour
         Debug.Log($"GridManager: Grid creation complete ({runtimeGridWidth}x{runtimeGridHeight}).");
     }
 
+    // --- All methods below this line are preserved from your original script ---
     public void ClearAndResetGridVisuals()
     {
         if (gridData == null) return;
@@ -227,15 +244,15 @@ public class GridManager : MonoBehaviour
                 return false;
             }
 
-            int x = Mathf.FloorToInt(contentX / cellWidthWithSpacing);
-            int y = Mathf.FloorToInt(contentY / cellHeightWithSpacing);
+            int xCoord = Mathf.FloorToInt(contentX / cellWidthWithSpacing); // Renamed to avoid conflict with loop variable
+            int yCoord = Mathf.FloorToInt(contentY / cellHeightWithSpacing); // Renamed to avoid conflict with loop variable
 
-            if (x >= 0 && x < runtimeGridWidth && y >= 0 && y < runtimeGridHeight)
+            if (xCoord >= 0 && xCoord < runtimeGridWidth && yCoord >= 0 && yCoord < runtimeGridHeight)
             {
-                gridCoords = new Vector2Int(x, y);
+                gridCoords = new Vector2Int(xCoord, yCoord);
                 return true;
             }
-            else { if (logCoordinateConversion) Debug.LogWarning($"Calculated coords ({x},{y}) are out of grid bounds ({runtimeGridWidth}x{runtimeGridHeight})."); }
+            else { if (logCoordinateConversion) Debug.LogWarning($"Calculated coords ({xCoord},{yCoord}) are out of grid bounds ({runtimeGridWidth}x{runtimeGridHeight})."); }
         }
         else { if (logCoordinateConversion) Debug.LogWarning($"ScreenPointToLocalPointInRectangle failed for screenPoint: {screenPoint}"); }
         return false;
