@@ -340,7 +340,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 29763512}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3312d7739989d2b4e91e6319e9a96d76, type: 3}
   m_Name: 
@@ -1240,7 +1240,9 @@ MonoBehaviour:
   velocityCalculationSamples: 5
   enableDragHighlight: 1
   highlightScaleMultiplier: 1
-  highlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+  dragHighlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+  maxTapDuration: 100
+  maxTapMoveDistance: 100
 --- !u!1 &506179310
 GameObject:
   m_ObjectHideFlags: 0
@@ -1551,6 +1553,7 @@ MonoBehaviour:
   cellFadeInDuration: 0.5
   cellColorPrimary: {r: 1, g: 1, b: 1, a: 1}
   cellColorAlternate: {r: 1, g: 1, b: 1, a: 1}
+  potentialWordHighlightColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   wordValidator: {fileID: 593137152}
   gameManager: {fileID: 1480404336}
 --- !u!224 &593137151
@@ -1587,7 +1590,8 @@ MonoBehaviour:
   wordGridManager: {fileID: 593137150}
   gameManager: {fileID: 1480404336}
   wordListFile: {fileID: 4900000, guid: 18e3f9beda31baa46be256b20b84d7fc, type: 3}
-  minWordLength: 5
+  minWordLength: 4
+  maxWordLength: 5
 --- !u!1 &773578373
 GameObject:
   m_ObjectHideFlags: 0
@@ -2399,7 +2403,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: -3.271, y: -488.43}
+  m_AnchoredPosition: {x: -3.271, y: -287}
   m_SizeDelta: {x: 1073.458, y: 261.50903}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1345162615
@@ -2539,7 +2543,7 @@ MonoBehaviour:
   currentScoringMode: 1
   pointsPerLetter: 10
   scoreText: {fileID: 1345162615}
-  scoreTextRectTransform: {fileID: 0}
+  scoreTextRectTransform: {fileID: 1345162614}
   statusDisplayGroup: {fileID: 331589041}
   timerText: {fileID: 582632626}
   movesText: {fileID: 817405987}
@@ -2580,15 +2584,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 025125069ede12648af069326479d7aa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  flyingLetterPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
-  flyingLetterParent: {fileID: 54221075}
-  scoreTextRect: {fileID: 1345162614}
-  initialFlyingLetterScale: {x: 1.4, y: 1.4, z: 1}
-  flyUpDistance: 10
+  flyingLetterPrefab: {fileID: 0}
+  flyingLetterParent: {fileID: 0}
+  scoreTextRect: {fileID: 0}
+  initialFlyingLetterScale: {x: 1, y: 1, z: 1}
+  flyUpDistance: 30
   flyUpDuration: 0.2
-  floatDuration: 0.5
-  flyToScoreDuration: 0.3
-  delayBetweenLetters: 0.2
+  floatDuration: 0.3
+  flyToScoreDuration: 0.5
+  delayBetweenLetters: 0.08
   flyEase: 20
 --- !u!1 &1534631787
 GameObject:
@@ -3269,7 +3273,9 @@ MonoBehaviour:
   velocityCalculationSamples: 5
   enableDragHighlight: 1
   highlightScaleMultiplier: 1.08
-  highlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+  dragHighlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+  maxTapDuration: 0.3
+  maxTapMoveDistance: 15
 --- !u!114 &2028402608
 MonoBehaviour:
   m_ObjectHideFlags: 0
