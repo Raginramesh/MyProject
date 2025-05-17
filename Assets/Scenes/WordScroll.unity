@@ -340,7 +340,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 29763512}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3312d7739989d2b4e91e6319e9a96d76, type: 3}
   m_Name: 
@@ -2584,9 +2584,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 025125069ede12648af069326479d7aa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  flyingLetterPrefab: {fileID: 0}
-  flyingLetterParent: {fileID: 0}
-  scoreTextRect: {fileID: 0}
+  flyingLetterPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
+  flyingLetterParent: {fileID: 54221075}
+  scoreTextRect: {fileID: 1345162614}
   initialFlyingLetterScale: {x: 1, y: 1, z: 1}
   flyUpDistance: 30
   flyUpDuration: 0.2

@@ -377,7 +377,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   initialMoves: 25
-  enableMoves: 1
+  enableMoves: 0
   movesTextDisplay: {fileID: 7140160136770179494}
 --- !u!114 &1102557962842954070
 MonoBehaviour:
@@ -393,3 +393,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   letterText: {fileID: 0}
   canvasGroup: {fileID: 0}
+  backgroundImage: {fileID: 0}
+  defaultColor: {r: 1, g: 1, b: 1, a: 1}
+  highlightScaleMultiplier: 1.05
