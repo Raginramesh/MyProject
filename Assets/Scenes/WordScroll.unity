@@ -2588,8 +2588,8 @@ MonoBehaviour:
   flyingLetterPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
   flyingLetterParent: {fileID: 54221075}
   scoreTextRect: {fileID: 1345162614}
-  initialFlyingLetterScale: {x: 1, y: 1, z: 1}
-  flyUpDistance: 30
+  initialFlyingLetterScale: {x: 1.5, y: 1.5, z: 1}
+  flyUpDistance: 5
   flyUpDuration: 0.2
   floatDuration: 0.3
   flyToScoreDuration: 0.5
