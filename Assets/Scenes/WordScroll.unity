@@ -1241,8 +1241,8 @@ MonoBehaviour:
   enableDragHighlight: 1
   highlightScaleMultiplier: 1
   dragHighlightColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
-  maxTapDuration: 100
-  maxTapMoveDistance: 100
+  maxTapDuration: 500
+  maxTapMoveDistance: 500
 --- !u!1 &506179310
 GameObject:
   m_ObjectHideFlags: 0
@@ -2403,7 +2403,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: -3.271, y: -287}
+  m_AnchoredPosition: {x: -3.271, y: -488.43}
   m_SizeDelta: {x: 1073.458, y: 261.50903}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1345162615
@@ -2554,6 +2554,7 @@ MonoBehaviour:
   gridInputHandler: {fileID: 450983252}
   effectsManager: {fileID: 1480404338}
   replacementDelayAfterEffectStart: 1
+  animationDurationPerWordInCombo: 0.5
   scoreShakeDuration: 0.1
   scoreShakeStrength: 10
   scoreShakeVibrato: 15

@@ -18,11 +18,11 @@ public struct FoundWordData
         ID = System.Guid.NewGuid();
     }
 
-    // Optional: Add an orientation property for easier filtering
     public enum WordOrientation { Horizontal, Vertical, SingleLetter }
     public WordOrientation GetOrientation()
     {
-        if (Coordinates == null || Coordinates.Count <= 1) return WordOrientation.SingleLetter;
+        if (Coordinates == null || Coordinates.Count == 0) return WordOrientation.SingleLetter; // Should not happen for valid words
+        if (Coordinates.Count == 1) return WordOrientation.SingleLetter;
         return (Coordinates[1].x == Coordinates[0].x) ? WordOrientation.Vertical : WordOrientation.Horizontal;
     }
 }
@@ -32,7 +32,7 @@ public class WordValidator : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private WordGridManager wordGridManager;
-    [SerializeField] private GameManager gameManager;
+    [SerializeField] private GameManager gameManager; // Assuming GameManager reference is available
 
     [Header("Word List Settings")]
     [SerializeField] private TextAsset wordListFile;
@@ -50,7 +50,7 @@ public class WordValidator : MonoBehaviour
         if (gameManager == null) gameManager = FindFirstObjectByType<GameManager>();
 
         if (wordGridManager == null) { Debug.LogError("WV: WordGridManager missing!", this); enabled = false; return; }
-        if (gameManager == null) { Debug.LogWarning("WV: GameManager reference not set in Awake (may be set later).", this); }
+        // gameManager might be set later or not strictly needed in WordValidator's Awake if circular dependency is an issue
         if (wordListFile == null) { Debug.LogError("WV: Word List File missing!", this); enabled = false; return; }
 
         if (minWordLength > maxWordLength && maxWordLength > 0)
@@ -58,7 +58,7 @@ public class WordValidator : MonoBehaviour
             Debug.LogWarning($"WordValidator: minWordLength ({minWordLength}) is greater than maxWordLength ({maxWordLength}). Adjusting minWordLength to be equal to maxWordLength.", this);
             minWordLength = maxWordLength;
         }
-        if (maxWordLength <= 0 && wordGridManager != null)
+        if (maxWordLength <= 0 && wordGridManager != null && wordGridManager.gridSize > 0) // Check gridSize > 0
         {
             maxWordLength = wordGridManager.gridSize;
         }
@@ -80,7 +80,8 @@ public class WordValidator : MonoBehaviour
             foreach (string line in lines)
             {
                 string word = line.Trim().ToUpperInvariant();
-                if (word.Length >= minWordLength && word.Length <= maxWordLength) // Consider maxWordLength here too
+                // Filter by length during loading as well
+                if (word.Length >= minWordLength && word.Length <= maxWordLength)
                 {
                     validWordsDictionary.Add(word);
                 }
@@ -102,6 +103,13 @@ public class WordValidator : MonoBehaviour
         }
     }
 
+    // NEW METHOD: IsWordFoundThisSession
+    public bool IsWordFoundThisSession(string word)
+    {
+        if (string.IsNullOrEmpty(word)) return false;
+        return wordsFoundThisSession.Contains(word.ToUpperInvariant());
+    }
+
     public List<FoundWordData> FindAllPotentialWords()
     {
         List<FoundWordData> potentialWords = new List<FoundWordData>();
@@ -114,7 +122,6 @@ public class WordValidator : MonoBehaviour
         char[,] gridData = wordGridManager.gridData;
         int effectiveMaxSearchLength = Mathf.Min(maxWordLength, currentGridSize);
 
-        // Temporary list to gather all words before filtering
         List<FoundWordData> allFoundRaw = new List<FoundWordData>();
 
         for (int r = 0; r < currentGridSize; r++)
@@ -131,8 +138,6 @@ public class WordValidator : MonoBehaviour
             FindWordsInLine(colBuilder.ToString(), c, false, allFoundRaw, effectiveMaxSearchLength);
         }
 
-        // Filter out duplicates based on exact coordinates and word (e.g. single letter words found in both passes)
-        // And then filter sub-words
         return FilterSubWordsAndDuplicates(allFoundRaw);
     }
 
@@ -147,12 +152,12 @@ public class WordValidator : MonoBehaviour
 
                 string sub = line.Substring(start, len).ToUpperInvariant();
 
-                if (validWordsDictionary.Contains(sub) && !wordsFoundThisSession.Contains(sub))
+                // Check if already found this session BEFORE adding to potential list for this pass
+                if (validWordsDictionary.Contains(sub) && !IsWordFoundThisSession(sub))
                 {
                     List<Vector2Int> wordCoords = CalculateCoordinates(lineIndex, start, len, isRow);
                     if (wordCoords != null && wordCoords.Count == len)
                     {
-                        // Add without the complex duplicate check here; we'll handle it in FilterSubWordsAndDuplicates
                         foundList.Add(new FoundWordData(sub, wordCoords));
                     }
                 }
@@ -165,15 +170,14 @@ public class WordValidator : MonoBehaviour
         if (allFoundWords == null || allFoundWords.Count == 0)
             return new List<FoundWordData>();
 
-        // 1. Remove exact duplicates (same word, same coordinates)
-        // Using a HashSet of a string representation of the word and its coordinates
         var uniqueEntries = new HashSet<string>();
         List<FoundWordData> uniqueWordDataList = new List<FoundWordData>();
 
         foreach (var wd in allFoundWords)
         {
             StringBuilder coordString = new StringBuilder();
-            foreach (var coord in wd.Coordinates.OrderBy(c => c.x).ThenBy(c => c.y)) // Consistent ordering
+            // Sort coordinates for a consistent signature
+            foreach (var coord in wd.Coordinates.OrderBy(c => c.x).ThenBy(c => c.y))
             {
                 coordString.Append($"({coord.x},{coord.y})");
             }
@@ -184,13 +188,16 @@ public class WordValidator : MonoBehaviour
             }
         }
 
-        // 2. Filter sub-words: Prioritize longer words
-        // Sort by length descending.
         uniqueWordDataList.Sort((a, b) => {
             int lengthComparison = b.Word.Length.CompareTo(a.Word.Length);
             if (lengthComparison != 0) return lengthComparison;
-            // Optional: further sort by coordinates if lengths are equal, for deterministic behavior
-            // For now, existing order for equal lengths is fine.
+            // Tie-breaking for consistent order (e.g. by first coordinate)
+            if (a.Coordinates.Count > 0 && b.Coordinates.Count > 0)
+            {
+                int rCompare = a.Coordinates[0].x.CompareTo(b.Coordinates[0].x);
+                if (rCompare != 0) return rCompare;
+                return a.Coordinates[0].y.CompareTo(b.Coordinates[0].y);
+            }
             return 0;
         });
 
@@ -200,16 +207,12 @@ public class WordValidator : MonoBehaviour
             bool isSubWordOfAlreadyAdded = false;
             foreach (var addedWordData in finalList)
             {
-                // Check if currentWordData is a sub-word of addedWordData
-                // and they share the same starting cell and orientation.
                 if (addedWordData.Word.Length > currentWordData.Word.Length &&
                     addedWordData.Word.StartsWith(currentWordData.Word) &&
                     currentWordData.Coordinates.Count > 0 && addedWordData.Coordinates.Count > 0 &&
-                    currentWordData.Coordinates[0] == addedWordData.Coordinates[0] && // Same start coordinate
-                    currentWordData.GetOrientation() == addedWordData.GetOrientation()) // Same orientation
+                    currentWordData.Coordinates[0] == addedWordData.Coordinates[0] &&
+                    currentWordData.GetOrientation() == addedWordData.GetOrientation())
                 {
-                    // To be a true sub-word in this context, all coordinates of currentWordData
-                    // must be part of addedWordData's initial coordinates.
                     bool allCoordsMatchPrefix = true;
                     for (int i = 0; i < currentWordData.Coordinates.Count; i++)
                     {
@@ -235,6 +238,44 @@ public class WordValidator : MonoBehaviour
         return finalList;
     }
 
+    // NEW METHOD: CheckIntersection
+    public bool CheckIntersection(FoundWordData wordA, FoundWordData wordB, out Vector2Int sharedCell)
+    {
+        sharedCell = new Vector2Int(-1, -1);
+        if (wordA.ID == wordB.ID || wordA.Coordinates == null || wordB.Coordinates == null)
+        {
+            return false;
+        }
+
+        FoundWordData.WordOrientation orientationA = wordA.GetOrientation();
+        FoundWordData.WordOrientation orientationB = wordB.GetOrientation();
+
+        // Must be on opposite axes (one horizontal, one vertical)
+        // Single letter words cannot be an "axis" for this rule.
+        if (orientationA == FoundWordData.WordOrientation.SingleLetter ||
+            orientationB == FoundWordData.WordOrientation.SingleLetter ||
+            orientationA == orientationB)
+        {
+            return false;
+        }
+
+        List<Vector2Int> sharedCoords = new List<Vector2Int>();
+        foreach (var coordA in wordA.Coordinates)
+        {
+            if (wordB.Coordinates.Contains(coordA))
+            {
+                sharedCoords.Add(coordA);
+            }
+        }
+
+        if (sharedCoords.Count == 1)
+        {
+            sharedCell = sharedCoords[0];
+            return true;
+        }
+
+        return false;
+    }
 
     private List<Vector2Int> CalculateCoordinates(int lineIndex, int startIndexInLine, int wordLength, bool isRow)
     {
@@ -250,7 +291,7 @@ public class WordValidator : MonoBehaviour
                 r = lineIndex;
                 c = startIndexInLine + i;
             }
-            else // Is Column
+            else
             {
                 r = startIndexInLine + i;
                 c = lineIndex;
@@ -262,7 +303,7 @@ public class WordValidator : MonoBehaviour
             }
             else
             {
-                Debug.LogError($"CalculateCoordinates: Coordinate [{r},{c}] out of bounds for grid size {currentGridSize}. Word: line {lineIndex}, start {startIndexInLine}, length {wordLength}, isRow {isRow}", this);
+                Debug.LogError($"CalculateCoordinates: Coordinate [{r},{c}] out of bounds. Word: line {lineIndex}, start {startIndexInLine}, length {wordLength}, isRow {isRow}", this);
                 return null;
             }
         }
