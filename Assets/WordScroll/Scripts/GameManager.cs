@@ -425,7 +425,7 @@ public class GameManager : MonoBehaviour
         return 0;
     }
 
-    private void UpdateScoreUI() { if (scoreText != null) scoreText.text = "Score: " + currentScore.ToString(); }
+    private void UpdateScoreUI() { if (scoreText != null) scoreText.text = currentScore.ToString(); }
 
     private void UpdateTimer()
     {

@@ -1554,6 +1554,7 @@ MonoBehaviour:
   cellColorPrimary: {r: 1, g: 1, b: 1, a: 1}
   cellColorAlternate: {r: 1, g: 1, b: 1, a: 1}
   potentialWordHighlightColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  directScrollAnimDuration: 0.17
   wordValidator: {fileID: 593137152}
   gameManager: {fileID: 1480404336}
 --- !u!224 &593137151
