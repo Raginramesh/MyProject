@@ -243,22 +243,18 @@ public class GameManager : MonoBehaviour
 
         if (allConnectedCandidates.Count == 0)
         {
-            Debug.Log("GM.AttemptTap: No connected candidates found after FindAllConnectedWords.");
             return false;
         }
 
         List<FoundWordData> wordsToProcessInSequence = FilterSubWordsFromBatch(allConnectedCandidates);
 
-        // Final safety check for already processed words (should be minimal if logic above is correct)
-        // and ensure uniqueness by ID.
         wordsToProcessInSequence = wordsToProcessInSequence
-                                    .Where(w => !wordValidator.IsWordFoundThisSession(w.Word))
+                                    .Where(w => !wordValidator.IsWordFoundThisSession(w.Word)) // Safety check
                                     .DistinctBy(w => w.ID)
                                     .ToList();
 
         if (wordsToProcessInSequence.Count == 0)
         {
-            Debug.Log("GM.AttemptTap: No words left after final filtering.");
             return false;
         }
 
@@ -269,20 +265,36 @@ public class GameManager : MonoBehaviour
         return true;
     }
 
-    private bool AreCoordinatesPrefixSubsequence(List<Vector2Int> prefixCoords, List<Vector2Int> mainCoords)
+    // Corrected: Removed reference to WordOrientation.Unknown
+    private bool AreCoordinatesContainedAndAligned(
+        List<Vector2Int> innerCoords, FoundWordData.WordOrientation innerOrientation,
+        List<Vector2Int> outerCoords, FoundWordData.WordOrientation outerOrientation)
     {
-        if (prefixCoords == null || mainCoords == null || prefixCoords.Count == 0 || prefixCoords.Count > mainCoords.Count)
+        if (innerCoords == null || outerCoords == null || innerCoords.Count == 0 || innerCoords.Count > outerCoords.Count)
         {
             return false;
         }
-        for (int k = 0; k < prefixCoords.Count; k++)
+        // If orientations are different, they cannot be an aligned sub-word.
+        if (innerOrientation != outerOrientation)
         {
-            if (prefixCoords[k] != mainCoords[k])
-            {
-                return false;
-            }
+            return false;
         }
-        return true;
+
+        // Check if innerCoords is a contiguous sublist of outerCoords
+        for (int i = 0; i <= outerCoords.Count - innerCoords.Count; i++)
+        {
+            bool match = true;
+            for (int j = 0; j < innerCoords.Count; j++)
+            {
+                if (outerCoords[i + j] != innerCoords[j])
+                {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) return true;
+        }
+        return false;
     }
 
     private List<FoundWordData> FilterSubWordsFromBatch(List<FoundWordData> candidates)
@@ -292,10 +304,9 @@ public class GameManager : MonoBehaviour
             return candidates ?? new List<FoundWordData>();
         }
 
-        // Primary sort: by length descending. Secondary: by ID for stable sort.
         var sortedCandidates = candidates
             .OrderByDescending(w => w.Word.Length)
-            .ThenBy(w => w.ID) // Ensures consistent processing order for tie-breaking
+            .ThenBy(w => w.ID)
             .ToList();
 
         List<FoundWordData> keptWords = new List<FoundWordData>();
@@ -304,41 +315,28 @@ public class GameManager : MonoBehaviour
         for (int i = 0; i < sortedCandidates.Count; i++)
         {
             FoundWordData currentWord = sortedCandidates[i];
+            if (discardedWordIds.Contains(currentWord.ID)) continue;
 
-            if (discardedWordIds.Contains(currentWord.ID))
-            {
-                continue; // Already discarded by a longer word.
-            }
-
-            // If not discarded, this word is a keeper (for now).
-            // No need to add to keptWords yet, we'll build it from non-discarded items at the end.
-
-            // Check against all *other* words in the original sorted list.
-            // We are checking if 'currentWord' makes any *other* word a sub-word.
-            // Or, more directly, if 'currentWord' is kept, should any *other* word be discarded?
             for (int j = 0; j < sortedCandidates.Count; j++)
             {
-                if (i == j) continue; // Don't compare a word to itself.
-
+                if (i == j) continue;
                 FoundWordData otherWord = sortedCandidates[j];
-                if (discardedWordIds.Contains(otherWord.ID)) continue; // Other word already discarded.
+                if (discardedWordIds.Contains(otherWord.ID)) continue;
 
-                // If 'otherWord' is shorter than 'currentWord', is in the same orientation,
-                // 'currentWord' starts with 'otherWord', and coordinates match as a prefix.
                 if (otherWord.Word.Length < currentWord.Word.Length &&
-                    currentWord.GetOrientation() == otherWord.GetOrientation() &&
-                    currentWord.Word.StartsWith(otherWord.Word) &&
-                    AreCoordinatesPrefixSubsequence(otherWord.Coordinates, currentWord.Coordinates))
+                    currentWord.Word.Contains(otherWord.Word) && // String contains check
+                    AreCoordinatesContainedAndAligned( // Coordinate and orientation alignment check
+                        otherWord.Coordinates, otherWord.GetOrientation(),
+                        currentWord.Coordinates, currentWord.GetOrientation()
+                    ))
                 {
-                    // 'otherWord' is a sub-word of 'currentWord' on the same axis. Discard 'otherWord'.
-                    // Debug.Log($"FilterSubWords: Discarding '{otherWord.Word}' because it's a sub-word of '{currentWord.Word}'");
+                    Debug.Log($"FilterSubWords: Discarding '{otherWord.Word}' (ID: {otherWord.ID.ToString().Substring(0, 4)}) because it's a sub-word of '{currentWord.Word}' (ID: {currentWord.ID.ToString().Substring(0, 4)})");
                     discardedWordIds.Add(otherWord.ID);
                 }
             }
         }
 
-        // Collect all words that were not discarded.
-        foreach (var word in sortedCandidates) // Iterate through original sorted list to maintain some order
+        foreach (var word in sortedCandidates)
         {
             if (!discardedWordIds.Contains(word.ID))
             {
@@ -346,9 +344,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // `keptWords` could potentially still have words that are identical if `FindAllConnectedWords` produced them,
-        // so a final DistinctBy ID is good practice, although `ProcessWordsSequentially` also has a `IsWordFoundThisSession` check.
-        return keptWords.DistinctBy(w => w.ID).ToList();
+        return keptWords;
     }
 
     private List<FoundWordData> FindAllConnectedWords(List<FoundWordData> startingWords)
@@ -410,12 +406,11 @@ public class GameManager : MonoBehaviour
 
         isProcessingSequentialWords = true;
         idsOfWordsInCurrentSequence.Clear();
-
         List<Vector2Int> allCellsAffectedInThisSequence = new List<Vector2Int>();
 
-        foreach (var wordData in wordsToAnimate) // wordsToAnimate should be correctly filtered now
+        foreach (var wordData in wordsToAnimate)
         {
-            if (wordValidator.IsWordFoundThisSession(wordData.Word)) // Safeguard
+            if (wordValidator.IsWordFoundThisSession(wordData.Word))
             {
                 continue;
             }
@@ -430,7 +425,6 @@ public class GameManager : MonoBehaviour
             }
             currentPotentialWords.RemoveAll(pwd => pwd.ID == wordData.ID);
 
-
             List<RectTransform> sourceCellRects = GetRectTransformsForCoords(wordData.Coordinates);
             if (sourceCellRects == null || sourceCellRects.Count != wordData.Word.Length)
             {
@@ -438,6 +432,20 @@ public class GameManager : MonoBehaviour
                 wordValidator.MarkWordAsFoundInSession(wordData.Word);
                 foreach (char letter in wordData.Word) HandleSingleLetterScore(CalculateScoreValueForLetter(letter));
                 continue;
+            }
+
+            if (wordGridManager != null)
+            {
+                foreach (Vector2Int coord in wordData.Coordinates)
+                {
+                    CellController cell = wordGridManager.GetCellController(coord);
+                    if (cell != null)
+                    {
+                        CanvasGroup cg = cell.GetComponent<CanvasGroup>();
+                        if (cg == null) cg = cell.gameObject.AddComponent<CanvasGroup>();
+                        cg.alpha = 0f;
+                    }
+                }
             }
 
             List<int> individualLetterScores = wordData.Word.Select(letter => CalculateScoreValueForLetter(letter)).ToList();
@@ -572,7 +580,7 @@ public class GameManager : MonoBehaviour
 
     public List<FoundWordData> GetCurrentPotentialWords()
     {
-        return new List<FoundWordData>(currentPotentialWords); // Return a copy
+        return new List<FoundWordData>(currentPotentialWords);
     }
 
     public bool IsWordInCurrentProcessingSequence(System.Guid wordId)

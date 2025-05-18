@@ -2553,7 +2553,7 @@ MonoBehaviour:
   wordValidator: {fileID: 593137152}
   gridInputHandler: {fileID: 450983252}
   effectsManager: {fileID: 1480404338}
-  replacementDelayAfterEffectStart: 1
+  replacementDelayAfterEffectStart: 0.1
   scoreShakeDuration: 0.1
   scoreShakeStrength: 10
   scoreShakeVibrato: 15
