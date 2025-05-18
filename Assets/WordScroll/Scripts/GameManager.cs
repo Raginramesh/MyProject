@@ -584,7 +584,7 @@ public class GameManager : MonoBehaviour
     {
         if (currentDisplayMode == DisplayMode.Moves && movesText != null && statusDisplayGroup != null && statusDisplayGroup.activeSelf)
         {
-            movesText.text = "Moves: " + currentMovesRemaining.ToString();
+            movesText.text = currentMovesRemaining.ToString();
         }
     }
 
