@@ -1,169 +1,234 @@
 using UnityEngine;
-using UnityEngine.UI; // For CanvasGroup if used on prefab
-using TMPro; // For TextMeshProUGUI
-using DG.Tweening; // For DOTween animations
-using System.Collections.Generic; // For List
-using System; // For Action<int>
+using TMPro;
+using System.Collections;
+using System.Collections.Generic;
+using DG.Tweening;
+using System;
 
 public class EffectsManager : MonoBehaviour
 {
-    [Header("Fly-To-Score Effect Config")]
-    [Tooltip("The prefab used for the flying letter animation. Must have RectTransform, TextMeshProUGUI, CanvasGroup.")]
+    [Header("Prefabs & Targets")]
     [SerializeField] private GameObject flyingLetterPrefab;
-    [Tooltip("The parent transform (usually the Canvas) for instantiated flying letters.")]
+    [SerializeField] private RectTransform scoreTargetRectTransform;
+
+    [Header("Animation Parameters - General")]
+    [SerializeField] private float flyingLetterInitialScale = 1.0f;
+    [SerializeField] private int activelyFlyingLetterSortOrder = 100; // NEW: For Canvas sorting
+
+    [Header("Animation Parameters - Lift Off (Global or Per Word)")] // Renamed header for clarity
+    [SerializeField] private float liftOffDistance = 0.2f;
+    [SerializeField] private float liftOffDuration = 0.15f;
+    [SerializeField] private Ease liftOffEase = Ease.OutQuad;
+
+    [Header("Animation Parameters - Flying to Score (Per Letter)")] // Renamed header
+    [SerializeField] private float flyToScoreDurationPerLetter = 0.5f;
+    [SerializeField] private Ease flyToScoreEase = Ease.InOutQuad;
+    [SerializeField] private float scaleDownFactorDuringFly = 0.5f;
+    [SerializeField] private float delayBetweenLetterFlights = 0.1f;
+
+    [Header("Parenting")]
     [SerializeField] private Transform flyingLetterParent;
-    [Tooltip("The RectTransform of the score text UI element (the target).")]
-    [SerializeField] private RectTransform scoreTextRect;
-    [Tooltip("Explicit starting scale for the flying letter prefab.")]
-    [SerializeField] private Vector3 initialFlyingLetterScale = Vector3.one;
-    [Tooltip("Vertical distance the letter floats up initially.")]
-    [SerializeField] private float flyUpDistance = 30f;
-    [Tooltip("Duration of the initial float up animation.")]
-    [SerializeField] private float flyUpDuration = 0.2f;
-    [Tooltip("How long the letter pauses after floating up before flying to score.")]
-    [SerializeField] private float floatDuration = 0.3f;
-    [Tooltip("Duration of the flight towards the score text.")]
-    [SerializeField] private float flyToScoreDuration = 0.5f;
-    [Tooltip("Delay between each letter starting its animation sequence.")]
-    [SerializeField] private float delayBetweenLetters = 0.08f;
-    [Tooltip("Ease type for the fly-to-score movement.")]
-    [SerializeField] private Ease flyEase = Ease.InOutQuad;
 
-    // --- Animation State Tracking ---
-    /// <summary>
-    /// Gets whether the fly-to-score effect is currently playing.
-    /// </summary>
     public bool IsAnimating { get; private set; } = false;
-
-    // --- Other Effect Configs (e.g., Particle Prefabs, Sound Clips) ---
-
 
     void Awake()
     {
-        IsAnimating = false; // Ensure state is false on awake
-
-        // Validate essential references for Fly-To-Score
-        if (flyingLetterPrefab == null) Debug.LogError("EffectsManager: Flying Letter Prefab missing!", this);
-        if (flyingLetterParent == null) Debug.LogError("EffectsManager: Flying Letter Parent missing!", this);
-        if (scoreTextRect == null) Debug.LogError("EffectsManager: Score Text Rect missing!", this);
-        // Add validation for other effects as needed
+        if (flyingLetterPrefab == null)
+        {
+            Debug.LogError("EffectsManager: FlyingLetterPrefab is not set!", this);
+        }
+        if (scoreTargetRectTransform == null)
+        {
+            Debug.LogError("EffectsManager: ScoreTargetRectTransform is not set!", this);
+        }
+        if (flyingLetterParent == null)
+        {
+            flyingLetterParent = transform;
+        }
     }
 
-    /// <summary>
-    /// Plays the visual effect for letters flying from source cells to the score text.
-    /// Triggers a callback for each letter animation completion with its score value.
-    /// Sets the IsAnimating flag during the effect.
-    /// </summary>
-    /// <param name="sourceCellRects">List of RectTransforms of the original cells (for position).</param>
-    /// <param name="word">The word being animated.</param>
-    /// <param name="letterScores">List of score values for each corresponding letter in the word.</param>
-    /// <param name="onLetterScoreCallback">Action invoked when EACH letter animation ends, passing its score value.</param>
-    public void PlayFlyToScoreEffect(
-        List<RectTransform> sourceCellRects,
-        string word,
-        List<int> letterScores,
-        Action<int> onLetterScoreCallback)
+    public List<GameObject> SpawnAndFloatLetterPrefabs(List<RectTransform> sourceCellRects, string wordString)
     {
-        // --- Pre-flight Checks ---
-        if (IsAnimating)
+        if (sourceCellRects == null || sourceCellRects.Count != wordString.Length)
         {
-            Debug.LogWarning("EffectsManager: PlayFlyToScoreEffect called while already animating. Ignoring.");
-            return; // Don't start a new animation if one is running
-        }
-        // Validate parameters
-        if (flyingLetterPrefab == null || scoreTextRect == null || flyingLetterParent == null ||
-            sourceCellRects == null || sourceCellRects.Count == 0 || letterScores == null || string.IsNullOrEmpty(word) ||
-            word.Length != sourceCellRects.Count || word.Length != letterScores.Count)
-        {
-            Debug.LogError("EffectsManager: Cannot PlayFlyToScoreEffect - invalid parameters or mismatched list counts. " +
-                           $"Word Length: {word?.Length}, Source Rects: {sourceCellRects?.Count}, Scores: {letterScores?.Count}", this);
-            return;
+            Debug.LogError("EffectsManager.SpawnAndFloat: Mismatch between sourceCellRects and wordString length or null input.");
+            return new List<GameObject>();
         }
 
-        // --- Start Animation ---
-        IsAnimating = true; // Set animation flag
-        // Debug.Log($"EffectsManager: Playing Fly-To-Score for word: {word}. IsAnimating = true.");
+        List<GameObject> spawnedFloatingPrefabs = new List<GameObject>();
 
-        Vector3 targetPosition = scoreTextRect.position; // World position of the score text target
-        Sequence masterSequence = DOTween.Sequence(); // Manages all letter animations together
-        int lettersToAnimate = word.Length; // Use word length, assuming lists match counts
-
-        for (int i = 0; i < lettersToAnimate; i++)
+        for (int i = 0; i < wordString.Length; i++)
         {
-            // Capture loop variables for the closure to ensure correct values are used in callbacks
-            int currentIndex = i;
-            int scoreForThisLetter = letterScores[currentIndex]; // Get score for this specific letter
-
-            RectTransform sourceRect = sourceCellRects[currentIndex];
-            if (sourceRect == null)
+            if (sourceCellRects[i] == null)
             {
-                Debug.LogWarning($"EffectsManager: Source RectTransform at index {currentIndex} is null. Skipping letter '{word[currentIndex]}'.");
-                continue; // Skip this letter if its source position is missing
-            }
-            char letterChar = word[currentIndex];
-
-            // --- Instantiate and Setup Clone ---
-            GameObject cloneGO = Instantiate(flyingLetterPrefab, flyingLetterParent);
-            RectTransform cloneRect = cloneGO.GetComponent<RectTransform>();
-            TextMeshProUGUI cloneText = cloneGO.GetComponentInChildren<TextMeshProUGUI>();
-            CanvasGroup cloneCanvasGroup = cloneGO.GetComponent<CanvasGroup>(); // Needed for fading
-
-            // Validate essential components on the prefab instance
-            if (cloneRect == null || cloneText == null || cloneCanvasGroup == null)
-            {
-                Debug.LogError($"EffectsManager: FlyingLetter Prefab '{flyingLetterPrefab.name}' instance is missing RectTransform, TextMeshProUGUI, or CanvasGroup!", cloneGO);
-                Destroy(cloneGO); // Clean up invalid instance
+                Debug.LogWarning($"EffectsManager.SpawnAndFloat: Null RectTransform at index {i} for word '{wordString}'. Skipping this letter.");
                 continue;
             }
 
-            // --- Initialize Clone State ---
-            cloneRect.position = sourceRect.position; // Match world position of the source cell
-            cloneRect.localScale = initialFlyingLetterScale; // Use the configured initial scale
-            cloneText.text = letterChar.ToString(); // Set the letter
-            cloneCanvasGroup.alpha = 1f; // Ensure it's visible
-            cloneRect.SetAsLastSibling(); // Render on top of other UI elements in the parent
+            GameObject instance = Instantiate(flyingLetterPrefab, flyingLetterParent);
+            instance.transform.position = sourceCellRects[i].position;
+            instance.transform.localScale = Vector3.one * flyingLetterInitialScale;
 
-            // --- Create Animation Sequence for this Clone ---
-            Sequence cloneSequence = DOTween.Sequence();
-            // 1. Float Up: Move vertically
-            cloneSequence.Append(cloneRect.DOMoveY(cloneRect.position.y + flyUpDistance, flyUpDuration).SetEase(Ease.OutQuad));
-            // 2. Pause: Wait for floatDuration
-            cloneSequence.AppendInterval(floatDuration);
-            // 3. Fly To Score: Move towards the target score text position
-            cloneSequence.Append(cloneRect.DOMove(targetPosition, flyToScoreDuration).SetEase(flyEase));
+            TextMeshProUGUI letterText = instance.GetComponentInChildren<TextMeshProUGUI>();
+            if (letterText != null)
+            {
+                letterText.text = wordString[i].ToString();
+            }
+            else
+            {
+                Debug.LogWarning("EffectsManager.SpawnAndFloat: FlyingLetterPrefab is missing TextMeshProUGUI component in children.", instance);
+            }
 
-            // Insert Scale and Fade animations to happen *during* the Fly To Score part (step 3)
-            float flyStartTime = flyUpDuration + floatDuration; // Calculate when the fly-to-score movement begins
-            // Scale down from initial scale to zero during the flight
-            cloneSequence.Insert(flyStartTime, cloneRect.DOScale(Vector3.zero, flyToScoreDuration).SetEase(flyEase));
-            // Fade out during the flight (can adjust duration multiplier for faster/slower fade)
-            cloneSequence.Insert(flyStartTime, cloneCanvasGroup.DOFade(0f, flyToScoreDuration * 0.8f).SetEase(Ease.InQuad));
+            CanvasGroup cg = instance.GetComponent<CanvasGroup>();
+            if (cg == null) cg = instance.AddComponent<CanvasGroup>();
+            cg.alpha = 1f;
 
-            // --- Callback and Cleanup for Individual Letter ---
-            cloneSequence.OnComplete(() => {
-                // Invoke the callback passed from GameManager with the score for THIS letter
-                onLetterScoreCallback?.Invoke(scoreForThisLetter);
+            // Ensure prefab has a Canvas for sorting later, disable override initially
+            Canvas letterCanvas = instance.GetComponent<Canvas>();
+            if (letterCanvas == null) letterCanvas = instance.AddComponent<Canvas>();
+            letterCanvas.overrideSorting = false; // Will be enabled when it's the *actively* flying letter
 
-                // Destroy the clone GameObject when its animation finishes
-                if (cloneGO != null) Destroy(cloneGO);
-            });
-
-            // Add this clone's sequence to the master sequence with a per-letter delay
-            masterSequence.Insert(i * delayBetweenLetters, cloneSequence);
+            spawnedFloatingPrefabs.Add(instance);
         }
-
-        // --- Master Sequence Completion ---
-        // Set IsAnimating to false ONLY when the *entire* master sequence finishes
-        masterSequence.OnComplete(() => {
-            IsAnimating = false;
-            // Debug.Log("EffectsManager: Fly-To-Score Master Sequence Complete. IsAnimating = false.");
-        });
-
-        masterSequence.Play(); // Start the entire animation process
+        return spawnedFloatingPrefabs;
     }
 
-    // --- Add other PlayEffect methods here as needed ---
-    // Example: public void PlayExplosionVFX(Vector3 position) { /* Instantiate particle system */ }
-    // Example: public void PlaySoundEffect(AudioClip clip) { /* Play audio */ }
+    /// <summary>
+    /// Performs a simultaneous lift-off animation for all provided prefabs.
+    /// Sets IsAnimating flag for the duration of this group lift-off.
+    /// </summary>
+    public IEnumerator PerformGlobalLiftOff(List<GameObject> allPrefabsToLift)
+    {
+        if (allPrefabsToLift == null || allPrefabsToLift.Count == 0 || !(liftOffDistance > 0 && liftOffDuration > 0))
+        {
+            if (!(liftOffDistance > 0 && liftOffDuration > 0))
+            {
+                // Only log if it was intended but params are zero, not if list is empty.
+                // Debug.Log("EffectsManager.PerformGlobalLiftOff: Lift-off distance or duration is zero, skipping.");
+            }
+            yield break; // No lift-off to perform
+        }
 
-} // End of EffectsManager class
+        IsAnimating = true;
+        Debug.Log($"EffectsManager: Starting Global Lift-Off for {allPrefabsToLift.Count} prefabs.");
+
+        Sequence masterLiftOffSequence = DOTween.Sequence();
+
+        foreach (GameObject letterInstance in allPrefabsToLift)
+        {
+            if (letterInstance == null) continue;
+
+            DOTween.Kill(letterInstance.transform, complete: false); // Kill any prior tweens
+
+            Vector3 currentPos = letterInstance.transform.position;
+            Vector3 upTargetPos = new Vector3(currentPos.x, currentPos.y + liftOffDistance, currentPos.z);
+
+            masterLiftOffSequence.Insert(0, letterInstance.transform.DOMove(upTargetPos, liftOffDuration).SetEase(liftOffEase));
+        }
+
+        if (masterLiftOffSequence.IsActive() && masterLiftOffSequence.IsPlaying())
+        {
+            yield return masterLiftOffSequence.WaitForCompletion();
+        }
+
+        Debug.Log("EffectsManager: Global Lift-Off Finished.");
+        IsAnimating = false;
+    }
+
+
+    /// <summary>
+    /// Coroutine that takes a list of prefabs (assumed to be already lifted if lift-off was performed)
+    /// and animates them to score ONE BY ONE. Each flying letter gets top sort order.
+    /// Sets IsAnimating flag for the duration of this word's letters flying.
+    /// </summary>
+    public IEnumerator FlyPrefabsToScoreSequentially(List<GameObject> letterPrefabs, List<int> individualLetterScores, Action<int> scoreCallback)
+    {
+        if (letterPrefabs == null || letterPrefabs.Count == 0)
+        {
+            Debug.LogWarning("EffectsManager.FlyPrefabsToScoreSequentially: No prefabs provided.");
+            yield break;
+        }
+        if (scoreTargetRectTransform == null)
+        {
+            Debug.LogError("EffectsManager.FlyPrefabsToScoreSequentially: ScoreTargetRectTransform is null.");
+            foreach (var prefab in letterPrefabs) { if (prefab != null) Destroy(prefab); }
+            yield break;
+        }
+
+        IsAnimating = true;
+        Vector3 scoreTargetWorldPosition = scoreTargetRectTransform.position;
+
+        for (int i = 0; i < letterPrefabs.Count; i++)
+        {
+            GameObject letterInstance = letterPrefabs[i];
+            if (letterInstance == null)
+            {
+                Debug.LogWarning($"EffectsManager.FlyPrefabsToScoreSequentially: Null prefab in list at index {i}. Skipping.");
+                continue;
+            }
+
+            // Ensure any prior tweens are killed (e.g., if lift-off didn't run or was interrupted)
+            DOTween.Kill(letterInstance.transform, complete: false);
+
+            // Set Canvas sorting for top-most rendering
+            Canvas letterCanvas = letterInstance.GetComponent<Canvas>(); // Should exist from SpawnAndFloat
+            if (letterCanvas != null)
+            {
+                letterCanvas.overrideSorting = true;
+                letterCanvas.sortingOrder = activelyFlyingLetterSortOrder;
+            }
+            else
+            {
+                Debug.LogWarning("EffectsManager: Flying letter prefab missing Canvas component for sorting.", letterInstance);
+            }
+
+            int scoreForThisLetter = (individualLetterScores != null && i < individualLetterScores.Count) ? individualLetterScores[i] : 0;
+            Vector3 targetFlyScale = Vector3.one * flyingLetterInitialScale * scaleDownFactorDuringFly;
+
+            Sequence flySequence = DOTween.Sequence();
+
+            flySequence.Append(letterInstance.transform.DOMove(scoreTargetWorldPosition, flyToScoreDurationPerLetter).SetEase(flyToScoreEase))
+                       .Join(letterInstance.transform.DOScale(targetFlyScale, flyToScoreDurationPerLetter * 0.8f).SetEase(Ease.InQuad));
+
+            flySequence.OnComplete(() => {
+                scoreCallback?.Invoke(scoreForThisLetter);
+                // Canvas sorting will be gone when destroyed. If it were to return to pool, we'd reset it here.
+                if (letterInstance != null) Destroy(letterInstance);
+            });
+
+            yield return flySequence.WaitForCompletion();
+
+            if (i < letterPrefabs.Count - 1 && delayBetweenLetterFlights > 0)
+            {
+                yield return new WaitForSeconds(delayBetweenLetterFlights);
+            }
+        }
+
+        IsAnimating = false;
+    }
+
+    public void ClearAllFloatingLetters(Dictionary<System.Guid, List<GameObject>> wordToFloatingPrefabsMap)
+    {
+        if (wordToFloatingPrefabsMap == null) return;
+        foreach (var kvp in wordToFloatingPrefabsMap)
+        {
+            if (kvp.Value != null)
+            {
+                foreach (var prefab in kvp.Value)
+                {
+                    if (prefab != null)
+                    {
+                        DOTween.Kill(prefab.transform);
+                        Destroy(prefab);
+                    }
+                }
+            }
+        }
+        wordToFloatingPrefabsMap.Clear();
+        if (IsAnimating)
+        {
+            Debug.LogWarning("EffectsManager.ClearAllFloatingLetters: Resetting IsAnimating flag.");
+            IsAnimating = false;
+        }
+    }
+}

@@ -887,7 +887,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 301890063}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1480404336}
+        m_TargetAssemblyTypeName: GameManager, Assembly-CSharp
+        m_MethodName: GoToHomeScreen
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &301890063
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1060,7 +1072,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Button
+  m_text: <
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -1087,10 +1099,10 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 24
+  m_fontSize: 72
   m_fontSizeBase: 24
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
@@ -2536,9 +2548,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
-  currentDisplayMode: 2
-  gameTimeLimit: 120
-  startingMoves: 20
+  currentDisplayMode: 0
+  gameTimeLimit: 180
+  startingMoves: 30
   homeSceneName: HomeScene
   currentScoringMode: 1
   pointsPerLetter: 10
@@ -2554,6 +2566,7 @@ MonoBehaviour:
   gridInputHandler: {fileID: 450983252}
   effectsManager: {fileID: 1480404338}
   replacementDelayAfterEffectStart: 0.1
+  visualPauseBetweenPhases: 0.1
   scoreShakeDuration: 0.1
   scoreShakeStrength: 10
   scoreShakeVibrato: 15
@@ -2585,15 +2598,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   flyingLetterPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
+  scoreTargetRectTransform: {fileID: 1345162614}
+  flyingLetterInitialScale: 1.5
+  activelyFlyingLetterSortOrder: 100
+  liftOffDistance: 2
+  liftOffDuration: 0.15
+  liftOffEase: 2
+  flyToScoreDurationPerLetter: 0.25
+  flyToScoreEase: 7
+  scaleDownFactorDuringFly: 0.5
+  delayBetweenLetterFlights: 0.05
   flyingLetterParent: {fileID: 54221075}
-  scoreTextRect: {fileID: 1345162614}
-  initialFlyingLetterScale: {x: 1.5, y: 1.5, z: 1}
-  flyUpDistance: 5
-  flyUpDuration: 0.2
-  floatDuration: 0.3
-  flyToScoreDuration: 0.5
-  delayBetweenLetters: 0.08
-  flyEase: 20
 --- !u!1 &1534631787
 GameObject:
   m_ObjectHideFlags: 0

@@ -1278,8 +1278,8 @@ Camera:
   m_GameObject: {fileID: 1686114966}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.854902, g: 0.6470588, b: 0.1254902, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -1494,12 +1494,28 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3297126541031657827, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 125
+      objectReference: {fileID: 0}
+    - target: {fileID: 3297126541031657827, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
       propertyPath: m_AnchoredPosition.x
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3297126541031657827, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3568735880939018736, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_text
+      value: <
+      objectReference: {fileID: 0}
+    - target: {fileID: 3568735880939018736, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_fontSize
+      value: 72
+      objectReference: {fileID: 0}
+    - target: {fileID: 3568735880939018736, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_enableAutoSizing
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4734285982740712343, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
       propertyPath: m_Pivot.x
