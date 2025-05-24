@@ -435,9 +435,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 569a30bfa7f09b540b3a76edab7c769c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  desiredGridWidth: 13
-  desiredGridHeight: 13
-  desiredCellSize: {x: 60, y: 60}
+  desiredGridWidth: 11
+  desiredGridHeight: 11
+  desiredCellSize: {x: 80, y: 80}
   desiredCellSpacing: {x: 5, y: 5}
   enforceOddDimensions: 1
   primaryCellColor: {r: 1, g: 1, b: 1, a: 1}

@@ -40,6 +40,8 @@ public class GameManager : MonoBehaviour
 
     [Header("Scoring")]
     [SerializeField] private ScoringMode currentScoringMode = ScoringMode.LengthBased;
+    // ADDED PUBLIC GETTER FOR SCORING MODE
+    public ScoringMode CurrentScoringMode => currentScoringMode;
     [Tooltip("Points per letter, ONLY used if Scoring Mode is LengthBased.")]
     [SerializeField] private int pointsPerLetter = 10;
     private Dictionary<char, int> scrabbleLetterValues;
@@ -71,7 +73,7 @@ public class GameManager : MonoBehaviour
     private float currentTimeRemaining;
     private int currentMovesRemaining;
     private int currentScore = 0;
-    private static GameManager instance;
+    public static GameManager instance; // Made public for easier access, ensure it's set in Awake
 
     private List<FoundWordData> currentPotentialWords = new List<FoundWordData>();
     private HashSet<System.Guid> idsOfWordsInCurrentSequence = new HashSet<System.Guid>();
@@ -434,7 +436,7 @@ public class GameManager : MonoBehaviour
             List<RectTransform> sourceCellRects = GetRectTransformsForCoords(wordData.Coordinates);
             if (sourceCellRects == null || sourceCellRects.Count != wordData.Word.Length)
             {
-                Debug.LogError($"GM.ProcessSeq (Phase 1): Could not get valid RectTransforms for word '{wordData.Word}'. Skipping its floating letters.");
+                Debug.LogError($"GM.ProcessSeq (Phase 1): Could not get valid RectTransforms for word \'{wordData.Word}\'. Skipping its floating letters.");
                 continue;
             }
 
@@ -466,15 +468,10 @@ public class GameManager : MonoBehaviour
             }
             if (wordValidator.IsWordFoundThisSession(wordData.Word))
             {
-                // Prefabs should have been lifted globally; if word is already found, just ensure they're cleaned up from map.
                 if (wordToFloatingPrefabsMap.TryGetValue(wordData.ID, out List<GameObject> prefabsToClean))
                 {
-                    // The actual GameObjects are in allSpawnedPrefabsForGlobalLiftOff, which might still be animating
-                    // or would be destroyed by FlyPrefabsToScoreSequentially if this word wasn't "already found".
-                    // For now, just removing from map. Actual object cleanup is tricky if they were part of global lift.
-                    // This scenario (word found *after* global lift but *before* its turn to fly) should be rare.
                 }
-                wordToFloatingPrefabsMap.Remove(wordData.ID); // Remove from map to prevent further processing
+                wordToFloatingPrefabsMap.Remove(wordData.ID);
                 continue;
             }
 
@@ -494,10 +491,8 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning($"GM.ProcessSeq (Phase 2): No floating prefabs found in map for word '{wordData.Word}'. Scoring directly (if not already scored).");
-                // If word was part of global lift-off but somehow removed from map before its turn, its letters might be orphaned.
-                // For direct scoring, ensure it's not double-scored.
-                if (!wordValidator.IsWordFoundThisSession(wordData.Word)) // Check again before direct scoring
+                Debug.LogWarning($"GM.ProcessSeq (Phase 2): No floating prefabs found in map for word \'{wordData.Word}\'. Scoring directly (if not already scored).");
+                if (!wordValidator.IsWordFoundThisSession(wordData.Word))
                 {
                     List<int> individualLetterScores = wordData.Word.Select(letter => CalculateScoreValueForLetter(letter)).ToList();
                     foreach (int scoreValue in individualLetterScores) HandleSingleLetterScore(scoreValue);
@@ -520,9 +515,7 @@ public class GameManager : MonoBehaviour
 
         isProcessingSequentialWords = false;
         idsOfWordsInCurrentSequence.Clear();
-        wordToFloatingPrefabsMap.Clear(); // Final cleanup
-        // Any prefabs in allSpawnedPrefabsForGlobalLiftOff that didn't get processed by FlyPrefabsToScoreSequentially
-        // (e.g., if game ended mid-animation) will be orphaned. ClearAllFloatingLetters on game state change handles this.
+        wordToFloatingPrefabsMap.Clear();
     }
 
     public void ClearPotentialWords()
@@ -542,12 +535,17 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private int CalculateScoreValueForLetter(char letter)
+    // Public method to get score for a letter, used by CellController
+    public int CalculateScoreValueForLetter(char letter)
     {
         char upperLetter = char.ToUpperInvariant(letter);
         if (currentScoringMode == ScoringMode.ScrabbleBased && scrabbleLetterValues.TryGetValue(upperLetter, out int val))
             return val;
-        if (currentScoringMode == ScoringMode.LengthBased) return pointsPerLetter;
+        // If LengthBased, we don't want to show individual "pointsPerLetter" on each tile,
+        // as the request is for "respective points" (implying Scrabble-like differentiation).
+        // So, return 0 if not ScrabbleBased or letter has no Scrabble value.
+        // CellController will hide the score text if score is 0.
+        if (currentScoringMode == ScoringMode.LengthBased) return 0; // Or pointsPerLetter if you want to show it
         return 0;
     }
 

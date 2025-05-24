@@ -9,7 +9,7 @@ EditorBuildSettings:
     path: Assets/Scenes/HomeScene.unity
     guid: 40a6580a0e51596458b4c25da624b9cb
   - enabled: 1
-    path: Assets/Scenes/WordScroll.unity
+    path: Assets/WordScroll/Scenes/WordScroll.unity
     guid: 1cd7c0c83da8aa34d9bccc43184fad03
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

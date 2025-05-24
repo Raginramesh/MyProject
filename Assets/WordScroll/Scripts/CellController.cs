@@ -11,6 +11,8 @@ public class CellController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI letterText;
     [SerializeField] private CanvasGroup canvasGroup;
     [SerializeField] private Image backgroundImage; // Reference to the cell's Image component
+    [Tooltip("TextMeshProUGUI component to display the letter's score. Optional.")]
+    [SerializeField] private TextMeshProUGUI letterScoreText; // ADDED: For letter's score
 
     [Header("Highlight Settings")]
     [SerializeField] private Color defaultColor = Color.white; // Set a default or get from Image in Awake
@@ -36,7 +38,9 @@ public class CellController : MonoBehaviour
 
     void Awake()
     {
-        if (letterText == null) letterText = GetComponentInChildren<TextMeshProUGUI>();
+        if (letterText == null) letterText = GetComponentInChildren<TextMeshProUGUI>(); // Assuming main letter text is a child
+        // If letterScoreText is also a child and needs specific finding logic, adjust here.
+        // For simplicity, direct assignment via Inspector is preferred for letterScoreText.
         if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
         if (backgroundImage == null) backgroundImage = GetComponent<Image>();
 
@@ -52,7 +56,8 @@ public class CellController : MonoBehaviour
             Debug.LogError("CellController: Image component not found! Cannot manage colors.", this);
         }
 
-        if (letterText == null) Debug.LogError("CellController: TextMeshProUGUI not found!", this);
+        if (letterText == null) Debug.LogError("CellController: TextMeshProUGUI for letter not found!", this);
+        if (letterScoreText == null) Debug.LogWarning("CellController: TextMeshProUGUI for letter score not assigned. Score will not be displayed.", this);
         if (canvasGroup == null) Debug.LogError("CellController: CanvasGroup not found!", this);
         if (_rectTransform == null) Debug.LogError("CellController: RectTransform not found!", this);
     }
@@ -66,6 +71,38 @@ public class CellController : MonoBehaviour
         else
         {
             Debug.LogWarning($"CellController ({gameObject.name}): LetterText component is null. Cannot set letter '{letter}'.");
+        }
+
+        // ADDED: Logic to display letter score
+        if (letterScoreText != null)
+        {
+            if (GameManager.instance != null)
+            {
+                GameManager.ScoringMode currentMode = GameManager.instance.CurrentScoringMode;
+                if (currentMode == GameManager.ScoringMode.ScrabbleBased)
+                {
+                    int score = GameManager.instance.CalculateScoreValueForLetter(letter);
+                    if (score > 0)
+                    {
+                        letterScoreText.text = score.ToString();
+                        letterScoreText.gameObject.SetActive(true);
+                    }
+                    else
+                    {
+                        letterScoreText.gameObject.SetActive(false); // Hide if score is 0 (e.g. blank tile if you add them)
+                    }
+                }
+                else // LengthBased or other modes
+                {
+                    letterScoreText.gameObject.SetActive(false); // Hide score text
+                }
+            }
+            else
+            {
+                // GameManager not found, hide score
+                letterScoreText.gameObject.SetActive(false);
+                Debug.LogWarning($"CellController ({gameObject.name}): GameManager.instance is null. Cannot retrieve letter score.");
+            }
         }
     }
 
@@ -116,11 +153,6 @@ public class CellController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Sets the visual highlight state of the cell.
-    /// </summary>
-    /// <param name="isHighlighted">True to highlight, false to return to default.</param>
-    /// <param name="highlightColor">The color to use for highlighting.</param>
     public void SetHighlightState(bool isHighlighted, Color newHighlightColor)
     {
         if (backgroundImage == null) return;
@@ -140,7 +172,6 @@ public class CellController : MonoBehaviour
         }
     }
 
-    // Call this if the default color might change during gameplay or needs reset
     public void StoreDefaultColor()
     {
         if (backgroundImage != null)

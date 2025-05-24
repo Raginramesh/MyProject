@@ -1109,11 +1109,11 @@ MonoBehaviour:
   gridPanelRect: {fileID: 450983248}
   uiCamera: {fileID: 24250974}
   dragThreshold: 20
-  scrollThresholdFactor: 0.4
+  scrollThresholdFactor: 0.7
   enableInertia: 1
-  minFlickVelocity: 200
-  inertiaDampingFactor: 0.95
-  minInertiaSpeed: 20
+  minFlickVelocity: 300
+  inertiaDampingFactor: 0.9
+  minInertiaSpeed: 10
   velocityCalculationSamples: 2
   enableDragHighlight: 1
   highlightScaleMultiplier: 1
@@ -2278,10 +2278,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 54221075}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.70368224}
-  m_AnchorMax: {x: 1, y: 0.70368224}
-  m_AnchoredPosition: {x: 0, y: 5}
-  m_SizeDelta: {x: 0, y: 261.50903}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 615}
+  m_SizeDelta: {x: 1080, y: 261.50903}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1345162615
 MonoBehaviour:
@@ -2413,7 +2413,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
-  currentDisplayMode: 1
+  currentDisplayMode: 2
   gameTimeLimit: 180
   startingMoves: 30
   homeSceneName: HomeScene
@@ -2466,13 +2466,13 @@ MonoBehaviour:
   scoreTargetRectTransform: {fileID: 1345162614}
   flyingLetterInitialScale: 1.5
   activelyFlyingLetterSortOrder: 100
-  liftOffDistance: 2
+  liftOffDistance: 1
   liftOffDuration: 0.15
   liftOffEase: 2
-  flyToScoreDurationPerLetter: 0.25
-  flyToScoreEase: 7
-  scaleDownFactorDuringFly: 0.5
-  delayBetweenLetterFlights: 0.05
+  flyToScoreDurationPerLetter: 0
+  flyToScoreEase: 2
+  scaleDownFactorDuringFly: 0.1
+  delayBetweenLetterFlights: 0.25
   flyingLetterParent: {fileID: 54221075}
 --- !u!1 &1534631787
 GameObject:
