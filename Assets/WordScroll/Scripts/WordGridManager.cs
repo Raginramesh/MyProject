@@ -24,8 +24,22 @@ public class WordGridManager : MonoBehaviour
     public float CellFadeInDuration => cellFadeInDuration;
     [SerializeField] private Color cellColorPrimary = Color.white;
     [SerializeField] private Color cellColorAlternate = new Color(0.9f, 0.9f, 0.9f, 1f);
-    [Tooltip("Color used to highlight cells that form a potentially valid word.")]
-    [SerializeField] public Color potentialWordHighlightColor = Color.yellow;
+    // Old single highlight color - can be removed or repurposed if needed.
+    // For now, it's commented out to avoid confusion.
+    // [Tooltip("Color used to highlight cells that form a potentially valid word.")]
+    // [SerializeField] public Color potentialWordHighlightColor = Color.yellow; 
+
+    // NEW: Palette for word-specific highlights
+    [Header("Highlighting")]
+    [Tooltip("Colors to cycle through for highlighting different potential words. Define at least one.")]
+    [SerializeField]
+    private Color[] wordHighlightPalette = new Color[] {
+        new Color(1f, 1f, 0.6f, 0.75f), // Light Yellow (with some transparency)
+        new Color(0.6f, 1f, 1f, 0.75f), // Light Cyan
+        new Color(1f, 0.6f, 1f, 0.75f), // Light Magenta
+        new Color(0.6f, 1f, 0.6f, 0.75f), // Light Green
+        new Color(1f, 0.8f, 0.6f, 0.75f)  // Light Orange
+    };
 
 
     [Header("References")]
@@ -48,6 +62,12 @@ public class WordGridManager : MonoBehaviour
 
         if (wordValidator == null) { Debug.LogError("WGM: WordValidator reference not set or found!", this); enabled = false; return; }
         if (gameManager == null) Debug.LogWarning("WGM: GameManager not found in Awake (may be set by GM later).", this);
+
+        if (wordHighlightPalette == null || wordHighlightPalette.Length == 0)
+        {
+            Debug.LogWarning("WGM: WordHighlightPalette is not set or empty. Defaulting to a single color (white).", this);
+            wordHighlightPalette = new Color[] { Color.white };
+        }
     }
 
     void Start()
@@ -119,7 +139,7 @@ public class WordGridManager : MonoBehaviour
                 // LetterCell is optional based on your original script's usage, so null check it if needed for specific features
 
                 RectTransform cellRect = cellController.RectTransform; // CellController should provide this
-                if (cellRect == null) { Debug.LogError($"WGM: CellController on prefab '{letterCellPrefab.name}' does not have a RectTransform or it's not accessible.", cellGO); Destroy(cellGO); continue; }
+                if (cellRect == null) { Debug.LogError($"WGM: CellController on prefab '{letterCellPrefab.name}' does not have a RectTransform or it's not accessible.", cellGO); Destroy(cellGO); continue; } // Added continue
 
                 // Position and size the cell
                 float posX = startOffset + c * (cellSize + spacing);
@@ -179,7 +199,7 @@ public class WordGridManager : MonoBehaviour
     {
         if (WeightedLetters == null || WeightedLetters.Count == 0)
         {
-            Debug.LogWarning("WGM: WeightedLetters list is empty. Returning '?'.");
+            Debug.LogWarning("WGM: WeightedLetters list is empty. Returning '?'");
             return '?'; // Fallback
         }
         return WeightedLetters[Random.Range(0, WeightedLetters.Count)];
@@ -305,6 +325,7 @@ public class WordGridManager : MonoBehaviour
         seq.OnComplete(() => {
             try { SnapToGridPositions(); } catch (System.Exception e) { Debug.LogError($"Error in SnapToGridPositions after row scroll: {e.Message}", this); }
             ResetAnimationFlag("RowScroll Complete");
+            TriggerValidationCheckAndHighlightUpdate(); // Added to refresh highlights after scroll
         });
     }
 
@@ -338,6 +359,7 @@ public class WordGridManager : MonoBehaviour
         seq.OnComplete(() => {
             try { SnapToGridPositions(); } catch (System.Exception e) { Debug.LogError($"Error in SnapToGridPositions after col scroll: {e.Message}", this); }
             ResetAnimationFlag("ColScroll Complete");
+            TriggerValidationCheckAndHighlightUpdate(); // Added to refresh highlights after scroll
         });
     }
 
@@ -366,6 +388,11 @@ public class WordGridManager : MonoBehaviour
                     float targetX = startOffset + c * (cellSize + spacing);
                     float targetY = startOffset + (gridSize - 1 - r) * (cellSize + spacing);
                     gridCells[r, c].RectTransform.anchoredPosition = new Vector2(targetX, targetY);
+                    // Update the letter visual as data might have changed due to scroll
+                    if (gridData != null && r < gridData.GetLength(0) && c < gridData.GetLength(1))
+                    {
+                        gridCells[r, c].SetLetter(gridData[r, c]);
+                    }
                 }
             }
         }
@@ -394,8 +421,6 @@ public class WordGridManager : MonoBehaviour
                 {
                     if (!cellController.gameObject.activeSelf)
                     {
-                        // This case should ideally not happen if cells are just having letters replaced
-                        // But if they were deactivated, ensure they are active for the new letter
                         cellController.gameObject.SetActive(true);
                         Debug.LogWarning($"WGM.ReplaceLettersAt: Cell {coord} was inactive. Reactivated.");
                     }
@@ -409,19 +434,18 @@ public class WordGridManager : MonoBehaviour
                         cg.alpha = 0f; // Start transparent
                         cellController.RectTransform.localScale = Vector3.one * 0.8f; // Initial smaller scale for pop
 
-                        // Create a sequence for this cell's pop-in
                         Sequence cellPopInSequence = DOTween.Sequence();
                         cellPopInSequence.Append(cg.DOFade(1f, cellFadeInDuration));
                         cellPopInSequence.Join(cellController.RectTransform.DOScale(Vector3.one, cellFadeInDuration).SetEase(Ease.OutBack));
 
-                        replacementSequence.Join(cellPopInSequence); // Join to master sequence for parallel execution
+                        replacementSequence.Join(cellPopInSequence);
 
                         if (cellFadeInDuration > maxFadeDuration) maxFadeDuration = cellFadeInDuration;
                     }
                     else
                     {
-                        cellController.SetAlpha(1f); // Ensure fully visible
-                        cellController.RectTransform.localScale = Vector3.one; // Reset scale
+                        cellController.SetAlpha(1f);
+                        cellController.RectTransform.localScale = Vector3.one;
                     }
                 }
             }
@@ -445,33 +469,34 @@ public class WordGridManager : MonoBehaviour
             Debug.LogError("WGM: Missing GameManager or WordValidator reference for Validation/Highlight!", this);
             return;
         }
-        // Allow validation even if GM is animating, as it might be a different type of animation (e.g. effects)
-        // GM's IsAnyAnimationPlaying flag will gate input, this just updates visuals if possible.
-        // if (gameManager.IsAnyAnimationPlaying && gameManager.CurrentStatePublic == GameManager.GameState.Playing)
-        // {
-        //     Debug.Log("WGM: GM is animating, delaying validation check.");
-        //     return;
-        // }
         List<FoundWordData> potentialWords = wordValidator.FindAllPotentialWords();
-        gameManager.UpdatePotentialWordsDisplay(potentialWords); // GM handles displaying these
+        gameManager.UpdatePotentialWordsDisplay(potentialWords);
     }
 
 
     public void HighlightPotentialWordCells(List<FoundWordData> potentialWords)
     {
         if (gridCells == null) return;
-        ClearAllCellHighlights(false); // Clear previous highlights first (false = don't tell GM to clear its list)
+        ClearAllCellHighlights(false);
 
-        if (potentialWords == null) return;
-
-        foreach (FoundWordData wordData in potentialWords)
+        if (potentialWords == null || potentialWords.Count == 0 || wordHighlightPalette == null || wordHighlightPalette.Length == 0)
         {
+            return;
+        }
+
+        for (int i = 0; i < potentialWords.Count; i++)
+        {
+            FoundWordData wordData = potentialWords[i];
+            Color wordSpecificHighlightColor = wordHighlightPalette[i % wordHighlightPalette.Length];
+
+            if (wordData.Coordinates == null) continue;
+
             foreach (Vector2Int coord in wordData.Coordinates)
             {
                 CellController cell = GetCellController(coord);
                 if (cell != null && cell.gameObject.activeSelf)
                 {
-                    cell.SetHighlightState(true, potentialWordHighlightColor);
+                    cell.SetHighlightState(true, wordSpecificHighlightColor);
                 }
             }
         }
@@ -481,45 +506,46 @@ public class WordGridManager : MonoBehaviour
     {
         if (gridCells == null || wordDataToClear.Coordinates == null || gameManager == null) return;
 
+        // Get the list of words that GameManager still considers potential.
+        // This list should NOT contain wordDataToClear if GM removed it before calling this.
+        List<FoundWordData> remainingPotentialWordsFromGM = gameManager.GetCurrentPotentialWords();
+
         foreach (Vector2Int coord in wordDataToClear.Coordinates)
         {
             CellController cell = GetCellController(coord);
             if (cell != null && cell.gameObject.activeSelf)
             {
-                bool partOfOtherPotentialWordInCurrentSequence = false;
-                List<FoundWordData> currentGMWords = gameManager.GetCurrentPotentialWords();
+                bool stillNeedsHighlightByAnotherWord = false;
 
-                foreach (var potentialWord in currentGMWords)
+                // Check if this coordinate is part of any *other* word that GM still has as potential
+                for (int i = 0; i < remainingPotentialWordsFromGM.Count; i++)
                 {
-                    // Skip if it's the word we are currently clearing OR if it's another word that GM is also about to process in this same sequence
-                    if (potentialWord.ID == wordDataToClear.ID || gameManager.IsWordInCurrentProcessingSequence(potentialWord.ID))
+                    var otherWord = remainingPotentialWordsFromGM[i];
+                    // Ensure we are not checking the word we intend to clear, 
+                    // though it should ideally already be removed from remainingPotentialWordsFromGM by GameManager
+                    if (otherWord.ID == wordDataToClear.ID) continue;
+
+                    if (otherWord.Coordinates.Contains(coord))
                     {
-                        if (potentialWord.ID != wordDataToClear.ID && potentialWord.Coordinates.Contains(coord)) // It's another word in the sequence sharing this cell
-                        {
-                            // If the other word is also in the current processing sequence, the cell will be "accounted for".
-                            // The highlight can be removed now. If this logic is too aggressive (e.g. shared cell goes dark too soon),
-                            // this is where it would be adjusted.
-                        }
-                        continue;
-                    }
-                    // If it's a different potential word (not in the current processing sequence) that shares this cell
-                    if (potentialWord.Coordinates.Contains(coord))
-                    {
-                        partOfOtherPotentialWordInCurrentSequence = true;
-                        break;
+                        // This cell is part of another word that should still be highlighted.
+                        // Re-apply its highlight using its index in the GM's current list for consistent coloring.
+                        Color otherWordSpecificHighlightColor = wordHighlightPalette[i % wordHighlightPalette.Length];
+                        cell.SetHighlightState(true, otherWordSpecificHighlightColor);
+                        stillNeedsHighlightByAnotherWord = true;
+                        break; // Cell gets color of the first "other" word found
                     }
                 }
 
-                if (!partOfOtherPotentialWordInCurrentSequence)
+                if (!stillNeedsHighlightByAnotherWord)
                 {
+                    // If not part of any other *remaining* potential word, revert to default color.
                     cell.SetHighlightState(false, cell.GetDefaultColor());
                 }
-                // else: Debug.Log($"WGM: Cell {coord} for '{wordDataToClear.Word}' is part of another word not in current sequence. Highlight retained.");
             }
         }
     }
 
-    public void ClearAllCellHighlights(bool fullReset = true) // fullReset tells GM to clear its list
+    public void ClearAllCellHighlights(bool fullReset = true)
     {
         if (gridCells == null) return;
         for (int r = 0; r < gridSize; r++)
@@ -534,19 +560,17 @@ public class WordGridManager : MonoBehaviour
         }
         if (fullReset && gameManager != null)
         {
-            gameManager.ClearPotentialWords(); // Tell GM to clear its list of potential words
+            gameManager.ClearPotentialWords();
         }
     }
 
     public void ApplyPendingMoveReduction(int row, int col)
     {
-        // This method seems related to a different mechanic (LetterCell moves)
-        // from your original script. Keeping it as is.
-        if ((row < 0 && col < 0) || (row >= 0 && col >= 0)) return; // Invalid if both or neither are specified
+        if ((row < 0 && col < 0) || (row >= 0 && col >= 0)) return;
         if (gameManager != null) gameManager.DecrementMoves();
 
         bool wasRowScroll = row >= 0;
-        if (gridCellComponents != null) // Check if this array is used/initialized
+        if (gridCellComponents != null)
         {
             if (wasRowScroll)
             {
@@ -556,7 +580,7 @@ public class WordGridManager : MonoBehaviour
                     if (cell != null && cell.EnableMoves) cell.ReduceMove();
                 }
             }
-            else // Column scroll
+            else
             {
                 for (int r = 0; r < gridSize; r++)
                 {
@@ -567,7 +591,7 @@ public class WordGridManager : MonoBehaviour
         }
     }
 
-    public LetterCell GetLetterCellAt(int row, int col) // From your original script
+    public LetterCell GetLetterCellAt(int row, int col)
     {
         if (gridCellComponents != null && row >= 0 && row < gridSize && col >= 0 && col < gridSize)
         {

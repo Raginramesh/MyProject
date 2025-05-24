@@ -459,7 +459,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 657}
+  m_AnchoredPosition: {x: 0, y: 529}
   m_SizeDelta: {x: 1080, y: 261.50903}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &189446521
@@ -1466,7 +1466,12 @@ MonoBehaviour:
   cellFadeInDuration: 0.5
   cellColorPrimary: {r: 1, g: 1, b: 1, a: 1}
   cellColorAlternate: {r: 1, g: 1, b: 1, a: 1}
-  potentialWordHighlightColor: {r: 0.6901961, g: 0.7686275, b: 0.8705883, a: 1}
+  wordHighlightPalette:
+  - {r: 1, g: 1, b: 0.6, a: 0.75}
+  - {r: 0.6, g: 1, b: 1, a: 0.75}
+  - {r: 1, g: 0.6, b: 1, a: 0.75}
+  - {r: 0.6, g: 1, b: 0.6, a: 0.75}
+  - {r: 1, g: 0.8, b: 0.6, a: 0.75}
   wordValidator: {fileID: 593137152}
   gameManager: {fileID: 1480404336}
 --- !u!224 &593137151
@@ -2366,7 +2371,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 129.35
+  m_fontSize: 175
   m_fontSizeBase: 36
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -2404,7 +2409,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: -2.7655945, y: -3.4781647, z: 577.3137, w: 2.7906568}
+  m_margin: {x: -291.3669, y: -3.4781647, z: 297.8743, w: 2.7906568}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -2467,7 +2472,7 @@ MonoBehaviour:
   gridInputHandler: {fileID: 450983252}
   effectsManager: {fileID: 1480404338}
   replacementDelayAfterEffectStart: 0.1
-  visualPauseBetweenPhases: 0.1
+  visualPauseBetweenWordsInSequence: 0.25
   scoreShakeDuration: 0.1
   scoreShakeStrength: 10
   scoreShakeVibrato: 15
