@@ -2513,7 +2513,7 @@ MonoBehaviour:
   flyToScoreDurationPerLetter: 0
   flyToScoreEase: 2
   scaleDownFactorDuringFly: 0.1
-  delayBetweenLetterFlights: 0.25
+  delayBetweenLetterFlights: 0.15
   flyingLetterParent: {fileID: 54221075}
 --- !u!1 &1534631787
 GameObject:
