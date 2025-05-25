@@ -5,7 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
 using System.Linq;
-using System;
+using System; // Required for System.Guid
 using Unity.VisualScripting;
 
 public class GameManager : MonoBehaviour
@@ -41,10 +41,15 @@ public class GameManager : MonoBehaviour
 
     [Header("Scoring")]
     [SerializeField] private ScoringMode currentScoringMode = ScoringMode.LengthBased;
-    public ScoringMode CurrentScoringMode => currentScoringMode;
+    public ScoringMode GetCurrentScoringModeSetting() => currentScoringMode;
+
     [Tooltip("Points per letter, used if Scoring Mode is LengthBased for actual scoring, and for ScrabbleBased if a letter has no defined Scrabble value (as a fallback, typically 1).")]
-    [SerializeField] private int pointsPerLetter = 10; // Used for LengthBased scoring and fallback
+    [SerializeField] private int pointsPerLetter = 10;
+    public int GetPointsPerLetterSetting() => pointsPerLetter;
+
     private Dictionary<char, int> scrabbleLetterValues;
+    public IReadOnlyDictionary<char, int> GetScrabbleLetterValues() => scrabbleLetterValues;
+
 
     [Header("UI References")]
     [SerializeField] private TextMeshProUGUI scoreText;
@@ -62,8 +67,8 @@ public class GameManager : MonoBehaviour
     [SerializeField] private EffectsManager effectsManager;
 
     [Header("Timing & Combo Settings")]
-    [SerializeField] private float replacementDelayAfterEffectStart = 0.4f; // Delay after *all* words in sequence are processed, before grid replacement
-    [SerializeField] private float visualPauseBetweenWordsInSequence = 0.25f; // Pause after one word finishes, before next one starts in a combo
+    [SerializeField] private float replacementDelayAfterEffectStart = 0.4f;
+    [SerializeField] private float visualPauseBetweenWordsInSequence = 0.25f;
 
     [Header("Effects")]
     [SerializeField] private float scoreShakeDuration = 0.2f;
@@ -76,8 +81,8 @@ public class GameManager : MonoBehaviour
     public static GameManager instance;
 
     private List<FoundWordData> currentPotentialWords = new List<FoundWordData>();
-    // private HashSet<System.Guid> idsOfWordsInCurrentSequence = new HashSet<System.Guid>(); // Less critical now, direct iteration
-    // private Dictionary<System.Guid, List<GameObject>> wordToFloatingPrefabsMap = new Dictionary<System.Guid, List<GameObject>>(); // Will be managed per-word inside loop
+    private Dictionary<System.Guid, Color> currentAppliedHighlightColors = new Dictionary<System.Guid, Color>();
+
 
     void Awake()
     {
@@ -103,8 +108,6 @@ public class GameManager : MonoBehaviour
         if (wordValidator == null) Debug.LogError("GM: WordValidator missing!", this);
         if (gridInputHandler == null) Debug.LogError("GM: GridInputHandler missing! Tapping will not work.", this);
         if (scoreText == null) Debug.LogError("GM: Score Text (TMP) missing!", this);
-        if (scoreTextRectTransform == null && effectsManager != null) Debug.LogWarning("GM: Score Text RectTransform is not set. EffectsManager might need this explicitly if not passed.", this);
-
 
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
@@ -151,13 +154,10 @@ public class GameManager : MonoBehaviour
         {
             if (effectsManager != null)
             {
-                // Clear any active floating letters. Since wordToFloatingPrefabsMap is now transient (per word),
-                // this call might need to be smarter or EffectsManager needs a global clear.
-                // For now, assuming EffectsManager can handle clearing its own active tweens/objects if needed.
-                effectsManager.ClearAllFloatingLetters(new Dictionary<Guid, List<GameObject>>()); // Pass empty or make EM clear all
+                effectsManager.ClearAllFloatingLetters(new Dictionary<Guid, List<GameObject>>());
             }
         }
-        isProcessingSequentialWords = false; // Ensure this is reset if state changes abruptly
+        isProcessingSequentialWords = false;
 
         switch (currentState)
         {
@@ -176,7 +176,7 @@ public class GameManager : MonoBehaviour
                 if (pausePanel != null) pausePanel.SetActive(true);
                 break;
             case GameState.GameOver:
-                Time.timeScale = 1f; // Keep time normal for game over animations/UI
+                Time.timeScale = 1f;
                 if (gridInputHandler != null) gridInputHandler.enabled = false;
                 break;
         }
@@ -188,8 +188,7 @@ public class GameManager : MonoBehaviour
         currentScore = 0;
         UpdateScoreUI();
         currentPotentialWords.Clear();
-        // idsOfWordsInCurrentSequence.Clear(); // Not used this way anymore
-        // wordToFloatingPrefabsMap.Clear(); // Not used this way anymore
+        currentAppliedHighlightColors.Clear();
 
         if (statusDisplayGroup != null)
         {
@@ -228,32 +227,28 @@ public class GameManager : MonoBehaviour
     private void EndGame(bool timeout = false, bool noMoves = false)
     {
         if (currentState == GameState.GameOver) return;
-        // Ensure game ends only for the configured mode
         if ((timeout && currentDisplayMode != DisplayMode.Timer) || (noMoves && currentDisplayMode != DisplayMode.Moves)) return;
 
         SetState(GameState.GameOver);
         currentPotentialWords.Clear();
+        currentAppliedHighlightColors.Clear();
         if (wordGridManager != null) wordGridManager.ClearAllCellHighlights();
         if (gameOverPanel != null) { gameOverPanel.SetActive(true); }
-        // Potentially save score or trigger other game over logic here
     }
 
-    public void UpdatePotentialWordsDisplay(List<FoundWordData> potentialWordsFromValidator)
+    public void UpdatePotentialWordsDisplay(List<FoundWordData> potentialWordsFromValidator, Dictionary<System.Guid, Color> appliedColors)
     {
         if (currentState != GameState.Playing && currentState != GameState.Initializing)
         {
             currentPotentialWords.Clear();
+            currentAppliedHighlightColors.Clear();
             if (wordGridManager != null) wordGridManager.ClearAllCellHighlights();
             return;
         }
         currentPotentialWords = potentialWordsFromValidator ?? new List<FoundWordData>();
-        if (wordGridManager != null)
-        {
-            wordGridManager.HighlightPotentialWordCells(currentPotentialWords);
-        }
+        currentAppliedHighlightColors = appliedColors ?? new Dictionary<System.Guid, Color>();
     }
 
-    // --- NEW SCORING HELPER METHODS ---
     private int GetPointsForActualScoring(char letter)
     {
         char upperLetter = char.ToUpperInvariant(letter);
@@ -263,13 +258,12 @@ public class GameManager : MonoBehaviour
             {
                 return val;
             }
-            return 1; // Fallback for Scrabble letters not in dictionary (e.g. blank tile if implemented)
+            return 1;
         }
-        // LengthBased scoring
         return pointsPerLetter;
     }
 
-    private int CalculateTotalScoreForWord(FoundWordData wordData)
+    public int CalculateTotalScoreForWord(FoundWordData wordData)
     {
         if (wordData.Word == null) return 0;
         int totalScore = 0;
@@ -279,7 +273,6 @@ public class GameManager : MonoBehaviour
         }
         return totalScore;
     }
-    // --- END NEW SCORING HELPER METHODS ---
 
     public bool AttemptTapValidation(Vector2Int tappedCoordinate)
     {
@@ -292,86 +285,40 @@ public class GameManager : MonoBehaviour
         foreach (var potentialWord in currentPotentialWords)
         {
             if (potentialWord.Coordinates.Contains(tappedCoordinate) &&
-                !wordValidator.IsWordFoundThisSession(potentialWord.Word)) // Ensure it's not already found
+                !wordValidator.IsWordFoundThisSession(potentialWord.Word))
             {
                 initialCandidatesFromTap.Add(potentialWord);
             }
         }
 
-        if (initialCandidatesFromTap.Count == 0)
-        {
-            return false;
-        }
-
+        if (initialCandidatesFromTap.Count == 0) return false;
         List<FoundWordData> allConnectedCandidates = FindAllConnectedWords(initialCandidatesFromTap);
+        if (allConnectedCandidates.Count == 0) return false;
 
-        if (allConnectedCandidates.Count == 0)
-        {
-            return false;
-        }
-
-        List<FoundWordData> wordsToProcessInSequence = FilterSubWordsFromBatch(allConnectedCandidates);
+        List<FoundWordData> wordsToProcessInSequence = FilterSubWordsFromSelectedBatch(allConnectedCandidates);
 
         wordsToProcessInSequence = wordsToProcessInSequence
                                     .Where(w => !wordValidator.IsWordFoundThisSession(w.Word))
-                                    .DistinctBy(w => w.ID) // Ensure unique instances
+                                    .DistinctBy(w => w.ID)
                                     .ToList();
+        if (wordsToProcessInSequence.Count == 0) return false;
 
-        if (wordsToProcessInSequence.Count == 0)
-        {
-            return false;
-        }
-
-        // --- SORTING WORDS BY POINTS (NEW) ---
         wordsToProcessInSequence = wordsToProcessInSequence
-            .OrderByDescending(w => CalculateTotalScoreForWord(w)) // Primary: Score
-            .ThenByDescending(w => w.Word.Length)                  // Secondary: Length
-            .ThenBy(w => w.ID.ToString())                          // Tertiary: ID (for stable sort)
+            .OrderByDescending(w => CalculateTotalScoreForWord(w))
+            .ThenByDescending(w => w.Word.Length)
+            .ThenBy(w => w.ID.ToString())
             .ToList();
-        // --- END SORTING ---
 
-        Debug.Log($"GM.AttemptTap: Starting sequence for {wordsToProcessInSequence.Count} FINAL words (Sorted by Points): " +
-                  $"{string.Join(", ", wordsToProcessInSequence.Select(w => w.Word + $"({CalculateTotalScoreForWord(w)}pts, {w.ID.ToString().Substring(0, 4)})"))}");
+        Debug.Log($"GM.AttemptTap: Starting sequence for {wordsToProcessInSequence.Count} FINAL words: " +
+                  $"{string.Join(", ", wordsToProcessInSequence.Select(w => w.Word + $"({CalculateTotalScoreForWord(w)}pts)"))}");
 
         StartCoroutine(ProcessWordsSequentially(wordsToProcessInSequence));
         return true;
     }
 
-    private bool AreCoordinatesContainedAndAligned(
-        List<Vector2Int> innerCoords, FoundWordData.WordOrientation innerOrientation,
-        List<Vector2Int> outerCoords, FoundWordData.WordOrientation outerOrientation)
+    private List<FoundWordData> FilterSubWordsFromSelectedBatch(List<FoundWordData> candidates)
     {
-        if (innerCoords == null || outerCoords == null || innerCoords.Count == 0 || innerCoords.Count > outerCoords.Count)
-        {
-            return false;
-        }
-        if (innerOrientation != outerOrientation) // Must have same orientation to be a sub-word in this context
-        {
-            return false;
-        }
-        // Check if innerCoords is a contiguous subsegment of outerCoords
-        for (int i = 0; i <= outerCoords.Count - innerCoords.Count; i++)
-        {
-            bool match = true;
-            for (int j = 0; j < innerCoords.Count; j++)
-            {
-                if (outerCoords[i + j] != innerCoords[j])
-                {
-                    match = false;
-                    break;
-                }
-            }
-            if (match) return true;
-        }
-        return false;
-    }
-
-    private List<FoundWordData> FilterSubWordsFromBatch(List<FoundWordData> candidates)
-    {
-        if (candidates == null || candidates.Count <= 1)
-        {
-            return candidates ?? new List<FoundWordData>();
-        }
+        if (candidates == null || candidates.Count <= 1) return candidates ?? new List<FoundWordData>();
 
         var sortedCandidates = candidates.OrderByDescending(w => w.Word.Length).ThenBy(w => w.ID).ToList();
         List<FoundWordData> keptWords = new List<FoundWordData>();
@@ -381,35 +328,43 @@ public class GameManager : MonoBehaviour
         {
             FoundWordData currentWord = sortedCandidates[i];
             if (discardedWordIds.Contains(currentWord.ID)) continue;
-
             for (int j = 0; j < sortedCandidates.Count; j++)
             {
                 if (i == j) continue;
                 FoundWordData otherWord = sortedCandidates[j];
                 if (discardedWordIds.Contains(otherWord.ID)) continue;
-
-                // Check if otherWord is a sub-word of currentWord
                 if (otherWord.Word.Length < currentWord.Word.Length &&
-                    currentWord.Word.Contains(otherWord.Word) && // Basic string containment
-                    AreCoordinatesContainedAndAligned( // And actual coordinate alignment
-                        otherWord.Coordinates, otherWord.GetOrientation(),
-                        currentWord.Coordinates, currentWord.GetOrientation()))
+                    currentWord.Word.Contains(otherWord.Word) &&
+                    AreCoordinatesContainedAndAligned(otherWord.Coordinates, otherWord.GetOrientation(), currentWord.Coordinates, currentWord.GetOrientation()))
                 {
                     discardedWordIds.Add(otherWord.ID);
                 }
             }
         }
-
         foreach (var word in sortedCandidates)
         {
-            if (!discardedWordIds.Contains(word.ID))
-            {
-                keptWords.Add(word);
-            }
+            if (!discardedWordIds.Contains(word.ID)) keptWords.Add(word);
         }
         return keptWords;
     }
 
+    private bool AreCoordinatesContainedAndAligned(
+        List<Vector2Int> innerCoords, FoundWordData.WordOrientation innerOrientation,
+        List<Vector2Int> outerCoords, FoundWordData.WordOrientation outerOrientation)
+    {
+        if (innerCoords == null || outerCoords == null || innerCoords.Count == 0 || innerCoords.Count > outerCoords.Count) return false;
+        if (innerOrientation != outerOrientation) return false;
+        for (int i = 0; i <= outerCoords.Count - innerCoords.Count; i++)
+        {
+            bool match = true;
+            for (int j = 0; j < innerCoords.Count; j++)
+            {
+                if (outerCoords[i + j] != innerCoords[j]) { match = false; break; }
+            }
+            if (match) return true;
+        }
+        return false;
+    }
 
     private List<FoundWordData> FindAllConnectedWords(List<FoundWordData> startingWords)
     {
@@ -429,9 +384,8 @@ public class GameManager : MonoBehaviour
         while (wordsToVisit.Count > 0)
         {
             FoundWordData currentWord = wordsToVisit.Dequeue();
-            Vector2Int intersectionPoint; // Re-declare or ensure scope
-
-            foreach (var potentialWordOnGrid in currentPotentialWords) // Use the GM's current list
+            Vector2Int intersectionPoint;
+            foreach (var potentialWordOnGrid in currentPotentialWords)
             {
                 if (potentialWordOnGrid.ID == currentWord.ID ||
                     visitedWordIds.Contains(potentialWordOnGrid.ID) ||
@@ -439,7 +393,6 @@ public class GameManager : MonoBehaviour
                 {
                     continue;
                 }
-
                 if (wordValidator.CheckIntersection(currentWord, potentialWordOnGrid, out intersectionPoint))
                 {
                     if (visitedWordIds.Add(potentialWordOnGrid.ID))
@@ -453,182 +406,158 @@ public class GameManager : MonoBehaviour
         return connectedWords;
     }
 
-    // SelectPrimaryFromCandidates might not be needed if we process all connected words,
-    // or it could be used by GridInputHandler if it needs to pick one for visual feedback before GM takes over.
-    // For now, assuming the tap directly feeds into the multi-word processing.
-    /*
-    private FoundWordData? SelectPrimaryFromCandidates(List<FoundWordData> candidates)
-    {
-        if (candidates == null || candidates.Count == 0) return null;
-        if (candidates.Count == 1) return candidates[0];
-        return candidates.OrderByDescending(w => w.Word.Length).ThenBy(w => w.GetOrientation()).ThenBy(w => w.Coordinates[0].x).ThenBy(w => w.Coordinates[0].y).First();
-    }
-    */
-
     private IEnumerator ProcessWordsSequentially(List<FoundWordData> wordsToAnimateInOrder)
     {
-        if (wordsToAnimateInOrder == null || wordsToAnimateInOrder.Count == 0)
-        {
-            yield break;
-        }
+        if (wordsToAnimateInOrder == null || wordsToAnimateInOrder.Count == 0) yield break;
 
         isProcessingSequentialWords = true;
         List<Vector2Int> allUniqueAffectedCoordinatesFromThisSequence = new List<Vector2Int>();
+        Dictionary<Vector2Int, int> cellUsageCountInSequence = new Dictionary<Vector2Int, int>();
 
-        // --- LOOP THROUGH EACH WORD IN THE SEQUENCE (NEW STRUCTURE) ---
-        for (int i = 0; i < wordsToAnimateInOrder.Count; i++)
+        foreach (var wordData in wordsToAnimateInOrder)
         {
-            FoundWordData currentWordData = wordsToAnimateInOrder[i];
-
-            // Skip if somehow already processed (e.g. if list contained duplicates not caught by earlier filters)
-            if (wordValidator.IsWordFoundThisSession(currentWordData.Word))
+            if (wordData.Coordinates == null) continue;
+            foreach (var coord in wordData.Coordinates)
             {
-                Debug.LogWarning($"GM.ProcessSeq: Word '{currentWordData.Word}' was already marked as found. Skipping its animation phase.");
-                continue;
+                if (cellUsageCountInSequence.ContainsKey(coord)) cellUsageCountInSequence[coord]++;
+                else cellUsageCountInSequence[coord] = 1;
+                allUniqueAffectedCoordinatesFromThisSequence.Add(coord);
             }
+        }
 
-            Debug.Log($"GM.ProcessSeq: Starting animation for word {i + 1}/{wordsToAnimateInOrder.Count}: {currentWordData.Word} (ID: {currentWordData.ID})");
+        for (int wordIdx = 0; wordIdx < wordsToAnimateInOrder.Count; wordIdx++)
+        {
+            FoundWordData currentWordData = wordsToAnimateInOrder[wordIdx];
+            if (wordValidator.IsWordFoundThisSession(currentWordData.Word)) continue;
 
-            // Collect coordinates for this word (will be added to the master list for final replacement)
-            allUniqueAffectedCoordinatesFromThisSequence.AddRange(currentWordData.Coordinates);
+            Debug.Log($"GM.ProcessSeq: Animating word {wordIdx + 1}/{wordsToAnimateInOrder.Count}: {currentWordData.Word}");
 
-            // --- PHASE 1 (Per Word): Make original cells invisible & Spawn Floating Letters ---
-            if (wordGridManager != null)
+            if (wordGridManager != null && currentWordData.Coordinates != null)
             {
                 foreach (Vector2Int coord in currentWordData.Coordinates)
                 {
-                    CellController cell = wordGridManager.GetCellController(coord);
-                    if (cell != null)
+                    CellController cellController = wordGridManager.GetCellController(coord);
+                    if (cellController == null) continue;
+
+                    if (cellUsageCountInSequence.ContainsKey(coord))
                     {
-                        CanvasGroup cg = cell.GetComponent<CanvasGroup>();
-                        if (cg == null) cg = cell.gameObject.AddComponent<CanvasGroup>();
-                        cg.alpha = 0f; // Make original cell invisible
+                        cellUsageCountInSequence[coord]--;
+
+                        if (cellUsageCountInSequence[coord] == 0)
+                        {
+                            cellController.SetAlpha(0f);
+                        }
+                        else
+                        {
+                            FoundWordData nextSharingWord = default;
+                            bool foundNextUser = false;
+                            for (int nextWordIdx = wordIdx + 1; nextWordIdx < wordsToAnimateInOrder.Count; nextWordIdx++)
+                            {
+                                if (wordsToAnimateInOrder[nextWordIdx].Coordinates != null &&
+                                    wordsToAnimateInOrder[nextWordIdx].Coordinates.Contains(coord))
+                                {
+                                    nextSharingWord = wordsToAnimateInOrder[nextWordIdx];
+                                    foundNextUser = true;
+                                    break;
+                                }
+                            }
+                            if (foundNextUser && currentAppliedHighlightColors.TryGetValue(nextSharingWord.ID, out Color nextWordColor))
+                            {
+                                cellController.SetHighlightState(true, nextWordColor);
+                                cellController.SetAlpha(1f);
+                            }
+                            else
+                            {
+                                cellController.SetHighlightState(false, cellController.GetDefaultColor());
+                                cellController.SetAlpha(1f);
+                                Debug.LogWarning($"GM.ProcessSeq: Shared cell {coord} for '{currentWordData.Word}' had usage but couldn't find/color for next. Reverted.");
+                            }
+                        }
+                    }
+                    else // This 'else' block was restored
+                    {
+                        cellController.SetAlpha(0f); // Default to making it disappear
+                        Debug.LogError($"GM.ProcessSeq: Cell {coord} for '{currentWordData.Word}' not found in usage count. Made invisible.");
                     }
                 }
             }
 
             List<GameObject> floatingPrefabsForThisWord = new List<GameObject>();
-            if (effectsManager != null)
+            if (effectsManager != null && currentWordData.Coordinates != null)
             {
                 List<RectTransform> sourceCellRects = GetRectTransformsForCoords(currentWordData.Coordinates);
                 if (sourceCellRects != null && sourceCellRects.Count == currentWordData.Word.Length)
                 {
                     floatingPrefabsForThisWord = effectsManager.SpawnAndFloatLetterPrefabs(sourceCellRects, currentWordData.Word);
                 }
-                else
-                {
-                    Debug.LogError($"GM.ProcessSeq (Phase 1 for {currentWordData.Word}): Could not get valid RectTransforms. Skipping floating letters.");
-                }
             }
 
-            // Remove this specific word from currentPotentialWords and clear its highlight
-            // This ensures it's not re-highlighted if validation happens mid-sequence for some reason
             currentPotentialWords.RemoveAll(pwd => pwd.ID == currentWordData.ID);
-            if (wordGridManager != null) wordGridManager.ClearHighlightForSpecificWord(currentWordData);
 
-
-            // --- PHASE 1.5 (Per Word): Lift-Off Animation ---
             if (effectsManager != null && floatingPrefabsForThisWord.Count > 0)
             {
-                Debug.Log($"GM.ProcessSeq: Lift-Off for {floatingPrefabsForThisWord.Count} letters of '{currentWordData.Word}'.");
-                yield return StartCoroutine(effectsManager.PerformGlobalLiftOff(floatingPrefabsForThisWord)); // Re-using global lift-off for a single word's letters
+                yield return StartCoroutine(effectsManager.PerformGlobalLiftOff(floatingPrefabsForThisWord));
             }
 
-            // --- PHASE 2 (Per Word): Fly Letters to Score & Score Update ---
-            if (floatingPrefabsForThisWord.Count > 0) // If we have prefabs to animate
+            if (floatingPrefabsForThisWord.Count > 0)
             {
-                List<int> individualLetterScores = new List<int>();
-                foreach (char letter in currentWordData.Word)
-                {
-                    individualLetterScores.Add(GetPointsForActualScoring(letter));
-                }
-
+                List<int> individualLetterScores = currentWordData.Word.Select(letter => GetPointsForActualScoring(letter)).ToList();
                 if (effectsManager != null)
                 {
                     yield return StartCoroutine(effectsManager.FlyPrefabsToScoreSequentially(floatingPrefabsForThisWord, individualLetterScores, HandleSingleLetterScore));
                 }
-                else // Fallback if no effects manager, just score directly
-                {
-                    foreach (int scoreValue in individualLetterScores) HandleSingleLetterScore(scoreValue);
-                }
+                else { foreach (int scoreValue in individualLetterScores) HandleSingleLetterScore(scoreValue); }
             }
-            else // No floating prefabs, score directly
+            else
             {
-                Debug.LogWarning($"GM.ProcessSeq (Phase 2 for {currentWordData.Word}): No floating prefabs. Scoring directly.");
-                foreach (char letter in currentWordData.Word)
-                {
-                    HandleSingleLetterScore(GetPointsForActualScoring(letter));
-                }
+                foreach (char letter in currentWordData.Word) HandleSingleLetterScore(GetPointsForActualScoring(letter));
             }
 
             wordValidator.MarkWordAsFoundInSession(currentWordData.Word);
-            // Floating prefabs for *this word* are handled (destroyed) by FlyPrefabsToScoreSequentially or should be cleaned up by EffectsManager.
 
-            // Optional: Decrement moves if game mode is Moves (if a word found = 1 move)
-            // if (currentDisplayMode == DisplayMode.Moves) DecrementMoves(); // Consider if each word in combo costs a move
-
-            if (i < wordsToAnimateInOrder.Count - 1) // If there are more words in the sequence
+            if (wordIdx < wordsToAnimateInOrder.Count - 1 && visualPauseBetweenWordsInSequence > 0)
             {
-                if (visualPauseBetweenWordsInSequence > 0)
-                {
-                    yield return new WaitForSeconds(visualPauseBetweenWordsInSequence);
-                }
+                yield return new WaitForSeconds(visualPauseBetweenWordsInSequence);
             }
-        } // --- END LOOP THROUGH EACH WORD ---
-
-
-        // --- PHASE 3 (Global, after all words in sequence): Grid Replacement ---
-        if (replacementDelayAfterEffectStart > 0)
-        {
-            yield return new WaitForSeconds(replacementDelayAfterEffectStart);
         }
+
+        if (replacementDelayAfterEffectStart > 0) yield return new WaitForSeconds(replacementDelayAfterEffectStart);
 
         List<Vector2Int> distinctAffectedCoordinates = allUniqueAffectedCoordinatesFromThisSequence.Distinct().ToList();
         if (wordGridManager != null && distinctAffectedCoordinates.Count > 0)
         {
-            Debug.Log($"GM.ProcessSeq (Phase 3): Replacing {distinctAffectedCoordinates.Count} cells.");
-            wordGridManager.ReplaceLettersAt(distinctAffectedCoordinates, true); // true for fadeIn
-            yield return new WaitUntil(() => !wordGridManager.isAnimating); // Wait for replacement animation
-
-            // Crucial: Trigger re-validation for the entire grid after replacements
+            wordGridManager.ReplaceLettersAt(distinctAffectedCoordinates, true);
+            yield return new WaitUntil(() => !wordGridManager.isAnimating);
             wordGridManager.TriggerValidationCheckAndHighlightUpdate();
         }
-
         isProcessingSequentialWords = false;
-        // currentPotentialWords list is already updated by removing processed words.
-        // The TriggerValidationCheckAndHighlightUpdate above will refresh it based on the new grid.
     }
 
-
-    public void ClearPotentialWords() // Called by WordGridManager.ClearAllCellHighlights
+    public void ClearPotentialWords()
     {
         currentPotentialWords.Clear();
+        currentAppliedHighlightColors.Clear();
     }
 
     private void HandleSingleLetterScore(int pointsToAdd)
     {
-        if (pointsToAdd <= 0 || currentState == GameState.GameOver) return; // Don't add score if game is over
+        if (pointsToAdd <= 0 || currentState == GameState.GameOver) return;
         currentScore += pointsToAdd;
         UpdateScoreUI();
         if (scoreTextRectTransform != null)
         {
-            scoreTextRectTransform.DOKill(true); // Complete any ongoing animation immediately
-            scoreTextRectTransform.DOShakePosition(scoreShakeDuration, scoreShakeStrength, scoreShakeVibrato, 90, false, true)
-                .SetUpdate(true); // Ensure works even if Time.timeScale is 0 (e.g. if called during pause, though unlikely here)
+            scoreTextRectTransform.DOKill(true);
+            scoreTextRectTransform.DOShakePosition(scoreShakeDuration, scoreShakeStrength, scoreShakeVibrato, 90, false, true).SetUpdate(true);
         }
     }
 
-    // This method is used by CellController to determine what score value to DISPLAY on a tile.
-    // It's different from GetPointsForActualScoring used for word totals.
     public int CalculateScoreValueForLetter(char letter)
     {
         char upperLetter = char.ToUpperInvariant(letter);
         if (currentScoringMode == ScoringMode.ScrabbleBased && scrabbleLetterValues.TryGetValue(upperLetter, out int val))
             return val;
-        // For LengthBased, individual tiles usually don't show the "pointsPerLetter" value,
-        // but the word's total score is based on length. So, return 0 for tile display.
         if (currentScoringMode == ScoringMode.LengthBased) return 0;
-        return 0; // Default if not Scrabble or letter not found
+        return 0;
     }
 
     private void UpdateScoreUI()
@@ -670,7 +599,7 @@ public class GameManager : MonoBehaviour
 
     public void RestartGame()
     {
-        Time.timeScale = 1f; // Ensure time scale is reset before loading new scene
+        Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
     public void PauseGame()
@@ -702,52 +631,20 @@ public class GameManager : MonoBehaviour
         foreach (var coord in coords)
         {
             CellController cell = wordGridManager.GetCellController(coord);
-            if (cell != null && cell.RectTransform != null && cell.gameObject.activeInHierarchy) // Check activeInHierarchy
+            if (cell != null && cell.RectTransform != null && cell.gameObject.activeInHierarchy)
             {
                 rects.Add(cell.RectTransform);
             }
             else
             {
-                Debug.LogError($"GM.GetRects: Could not get active CellController/RectTransform for coord {coord}. Word processing might be affected.");
-                return null; // Critical if a cell is missing for animation
+                Debug.LogError($"GM.GetRects: Could not get active CellController/RectTransform for coord {coord}.");
+                return null;
             }
         }
         return rects;
     }
 
-    public List<FoundWordData> GetCurrentPotentialWords()
-    {
-        return new List<FoundWordData>(currentPotentialWords); // Return a copy
-    }
-
-    // This method was used by WordGridManager to check if a word (that it's trying to clear highlight for)
-    // is part of the *current* animation sequence.
-    // With the new per-word processing, this specific check might be less relevant in WGM,
-    // or WGM's ClearHighlightForSpecificWord needs to be aware that only one word is "active" at a time.
-    // For now, it always returns false as the old `idsOfWordsInCurrentSequence` is not maintained globally.
-    // WGM's logic for clearing highlights might need to rely more on the main `currentPotentialWords` list.
-    public bool IsWordInCurrentProcessingSequence(System.Guid wordId)
-    {
-        // This logic needs to be re-evaluated. In the new model, only one word is "in process" at a time
-        // within the ProcessWordsSequentially loop.
-        // For external checks (like from WGM), it's safer to assume a word being cleared is not "in sequence"
-        // unless WGM is passed the specific word currently being animated.
-        // The GameManager now removes words from currentPotentialWords as they are processed.
-        return false; // Or, if needed, could check against the 'currentWordData.ID' inside the loop if called from within.
-    }
+    public List<FoundWordData> GetCurrentPotentialWords() => new List<FoundWordData>(currentPotentialWords);
+    public Dictionary<System.Guid, Color> GetCurrentAppliedHighlightColors() => new Dictionary<System.Guid, Color>(currentAppliedHighlightColors);
+    public bool IsWordInCurrentProcessingSequence(System.Guid wordId) => false;
 }
-
-// Ensure LinqExtensions is still available if not in a separate file.
-// Assuming it's in a global scope or another script.
-/*
-public static class LinqExtensions
-{
-    public static IEnumerable<TSource> DistinctBy<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector)
-    {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
-        HashSet<TKey> seenKeys = new HashSet<TKey>();
-        foreach (TSource element in source) { if (seenKeys.Add(keySelector(element))) yield return element; }
-    }
-}
-*/

@@ -1,10 +1,11 @@
 using UnityEngine;
-using UnityEngine.UI; // For Image
-using TMPro; // For TextMeshProUGUI
-using DG.Tweening; // For DOTween
+using UnityEngine.UI;
+using TMPro;
+using DG.Tweening;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System;
 
 public class WordGridManager : MonoBehaviour
 {
@@ -24,64 +25,57 @@ public class WordGridManager : MonoBehaviour
     public float CellFadeInDuration => cellFadeInDuration;
     [SerializeField] private Color cellColorPrimary = Color.white;
     [SerializeField] private Color cellColorAlternate = new Color(0.9f, 0.9f, 0.9f, 1f);
-    // Old single highlight color - can be removed or repurposed if needed.
-    // For now, it's commented out to avoid confusion.
-    // [Tooltip("Color used to highlight cells that form a potentially valid word.")]
-    // [SerializeField] public Color potentialWordHighlightColor = Color.yellow; 
 
-    // NEW: Palette for word-specific highlights
     [Header("Highlighting")]
     [Tooltip("Colors to cycle through for highlighting different potential words. Define at least one.")]
     [SerializeField]
     private Color[] wordHighlightPalette = new Color[] {
-        new Color(1f, 1f, 0.6f, 0.75f), // Light Yellow (with some transparency)
-        new Color(0.6f, 1f, 1f, 0.75f), // Light Cyan
-        new Color(1f, 0.6f, 1f, 0.75f), // Light Magenta
-        new Color(0.6f, 1f, 0.6f, 0.75f), // Light Green
-        new Color(1f, 0.8f, 0.6f, 0.75f)  // Light Orange
+        new Color(1f, 1f, 0.6f, 0.75f),
+        new Color(0.6f, 1f, 1f, 0.75f),
+        new Color(1f, 0.6f, 1f, 0.75f),
+        new Color(0.6f, 1f, 0.6f, 0.75f),
+        new Color(1f, 0.8f, 0.6f, 0.75f)
     };
 
 
     [Header("References")]
-    [SerializeField] private WordValidator wordValidator; // Should be assigned in Inspector
-    [SerializeField] private GameManager gameManager; // Should be assigned in Inspector or found
+    [SerializeField] private WordValidator wordValidator;
+    [SerializeField] private GameManager gameManager;
 
 
     public char[,] gridData { get; private set; }
-    private CellController[,] gridCells; // Stores CellController components
-    private LetterCell[,] gridCellComponents; // Stores LetterCell (from your original script)
+    private CellController[,] gridCells;
+    private LetterCell[,] gridCellComponents;
 
     private List<char> WeightedLetters = new List<char>();
-    public bool isAnimating { get; private set; } = false; // For grid animations like scroll/replace
+    public bool isAnimating { get; private set; } = false;
 
     void Awake()
     {
         isAnimating = false;
-        if (gameManager == null) gameManager = FindFirstObjectByType<GameManager>(); // Find if not assigned
-        if (wordValidator == null) wordValidator = FindFirstObjectByType<WordValidator>(); // Find if not assigned
+        if (gameManager == null) gameManager = FindFirstObjectByType<GameManager>();
+        if (wordValidator == null) wordValidator = FindFirstObjectByType<WordValidator>();
 
         if (wordValidator == null) { Debug.LogError("WGM: WordValidator reference not set or found!", this); enabled = false; return; }
         if (gameManager == null) Debug.LogWarning("WGM: GameManager not found in Awake (may be set by GM later).", this);
 
         if (wordHighlightPalette == null || wordHighlightPalette.Length == 0)
         {
-            Debug.LogWarning("WGM: WordHighlightPalette is not set or empty. Defaulting to a single color (white).", this);
             wordHighlightPalette = new Color[] { Color.white };
         }
     }
 
     void Start()
     {
-        isAnimating = false; // Ensure it's false at start
+        isAnimating = false;
         PopulateWeightedLettersList();
-        // InitializeGrid(); // GameManager will call this in its StartGame
     }
 
     void OnEnable()
     {
-        isAnimating = false; // Reset on enable
+        isAnimating = false;
     }
-    public void SetGameManager(GameManager manager) // Called by GameManager
+    public void SetGameManager(GameManager manager)
     {
         gameManager = manager;
     }
@@ -91,9 +85,8 @@ public class WordGridManager : MonoBehaviour
     {
         isAnimating = false;
         if (letterCellPrefab == null) { Debug.LogError("WGM: Letter Cell Prefab missing!", this); return; }
-        if (gridParent == null) { gridParent = this.transform; } // Default to this object if not set
+        if (gridParent == null) { gridParent = this.transform; }
 
-        // Clear previous grid if any
         if (gridCells != null)
         {
             for (int r = 0; r < gridCells.GetLength(0); r++)
@@ -102,10 +95,8 @@ public class WordGridManager : MonoBehaviour
                 {
                     if (gridCells[r, c] != null)
                     {
-                        // Kill any tweens associated with the cell before destroying
-                        DOTween.Kill(gridCells[r, c].transform); // Kills tweens on transform
-                        if (gridCells[r, c].TryGetComponent<CanvasGroup>(out var cg)) { DOTween.Kill(cg); } // Kills tweens on CanvasGroup
-
+                        DOTween.Kill(gridCells[r, c].transform);
+                        if (gridCells[r, c].TryGetComponent<CanvasGroup>(out var cg)) { DOTween.Kill(cg); }
                         if (gridCells[r, c].gameObject != null)
                         {
                             if (Application.isEditor && !Application.isPlaying) { DestroyImmediate(gridCells[r, c].gameObject); }
@@ -118,11 +109,10 @@ public class WordGridManager : MonoBehaviour
 
         gridData = new char[gridSize, gridSize];
         gridCells = new CellController[gridSize, gridSize];
-        gridCellComponents = new LetterCell[gridSize, gridSize]; // Initialize this too
+        gridCellComponents = new LetterCell[gridSize, gridSize];
 
-        PopulateGridData(); // Fill gridData with letters
+        PopulateGridData();
 
-        // UI Setup: Calculate start offset for centering grid
         float totalGridSizeUI = gridSize * cellSize + (gridSize - 1) * spacing;
         float startOffset = -totalGridSizeUI / 2f + cellSize / 2f;
 
@@ -132,33 +122,31 @@ public class WordGridManager : MonoBehaviour
             {
                 GameObject cellGO = Instantiate(letterCellPrefab, gridParent);
                 CellController cellController = cellGO.GetComponent<CellController>();
-                LetterCell cellComponent = cellGO.GetComponent<LetterCell>(); // Get LetterCell component
-                Image cellImage = cellGO.GetComponent<Image>(); // For background color
+                LetterCell cellComponent = cellGO.GetComponent<LetterCell>();
+                Image cellImage = cellGO.GetComponent<Image>();
 
                 if (cellController == null) { Debug.LogError($"WGM: Prefab '{letterCellPrefab.name}' is missing CellController component!", cellGO); Destroy(cellGO); continue; }
-                // LetterCell is optional based on your original script's usage, so null check it if needed for specific features
 
-                RectTransform cellRect = cellController.RectTransform; // CellController should provide this
-                if (cellRect == null) { Debug.LogError($"WGM: CellController on prefab '{letterCellPrefab.name}' does not have a RectTransform or it's not accessible.", cellGO); Destroy(cellGO); continue; } // Added continue
+                RectTransform cellRect = cellController.RectTransform;
+                if (cellRect == null) { Debug.LogError($"WGM: CellController on prefab '{letterCellPrefab.name}' does not have a RectTransform or it's not accessible.", cellGO); Destroy(cellGO); continue; }
 
-                // Position and size the cell
                 float posX = startOffset + c * (cellSize + spacing);
-                float posY = startOffset + (gridSize - 1 - r) * (cellSize + spacing); // Y is often inverted in UI (0,0 at top-left or bottom-left)
+                float posY = startOffset + (gridSize - 1 - r) * (cellSize + spacing);
                 cellRect.anchoredPosition = new Vector2(posX, posY);
                 cellRect.sizeDelta = new Vector2(cellSize, cellSize);
-                cellRect.localScale = Vector3.one; // Ensure scale is reset
+                cellRect.localScale = Vector3.one;
 
-                cellController.SetLetter(gridData[r, c]); // Set the letter text via CellController
-                cellController.SetAlpha(1f); // Make sure it's visible
+                cellController.SetLetter(gridData[r, c]);
+                cellController.SetAlpha(1f);
 
                 if (cellImage != null)
                 {
                     cellImage.color = (r + c) % 2 == 0 ? cellColorPrimary : cellColorAlternate;
-                    cellController.StoreDefaultColor(); // CellController stores its default bg color
+                    cellController.StoreDefaultColor();
                 }
 
                 gridCells[r, c] = cellController;
-                gridCellComponents[r, c] = cellComponent; // Store LetterCell
+                gridCellComponents[r, c] = cellComponent;
             }
         }
     }
@@ -167,7 +155,6 @@ public class WordGridManager : MonoBehaviour
     void PopulateWeightedLettersList()
     {
         WeightedLetters.Clear();
-        // Standard English letter distribution (Scrabble-like frequencies)
         WeightedLetters.AddRange(Enumerable.Repeat('E', 12)); WeightedLetters.AddRange(Enumerable.Repeat('A', 9));
         WeightedLetters.AddRange(Enumerable.Repeat('I', 9)); WeightedLetters.AddRange(Enumerable.Repeat('O', 8));
         WeightedLetters.AddRange(Enumerable.Repeat('N', 6)); WeightedLetters.AddRange(Enumerable.Repeat('R', 6));
@@ -199,10 +186,9 @@ public class WordGridManager : MonoBehaviour
     {
         if (WeightedLetters == null || WeightedLetters.Count == 0)
         {
-            Debug.LogWarning("WGM: WeightedLetters list is empty. Returning '?'");
-            return '?'; // Fallback
+            return '?';
         }
-        return WeightedLetters[Random.Range(0, WeightedLetters.Count)];
+        return WeightedLetters[UnityEngine.Random.Range(0, WeightedLetters.Count)];
     }
 
     public void RequestRowScroll(int rowIndex, int direction, float scrollAmount)
@@ -210,7 +196,7 @@ public class WordGridManager : MonoBehaviour
         if (!enabled || isAnimating || gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing) return;
         isAnimating = true;
         ShiftRowData(rowIndex, direction);
-        AnimateRowScroll(rowIndex, direction, scrollAmount); // scrollAmount not used in current animation
+        AnimateRowScroll(rowIndex, direction, scrollAmount);
     }
 
     public void RequestColumnScroll(int colIndex, int direction, float scrollAmount)
@@ -218,7 +204,7 @@ public class WordGridManager : MonoBehaviour
         if (!enabled || isAnimating || gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing) return;
         isAnimating = true;
         ShiftColumnData(colIndex, direction);
-        AnimateColumnScroll(colIndex, direction, scrollAmount); // scrollAmount not used
+        AnimateColumnScroll(colIndex, direction, scrollAmount);
     }
 
 
@@ -226,11 +212,11 @@ public class WordGridManager : MonoBehaviour
     {
         if (rowIndex < 0 || rowIndex >= gridSize || gridData == null || gridCells == null) return;
 
-        if (direction == 1) // Right
+        if (direction == 1)
         {
             char tempData = gridData[rowIndex, gridSize - 1];
             CellController tempCellController = gridCells[rowIndex, gridSize - 1];
-            LetterCell tempLetterCell = gridCellComponents?[rowIndex, gridSize - 1]; // Null-conditional
+            LetterCell tempLetterCell = gridCellComponents?[rowIndex, gridSize - 1];
             for (int c = gridSize - 1; c > 0; c--)
             {
                 gridData[rowIndex, c] = gridData[rowIndex, c - 1];
@@ -241,11 +227,11 @@ public class WordGridManager : MonoBehaviour
             gridCells[rowIndex, 0] = tempCellController;
             if (gridCellComponents != null) gridCellComponents[rowIndex, 0] = tempLetterCell;
         }
-        else // Left (direction == -1)
+        else
         {
             char tempData = gridData[rowIndex, 0];
             CellController tempCellController = gridCells[rowIndex, 0];
-            LetterCell tempLetterCell = gridCellComponents?[rowIndex, 0]; // Null-conditional
+            LetterCell tempLetterCell = gridCellComponents?[rowIndex, 0];
             for (int c = 0; c < gridSize - 1; c++)
             {
                 gridData[rowIndex, c] = gridData[rowIndex, c + 1];
@@ -262,11 +248,11 @@ public class WordGridManager : MonoBehaviour
     {
         if (colIndex < 0 || colIndex >= gridSize || gridData == null || gridCells == null) return;
 
-        if (direction == 1) // Down
+        if (direction == 1)
         {
             char tempData = gridData[gridSize - 1, colIndex];
             CellController tempCellController = gridCells[gridSize - 1, colIndex];
-            LetterCell tempLetterCell = gridCellComponents?[gridSize - 1, colIndex]; // Null-conditional
+            LetterCell tempLetterCell = gridCellComponents?[gridSize - 1, colIndex];
             for (int r = gridSize - 1; r > 0; r--)
             {
                 gridData[r, colIndex] = gridData[r - 1, colIndex];
@@ -277,11 +263,11 @@ public class WordGridManager : MonoBehaviour
             gridCells[0, colIndex] = tempCellController;
             if (gridCellComponents != null) gridCellComponents[0, colIndex] = tempLetterCell;
         }
-        else // Up (direction == -1)
+        else
         {
             char tempData = gridData[0, colIndex];
             CellController tempCellController = gridCells[0, colIndex];
-            LetterCell tempLetterCell = gridCellComponents?[0, colIndex]; // Null-conditional
+            LetterCell tempLetterCell = gridCellComponents?[0, colIndex];
             for (int r = 0; r < gridSize - 1; r++)
             {
                 gridData[r, colIndex] = gridData[r + 1, colIndex];
@@ -309,30 +295,28 @@ public class WordGridManager : MonoBehaviour
             seq.Join(cellRect.DOAnchorPosX(cellRect.anchoredPosition.x + singleCellMove, 0.3f).SetEase(Ease.OutCubic));
         }
 
-        // Handle wrap-around cell positioning
-        int wrapIndex = (direction == 1) ? 0 : gridSize - 1; // Cell that needs to jump
+        int wrapIndex = (direction == 1) ? 0 : gridSize - 1;
         if (wrapIndex >= 0 && wrapIndex < gridCells.GetLength(1) && gridCells[rowIndex, wrapIndex] != null && gridCells[rowIndex, wrapIndex].RectTransform != null)
         {
             RectTransform wrapCellRect = gridCells[rowIndex, wrapIndex].RectTransform;
             Vector2 wrapStartPos = wrapCellRect.anchoredPosition;
-            // Position it off-screen just before the sequence ends, so it appears to slide in
-            seq.InsertCallback(0.29f, () => { // Adjust timing if needed
-                if (wrapCellRect != null) // Check again, might be destroyed
+            seq.InsertCallback(0.29f, () => {
+                if (wrapCellRect != null)
                     wrapCellRect.anchoredPosition = new Vector2(wrapStartPos.x - direction * totalMoveDistance, wrapStartPos.y);
             });
         }
-        seq.OnKill(() => ResetAnimationFlag("RowScroll Killed")); // In case it's killed early
+        seq.OnKill(() => ResetAnimationFlag("RowScroll Killed"));
         seq.OnComplete(() => {
             try { SnapToGridPositions(); } catch (System.Exception e) { Debug.LogError($"Error in SnapToGridPositions after row scroll: {e.Message}", this); }
             ResetAnimationFlag("RowScroll Complete");
-            TriggerValidationCheckAndHighlightUpdate(); // Added to refresh highlights after scroll
+            TriggerValidationCheckAndHighlightUpdate();
         });
     }
 
     void AnimateColumnScroll(int colIndex, int direction, float scrollAmount)
     {
         float totalMoveDistance = gridSize * (cellSize + spacing);
-        float singleCellMove = -direction * (cellSize + spacing); // Y-axis scroll direction adjustment
+        float singleCellMove = -direction * (cellSize + spacing);
         Sequence seq = DOTween.Sequence();
 
         if (gridCells == null || colIndex < 0 || colIndex >= gridCells.GetLength(1)) { ResetAnimationFlag("ColScroll Error"); return; }
@@ -344,8 +328,7 @@ public class WordGridManager : MonoBehaviour
             seq.Join(cellRect.DOAnchorPosY(cellRect.anchoredPosition.y + singleCellMove, 0.3f).SetEase(Ease.OutCubic));
         }
 
-        // Handle wrap-around
-        int wrapIndex = (direction == 1) ? 0 : gridSize - 1; // If going "down" (dir=1), top cell (index 0) wraps to bottom
+        int wrapIndex = (direction == 1) ? 0 : gridSize - 1;
         if (wrapIndex >= 0 && wrapIndex < gridCells.GetLength(0) && gridCells[wrapIndex, colIndex] != null && gridCells[wrapIndex, colIndex].RectTransform != null)
         {
             RectTransform wrapCellRect = gridCells[wrapIndex, colIndex].RectTransform;
@@ -359,7 +342,7 @@ public class WordGridManager : MonoBehaviour
         seq.OnComplete(() => {
             try { SnapToGridPositions(); } catch (System.Exception e) { Debug.LogError($"Error in SnapToGridPositions after col scroll: {e.Message}", this); }
             ResetAnimationFlag("ColScroll Complete");
-            TriggerValidationCheckAndHighlightUpdate(); // Added to refresh highlights after scroll
+            TriggerValidationCheckAndHighlightUpdate();
         });
     }
 
@@ -368,7 +351,6 @@ public class WordGridManager : MonoBehaviour
         if (isAnimating)
         {
             isAnimating = false;
-            // Debug.Log($"WGM ResetAnimationFlag: {reason}");
         }
     }
 
@@ -388,7 +370,6 @@ public class WordGridManager : MonoBehaviour
                     float targetX = startOffset + c * (cellSize + spacing);
                     float targetY = startOffset + (gridSize - 1 - r) * (cellSize + spacing);
                     gridCells[r, c].RectTransform.anchoredPosition = new Vector2(targetX, targetY);
-                    // Update the letter visual as data might have changed due to scroll
                     if (gridData != null && r < gridData.GetLength(0) && c < gridData.GetLength(1))
                     {
                         gridCells[r, c].SetLetter(gridData[r, c]);
@@ -414,25 +395,30 @@ public class WordGridManager : MonoBehaviour
             if (coord.x >= 0 && coord.x < gridSize && coord.y >= 0 && coord.y < gridSize)
             {
                 char newLetter = GetRandomLetter();
-                gridData[coord.x, coord.y] = newLetter; // Update data model
+                gridData[coord.x, coord.y] = newLetter;
 
                 CellController cellController = GetCellController(coord);
                 if (cellController != null)
                 {
-                    if (!cellController.gameObject.activeSelf)
+                    // --- MODIFICATION START ---
+                    // Ensure the cell is reset to its default background color *before* any letter change or animation.
+                    // This makes sure it doesn't carry over any highlight from a previous state.
+                    cellController.SetHighlightState(false, cellController.GetDefaultColor());
+                    // --- MODIFICATION END ---
+
+                    if (!cellController.gameObject.activeSelf) // Should not happen if cells are reused, but good check
                     {
                         cellController.gameObject.SetActive(true);
-                        Debug.LogWarning($"WGM.ReplaceLettersAt: Cell {coord} was inactive. Reactivated.");
                     }
-                    cellController.SetLetter(newLetter); // Update visual letter
+                    cellController.SetLetter(newLetter); // This will also handle its score display
 
                     if (fadeIn)
                     {
                         CanvasGroup cg = cellController.GetComponent<CanvasGroup>();
-                        if (cg == null) cg = cellController.gameObject.AddComponent<CanvasGroup>(); // Ensure CanvasGroup
+                        if (cg == null) cg = cellController.gameObject.AddComponent<CanvasGroup>();
 
-                        cg.alpha = 0f; // Start transparent
-                        cellController.RectTransform.localScale = Vector3.one * 0.8f; // Initial smaller scale for pop
+                        cg.alpha = 0f; // Set to transparent *before* animation starts
+                        cellController.RectTransform.localScale = Vector3.one * 0.8f; // Set initial scale for pop-in
 
                         Sequence cellPopInSequence = DOTween.Sequence();
                         cellPopInSequence.Append(cg.DOFade(1f, cellFadeInDuration));
@@ -444,8 +430,8 @@ public class WordGridManager : MonoBehaviour
                     }
                     else
                     {
-                        cellController.SetAlpha(1f);
-                        cellController.RectTransform.localScale = Vector3.one;
+                        cellController.SetAlpha(1f); // Ensure visible if not fading
+                        cellController.RectTransform.localScale = Vector3.one; // Ensure correct scale
                     }
                 }
             }
@@ -466,28 +452,31 @@ public class WordGridManager : MonoBehaviour
     {
         if (gameManager == null || wordValidator == null)
         {
-            Debug.LogError("WGM: Missing GameManager or WordValidator reference for Validation/Highlight!", this);
             return;
         }
         List<FoundWordData> potentialWords = wordValidator.FindAllPotentialWords();
-        gameManager.UpdatePotentialWordsDisplay(potentialWords);
+        Dictionary<System.Guid, Color> appliedHighlightColors = HighlightPotentialWordCells(potentialWords);
+        gameManager.UpdatePotentialWordsDisplay(potentialWords, appliedHighlightColors);
     }
 
-
-    public void HighlightPotentialWordCells(List<FoundWordData> potentialWords)
+    public Dictionary<System.Guid, Color> HighlightPotentialWordCells(List<FoundWordData> potentialWords)
     {
-        if (gridCells == null) return;
+        Dictionary<System.Guid, Color> appliedColors = new Dictionary<System.Guid, Color>();
+        if (gridCells == null) return appliedColors;
+
         ClearAllCellHighlights(false);
 
         if (potentialWords == null || potentialWords.Count == 0 || wordHighlightPalette == null || wordHighlightPalette.Length == 0)
         {
-            return;
+            return appliedColors;
         }
 
         for (int i = 0; i < potentialWords.Count; i++)
         {
             FoundWordData wordData = potentialWords[i];
             Color wordSpecificHighlightColor = wordHighlightPalette[i % wordHighlightPalette.Length];
+
+            appliedColors[wordData.ID] = wordSpecificHighlightColor;
 
             if (wordData.Coordinates == null) continue;
 
@@ -500,15 +489,15 @@ public class WordGridManager : MonoBehaviour
                 }
             }
         }
+        return appliedColors;
     }
 
     public void ClearHighlightForSpecificWord(FoundWordData wordDataToClear)
     {
         if (gridCells == null || wordDataToClear.Coordinates == null || gameManager == null) return;
 
-        // Get the list of words that GameManager still considers potential.
-        // This list should NOT contain wordDataToClear if GM removed it before calling this.
         List<FoundWordData> remainingPotentialWordsFromGM = gameManager.GetCurrentPotentialWords();
+        Dictionary<System.Guid, Color> currentHighlightColors = gameManager.GetCurrentAppliedHighlightColors();
 
         foreach (Vector2Int coord in wordDataToClear.Coordinates)
         {
@@ -517,28 +506,28 @@ public class WordGridManager : MonoBehaviour
             {
                 bool stillNeedsHighlightByAnotherWord = false;
 
-                // Check if this coordinate is part of any *other* word that GM still has as potential
                 for (int i = 0; i < remainingPotentialWordsFromGM.Count; i++)
                 {
                     var otherWord = remainingPotentialWordsFromGM[i];
-                    // Ensure we are not checking the word we intend to clear, 
-                    // though it should ideally already be removed from remainingPotentialWordsFromGM by GameManager
                     if (otherWord.ID == wordDataToClear.ID) continue;
 
                     if (otherWord.Coordinates.Contains(coord))
                     {
-                        // This cell is part of another word that should still be highlighted.
-                        // Re-apply its highlight using its index in the GM's current list for consistent coloring.
-                        Color otherWordSpecificHighlightColor = wordHighlightPalette[i % wordHighlightPalette.Length];
-                        cell.SetHighlightState(true, otherWordSpecificHighlightColor);
+                        if (currentHighlightColors.TryGetValue(otherWord.ID, out Color otherWordSpecificHighlightColor))
+                        {
+                            cell.SetHighlightState(true, otherWordSpecificHighlightColor);
+                        }
+                        else
+                        {
+                            cell.SetHighlightState(false, cell.GetDefaultColor());
+                        }
                         stillNeedsHighlightByAnotherWord = true;
-                        break; // Cell gets color of the first "other" word found
+                        break;
                     }
                 }
 
                 if (!stillNeedsHighlightByAnotherWord)
                 {
-                    // If not part of any other *remaining* potential word, revert to default color.
                     cell.SetHighlightState(false, cell.GetDefaultColor());
                 }
             }
@@ -576,16 +565,16 @@ public class WordGridManager : MonoBehaviour
             {
                 for (int c = 0; c < gridSize; c++)
                 {
-                    LetterCell cell = GetLetterCellAt(row, c);
-                    if (cell != null && cell.EnableMoves) cell.ReduceMove();
+                    LetterCell cellComp = GetLetterCellAt(row, c);
+                    if (cellComp != null && cellComp.EnableMoves) cellComp.ReduceMove();
                 }
             }
             else
             {
                 for (int r = 0; r < gridSize; r++)
                 {
-                    LetterCell cell = GetLetterCellAt(r, col);
-                    if (cell != null && cell.EnableMoves) cell.ReduceMove();
+                    LetterCell cellComp = GetLetterCellAt(r, col);
+                    if (cellComp != null && cellComp.EnableMoves) cellComp.ReduceMove();
                 }
             }
         }

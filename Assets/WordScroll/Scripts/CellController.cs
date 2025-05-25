@@ -78,7 +78,7 @@ public class CellController : MonoBehaviour
         {
             if (GameManager.instance != null)
             {
-                GameManager.ScoringMode currentMode = GameManager.instance.CurrentScoringMode;
+                GameManager.ScoringMode currentMode = GameManager.instance.GetCurrentScoringModeSetting();
                 if (currentMode == GameManager.ScoringMode.ScrabbleBased)
                 {
                     int score = GameManager.instance.CalculateScoreValueForLetter(letter);
