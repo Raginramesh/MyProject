@@ -1148,7 +1148,7 @@ MonoBehaviour:
   scrollThresholdFactor: 0.7
   enableInertia: 1
   minFlickVelocity: 300
-  inertiaDampingFactor: 0.9
+  inertiaDampimgFactor: 0.95
   minInertiaSpeed: 10
   velocityCalculationSamples: 2
   enableDragHighlight: 1
@@ -2454,7 +2454,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
-  currentDisplayMode: 2
+  currentDisplayMode: 1
   gameTimeLimit: 180
   startingMoves: 30
   homeSceneName: HomeScene
@@ -3189,7 +3189,7 @@ MonoBehaviour:
   scrollThresholdFactor: 0.4
   enableInertia: 1
   minFlickVelocity: 300
-  inertiaDampingFactor: 0.95
+  inertiaDampimgFactor: 0.95
   minInertiaSpeed: 30
   velocityCalculationSamples: 5
   enableDragHighlight: 1

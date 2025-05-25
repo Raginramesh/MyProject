@@ -21,7 +21,7 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
     [SerializeField] private bool enableInertia = true;
     [SerializeField] private float minFlickVelocity = 300f;
     [Range(0.8f, 0.99f)]
-    [SerializeField] private float inertiaDampingFactor = 0.95f;
+    [SerializeField] private float inertiaDampimgFactor = 0.95f;
     [SerializeField] private float minInertiaSpeed = 30f;
     [SerializeField] private int velocityCalculationSamples = 5;
 
@@ -41,7 +41,7 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
     private bool isPointerCurrentlyDown = false;
     private bool isDragging = false;
     private bool axisLocked = false;
-    private bool isHorizontalDrag = false;
+    private bool isHorizontalDrag;
     private int targetRow = -1;
     private int targetCol = -1;
     private float accumulatedDragDistanceOnAxis = 0f;
@@ -57,6 +57,9 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
     private int moveReductionRow = -1;
     private int moveReductionCol = -1;
     private bool dragActuallyScrolledThisInteraction = false;
+
+    // MODIFICATION: Tracks net cell shifts for the primary interacted row/column
+    private int netScrollOperations = 0;
 
     private List<CellController> currentlyDragHighlightedCells = new List<CellController>();
     private List<Image> dragHighlightedImages = new List<Image>();
@@ -102,102 +105,73 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
 
     private void ResetAllInternalStates(bool fromPointerUpOrInertiaEnd = false)
     {
-        if (!fromPointerUpOrInertiaEnd) // If it's a brand new interaction (e.g. OnPointerDown)
+        if (!fromPointerUpOrInertiaEnd)
         {
-            IsPerformingInertiaScroll = false; // Stop any old inertia
+            IsPerformingInertiaScroll = false;
             StopInertiaCoroutine();
-            pendingValidationHighlightUpdate = false; // Crucially, clear pending flags for a new interaction
+            pendingValidationHighlightUpdate = false;
             pendingMoveReduction = false;
+            moveReductionRow = -1;
+            moveReductionCol = -1;
+            netScrollOperations = 0; // MODIFICATION: Reset net scroll operations for new interaction
+            targetRow = -1;          // Reset target row/col for a completely new interaction
+            targetCol = -1;
         }
-        // else: if fromPointerUpOrInertiaEnd is true, it means an interaction phase just ended.
-        // We *don't* clear pendingValidationHighlightUpdate here because it might have *just been set*
-        // by the logic in OnPointerUp (no inertia) or at the end of InertiaScrollCoroutine.
-        // It will be cleared by the Update() loop once processed.
 
         isPointerCurrentlyDown = false;
         isDragging = false;
         axisLocked = false;
         accumulatedDragDistanceOnAxis = 0f;
-        targetRow = -1;
-        targetCol = -1;
         dragActuallyScrolledThisInteraction = false;
-
-        // These are generally safe to clear if not in active inertia.
-        // If fromPointerUpOrInertiaEnd is true, and IsPerformingInertiaScroll is *still* true (shouldn't happen with current logic),
-        // then these might be cleared too early for a move reduction during inertia.
-        // However, pendingMoveReduction is set *during* inertia/drag, and processed by Update loop.
-        if (!IsPerformingInertiaScroll)
-        {
-            // Only clear these if no inertia is active. If inertia *just finished*, these might have been set by it.
-            // The Update loop should consume them.
-            // This part of ResetAllInternalStates needs careful thought if flags are being missed.
-            // For now, if inertia just finished and set pendingMoveReduction, this will clear it IF called immediately.
-            // The current flow: Inertia sets pendingMoveReduction -> Inertia sets IsPerformingInertiaScroll=false -> Inertia calls ResetAllInternalStates(true)
-            // -> ResetAllInternalStates sees IsPerformingInertiaScroll=false -> Clears pendingMoveReduction.
-            // This is an issue. pendingMoveReduction should persist until Update.
-
-            // Let's adjust: pending flags are only reset for a truly new interaction (OnPointerDown)
-            // or after they have been consumed by Update.
-            // For now, the OnPointerDown reset is the most critical for these.
-        }
-
 
         if (isDragHighlightApplied) ForceResetDragHighlightVisuals();
         pointerSamples.Clear();
-        // Debug.Log($"GIH ResetAllInternalStates: fromPointerUpOrInertiaEnd={fromPointerUpOrInertiaEnd}, IsPerformingInertiaScroll={IsPerformingInertiaScroll}, pendingValidation={pendingValidationHighlightUpdate}");
     }
-
 
     void Update()
     {
         if (gameManager == null || wordGridManager == null) return;
-
         if (gameManager.CurrentStatePublic != GameManager.GameState.Playing) return;
 
         bool gmAnimating = gameManager.IsAnyAnimationPlaying;
         bool wgmAnimating = wordGridManager.isAnimating;
 
-        if (gmAnimating || wgmAnimating)
+        if (gmAnimating || wgmAnimating || IsPerformingInertiaScroll)
         {
-            // Debug.Log($"GIH Update: DEFERRED. GM Animating: {gmAnimating}, WGM Animating: {wgmAnimating}. pendingValidation: {pendingValidationHighlightUpdate}. Time: {Time.time:F2}");
             return;
         }
 
         if (pendingMoveReduction)
         {
-            // Debug.Log($"GIH Update: Processing PENDING MOVE REDUCTION. Row: {moveReductionRow}, Col: {moveReductionCol}. Time: {Time.time:F2}");
-            pendingMoveReduction = false; // Consume the flag
+            pendingMoveReduction = false;
             wordGridManager.ApplyPendingMoveReduction(moveReductionRow, moveReductionCol);
-            moveReductionRow = -1; moveReductionCol = -1;
+            moveReductionRow = -1;
+            moveReductionCol = -1;
         }
 
         if (pendingValidationHighlightUpdate)
         {
-            Debug.Log($"GIH Update: PROCESSING PENDING VALIDATION/HIGHLIGHT UPDATE. Time: {Time.time:F2}");
-            pendingValidationHighlightUpdate = false; // Consume the flag
+            pendingValidationHighlightUpdate = false;
             wordGridManager.TriggerValidationCheckAndHighlightUpdate();
         }
     }
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        // Debug.Log($"GIH OnPointerDown. Time: {Time.time:F2}");
         if (gameManager.IsAnyAnimationPlaying && !IsPerformingInertiaScroll)
         { return; }
 
         if (IsPerformingInertiaScroll)
         {
-            // Debug.Log("GIH OnPointerDown: Stopping inertia.");
-            StopInertiaCoroutine(); // This will also set IsPerformingInertiaScroll = false
+            StopInertiaCoroutine();
         }
-        // THIS IS A NEW INTERACTION START. Clear all flags from any previous interaction.
-        ResetAllInternalStates(false); // 'false' signifies a new interaction, not the end of one.
+        ResetAllInternalStates(false); // This now also resets netScrollOperations
 
         isPointerCurrentlyDown = true;
         pointerDownScreenPosition = eventData.position;
         pointerDownTime = Time.unscaledTime;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, pointerDownScreenPosition, uiCamera, out Vector2 initialLocalPos);
-        pointerSamples.Clear(); // Cleared in ResetAllInternalStates, but good to be explicit for new sample set
+        pointerSamples.Clear();
         AddPointerSample(initialLocalPos);
     }
 
@@ -225,14 +199,12 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
                 axisLocked = false;
                 dragStartLocalPosition = currentLocalPos;
                 accumulatedDragDistanceOnAxis = 0f;
-                // dragActuallyScrolledThisInteraction is reset in OnPointerDown via ResetAllInternalStates(false)
 
                 Vector2 screenDragVector = currentScreenPos - pointerDownScreenPosition;
                 if (!axisLocked)
                 {
                     axisLocked = true;
                     isHorizontalDrag = Mathf.Abs(screenDragVector.x) > Mathf.Abs(screenDragVector.y);
-                    // Debug.Log($"GIH OnDrag: DRAG CONFIRMED & AXIS LOCKED. isHorizontalDrag={isHorizontalDrag}");
                     CalculateTargetRowColForDrag(dragStartLocalPosition);
                     if (enableDragHighlight && targetRow != -1 && targetCol != -1)
                     {
@@ -245,7 +217,11 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
         }
 
         if (wordGridManager.isAnimating && !IsPerformingInertiaScroll)
-        { dragStartLocalPosition = currentLocalPos; return; }
+        {
+            dragStartLocalPosition = currentLocalPos;
+            accumulatedDragDistanceOnAxis = 0f;
+            return;
+        }
 
         float frameDragDeltaOnAxis = isHorizontalDrag ? (currentLocalPos.x - dragStartLocalPosition.x) : (currentLocalPos.y - dragStartLocalPosition.y);
         accumulatedDragDistanceOnAxis += frameDragDeltaOnAxis;
@@ -254,34 +230,40 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
         if (Mathf.Abs(accumulatedDragDistanceOnAxis) >= scrollTriggerDistance)
         {
             if (wordGridManager.isAnimating)
-            { dragStartLocalPosition = currentLocalPos; accumulatedDragDistanceOnAxis = 0; return; }
+            {
+                dragStartLocalPosition = currentLocalPos;
+                accumulatedDragDistanceOnAxis = 0;
+                return;
+            }
 
             int scrollDirection = (int)Mathf.Sign(accumulatedDragDistanceOnAxis);
             float scrollAmountAbs = Mathf.Abs(accumulatedDragDistanceOnAxis);
             bool scrollRequestedThisFrame = false;
+            Sequence scrollSequence = null;
+            int wgmEffectiveDirection = 0; // To store the direction WGM's data actually shifts
 
             if (isHorizontalDrag && targetRow != -1)
             {
-                wordGridManager.RequestRowScroll(targetRow, scrollDirection, scrollAmountAbs);
+                wgmEffectiveDirection = scrollDirection;
+                scrollSequence = wordGridManager.RequestRowScroll(targetRow, wgmEffectiveDirection, scrollAmountAbs);
                 scrollRequestedThisFrame = true;
             }
             else if (!isHorizontalDrag && targetCol != -1)
             {
-                wordGridManager.RequestColumnScroll(targetCol, -scrollDirection, scrollAmountAbs);
+                wgmEffectiveDirection = -scrollDirection; // WGM's RequestColumnScroll inverts UI Y-drag for data shift
+                scrollSequence = wordGridManager.RequestColumnScroll(targetCol, wgmEffectiveDirection, scrollAmountAbs);
                 scrollRequestedThisFrame = true;
             }
 
-            if (scrollRequestedThisFrame)
+            if (scrollRequestedThisFrame && scrollSequence != null) // Ensure scroll was actually initiated by WGM
             {
-                if (!dragActuallyScrolledThisInteraction) Debug.Log($"GIH OnDrag: First scroll of this interaction occurred. Time: {Time.time:F2}");
-                dragActuallyScrolledThisInteraction = true;
+                if (!dragActuallyScrolledThisInteraction)
+                    dragActuallyScrolledThisInteraction = true;
+
+                netScrollOperations += wgmEffectiveDirection; // MODIFICATION: Update net operations
+                // Debug.Log($"GIH OnDrag: Scrolled. NetOps: {netScrollOperations}");
+
                 accumulatedDragDistanceOnAxis -= scrollDirection * scrollTriggerDistance;
-                if (gameManager.CurrentGameDisplayMode == GameManager.DisplayMode.Moves)
-                {
-                    pendingMoveReduction = true;
-                    moveReductionRow = isHorizontalDrag ? targetRow : -1;
-                    moveReductionCol = isHorizontalDrag ? -1 : targetCol;
-                }
             }
         }
         dragStartLocalPosition = currentLocalPos;
@@ -289,7 +271,6 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
 
     public void OnPointerUp(PointerEventData eventData)
     {
-        // Debug.Log($"GIH OnPointerUp. Time: {Time.time:F2}");
         if (!isPointerCurrentlyDown) { return; }
 
         bool wasDraggingBeforeUp = isDragging;
@@ -297,11 +278,8 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
 
         if (isDragHighlightApplied) { ResetDragHighlight(); }
 
-        // Temporarily set isPointerCurrentlyDown to false. If inertia starts, it's still part of this "interaction"
-        // but the pointer itself is up. ResetAllInternalStates at the very end will handle full state.
         isPointerCurrentlyDown = false;
-        isDragging = false; // Drag gesture itself is over, even if inertia follows.
-
+        isDragging = false;
 
         if (wasDraggingBeforeUp)
         {
@@ -312,69 +290,72 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
             {
                 Vector2 releaseVelocity = CalculateVelocity();
                 float speedOnAxis = isHorizontalDrag ? Mathf.Abs(releaseVelocity.x) : Mathf.Abs(releaseVelocity.y);
+
                 if (speedOnAxis > minFlickVelocity)
                 {
                     float relevantVelocityComponent = isHorizontalDrag ? releaseVelocity.x : releaseVelocity.y;
-                    // Debug.Log($"GIH OnPointerUp: Starting INERTIA. didActuallyScrollInThisDragCycle before inertia: {didActuallyScrollInThisDragCycle}");
-                    if (inertiaCoroutine != null) StopCoroutine(inertiaCoroutine); // Should be stopped by OnPointerDown if new touch
-
+                    if (inertiaCoroutine != null) StopCoroutine(inertiaCoroutine);
                     inertiaCoroutine = StartCoroutine(InertiaScrollCoroutine(relevantVelocityComponent, isHorizontalDrag, targetRow, targetCol, didActuallyScrollInThisDragCycle));
-                    // isPointerCurrentlyDown and isDragging are already false.
-                    // IsPerformingInertiaScroll is set by coroutine.
-                    // DO NOT call ResetAllInternalStates here if inertia starts. Coroutine will handle it.
                     return;
                 }
             }
 
-            // If drag ended, NO inertia:
             if (didActuallyScrollInThisDragCycle)
             {
                 pendingValidationHighlightUpdate = true;
-                Debug.Log($"GIH OnPointerUp: DRAG ENDED (NO INERTIA), SCROLL OCCURRED. Flagged for validation. didActuallyScrollInThisDragCycle={didActuallyScrollInThisDragCycle}. Time: {Time.time:F2}");
+                if (gameManager.CurrentGameDisplayMode == GameManager.DisplayMode.Moves)
+                {
+                    // MODIFICATION: Check netScrollOperations
+                    if (netScrollOperations != 0)
+                    {
+                        // Debug.Log($"GIH OnPointerUp: Drag ended, scroll occurred, no inertia. NetOps: {netScrollOperations}. Flagging Move Reduction. Row: {targetRow}, Col: {targetCol}");
+                        pendingMoveReduction = true;
+                        moveReductionRow = isHorizontalDrag ? targetRow : -1;
+                        moveReductionCol = isHorizontalDrag ? -1 : targetCol;
+                    }
+                    else
+                    {
+                        // Debug.Log($"GIH OnPointerUp: Drag ended, scroll occurred, no inertia. NetOps: {netScrollOperations}. NO Move Reduction.");
+                    }
+                }
             }
-            // else Debug.Log($"GIH OnPointerUp: Drag ended, no scroll, no inertia. didActuallyScrollInThisDragCycle={didActuallyScrollInThisDragCycle}. Time: {Time.time:F2}");
+            else
+            {
+                pendingValidationHighlightUpdate = true; // Still validate if it was a drag, even if no scroll
+            }
         }
-        else // Was NOT a drag, consider it a TAP
+        else
         {
             float duration = Time.unscaledTime - pointerDownTime;
             float distance = Vector2.Distance(pointerDownScreenPosition, eventData.position);
             if (duration <= maxTapDuration && distance <= maxTapMoveDistance)
             {
-                if (!gameManager.IsAnyAnimationPlaying) // Check GM animation for taps too
+                if (!gameManager.IsAnyAnimationPlaying)
                 {
                     RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, eventData.position, uiCamera, out Vector2 localTapPos);
                     Vector2Int tappedGridCoord = CalculateGridCoordsFromLocalPos(localTapPos);
                     if (tappedGridCoord.x != -1 && tappedGridCoord.y != -1)
                     {
-                        gameManager.AttemptTapValidation(tappedGridCoord);
-                        // If tap validation directly changes grid and needs immediate re-check by WGM:
-                        // pendingValidationHighlightUpdate = true; 
-                        // Debug.Log($"GIH OnPointerUp: TAP. Flagging validation. Time: {Time.time:F2}");
+                        bool wordProcessed = gameManager.AttemptTapValidation(tappedGridCoord);
+                        if (!wordProcessed)
+                        {
+                            pendingValidationHighlightUpdate = true;
+                        }
                     }
                 }
             }
+            else
+            {
+                pendingValidationHighlightUpdate = true;
+            }
         }
-        // If no inertia started, or if it wasn't a drag, then this interaction is fully over.
-        // Reset all states. Pass 'true' because it's the end of a pointer up sequence.
         ResetAllInternalStates(true);
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        // This is called AFTER OnPointerUp if a drag gesture was significant enough
-        // to be registered by the EventSystem as a drag (i.e., OnBeginDrag & OnDrag were called).
-        // Debug.Log($"GIH OnEndDrag. IsPerformingInertiaScroll={IsPerformingInertiaScroll}, isPointerCurrentlyDown={isPointerCurrentlyDown}");
-
-        // If OnPointerUp started inertia, IsPerformingInertiaScroll will be true.
-        // If OnPointerUp did NOT start inertia, it would have called ResetAllInternalStates(true).
-        // isPointerCurrentlyDown should be false if OnPointerUp ran.
-        // This function mostly serves as a final catch-all if OnPointerUp's logic path somehow
-        // didn't fully reset and no inertia is active.
         if (!IsPerformingInertiaScroll && isPointerCurrentlyDown)
         {
-            // This state (pointer still considered down by this script, but OnEndDrag called and no inertia) is unusual.
-            // It implies OnPointerUp might not have fully executed its cleanup path.
-            // Debug.LogWarning($"GIH OnEndDrag: Forcing state reset as no inertia is active and pointer was unexpectedly still considered down. Time: {Time.time:F2}");
             ResetAllInternalStates(true);
         }
     }
@@ -396,91 +377,109 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
         return (last.LocalPosition - first.LocalPosition) / timeDelta;
     }
 
-    private IEnumerator InertiaScrollCoroutine(float initialAxisVelocityLocal, bool forHorizontal, int inertiaRow, int inertiaCol, bool scrollAlreadyHappenedThisInteraction)
+    private IEnumerator InertiaScrollCoroutine(float initialAxisVelocityLocal, bool forHorizontal, int rowForInertia, int colForInertia, bool scrollAlreadyHappenedDuringDrag)
     {
         IsPerformingInertiaScroll = true;
         bool inertiaItselfCausedScroll = false;
-        // Debug.Log($"GIH Inertia: START. scrollAlreadyHappenedThisInteraction={scrollAlreadyHappenedThisInteraction}. Time: {Time.time:F2}");
 
         float currentAxisVelocityLocal = initialAxisVelocityLocal;
         float inertiaAccumulatedScrollDistance = 0f;
 
-        if (forHorizontal && (inertiaRow < 0 || inertiaRow >= wordGridManager.gridSize))
-        { Debug.LogError("GIH Inertia: Invalid targetRow. Aborting."); IsPerformingInertiaScroll = false; inertiaCoroutine = null; ResetAllInternalStates(true); yield break; }
-        if (!forHorizontal && (inertiaCol < 0 || inertiaCol >= wordGridManager.gridSize))
-        { Debug.LogError("GIH Inertia: Invalid targetCol. Aborting."); IsPerformingInertiaScroll = false; inertiaCoroutine = null; ResetAllInternalStates(true); yield break; }
+        if (forHorizontal && (rowForInertia < 0 || rowForInertia >= wordGridManager.gridSize))
+        { IsPerformingInertiaScroll = false; inertiaCoroutine = null; ResetAllInternalStates(true); yield break; }
+        if (!forHorizontal && (colForInertia < 0 || colForInertia >= wordGridManager.gridSize))
+        { IsPerformingInertiaScroll = false; inertiaCoroutine = null; ResetAllInternalStates(true); yield break; }
 
         while (Mathf.Abs(currentAxisVelocityLocal) > minInertiaSpeed)
         {
             if (gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing || wordGridManager == null)
             { IsPerformingInertiaScroll = false; inertiaCoroutine = null; ResetAllInternalStates(true); yield break; }
 
-            currentAxisVelocityLocal *= inertiaDampingFactor;
+            currentAxisVelocityLocal *= inertiaDampimgFactor;
             float moveAmountThisFrameLocal = currentAxisVelocityLocal * Time.deltaTime;
             inertiaAccumulatedScrollDistance += moveAmountThisFrameLocal;
 
             if (Mathf.Abs(inertiaAccumulatedScrollDistance) >= cellSizeWithSpacing * scrollThresholdFactor)
             {
-                // Wait for WGM direct scroll animation to finish BEFORE requesting another scroll
                 yield return new WaitUntil(() => !wordGridManager.isAnimating);
-                if (gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing) // Re-check after wait
+                if (gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing)
                 { IsPerformingInertiaScroll = false; inertiaCoroutine = null; ResetAllInternalStates(true); yield break; }
 
-                int scrollDirection = (int)Mathf.Sign(inertiaAccumulatedScrollDistance);
+                int scrollDirection = (int)Mathf.Sign(inertiaAccumulatedScrollDistance); // UI perspective
                 float scrollAmountAbs = Mathf.Abs(inertiaAccumulatedScrollDistance);
+                Sequence inertiaScrollSequence = null;
+                int wgmEffectiveDirection = 0;
 
-                if (forHorizontal) { wordGridManager.RequestRowScroll(inertiaRow, scrollDirection, scrollAmountAbs); }
-                else { wordGridManager.RequestColumnScroll(inertiaCol, -scrollDirection, scrollAmountAbs); }
+                if (forHorizontal)
+                {
+                    wgmEffectiveDirection = scrollDirection;
+                    inertiaScrollSequence = wordGridManager.RequestRowScroll(rowForInertia, wgmEffectiveDirection, scrollAmountAbs);
+                }
+                else
+                { // Vertical
+                    wgmEffectiveDirection = -scrollDirection; // WGM's RequestColumnScroll inverts UI Y-drag for data shift
+                    inertiaScrollSequence = wordGridManager.RequestColumnScroll(colForInertia, wgmEffectiveDirection, scrollAmountAbs);
+                }
 
-                if (!inertiaItselfCausedScroll) Debug.Log($"GIH Inertia: First scroll of this inertia sequence occurred. Time: {Time.time:F2}");
-                inertiaItselfCausedScroll = true;
+                if (inertiaScrollSequence != null && inertiaScrollSequence.IsActive())
+                {
+                    yield return inertiaScrollSequence.WaitForCompletion();
+                }
+                else
+                {
+                    break;
+                }
+
+                if (!inertiaItselfCausedScroll) inertiaItselfCausedScroll = true;
+
+                netScrollOperations += wgmEffectiveDirection; // MODIFICATION: Update net operations
+                                                              // Debug.Log($"GIH Inertia: Scrolled. NetOps: {netScrollOperations}");
 
                 inertiaAccumulatedScrollDistance -= scrollDirection * (cellSizeWithSpacing * scrollThresholdFactor);
-                if (gameManager.CurrentGameDisplayMode == GameManager.DisplayMode.Moves)
-                {
-                    pendingMoveReduction = true;
-                    moveReductionRow = forHorizontal ? inertiaRow : -1;
-                    moveReductionCol = forHorizontal ? -1 : inertiaCol;
-                }
             }
             if (Mathf.Abs(currentAxisVelocityLocal) <= minInertiaSpeed) break;
             yield return null;
         }
 
-        bool needsValidationAfterInertia = scrollAlreadyHappenedThisInteraction || inertiaItselfCausedScroll;
-        // Debug.Log($"GIH Inertia: FINISHED. inertiaItselfCausedScroll={inertiaItselfCausedScroll}, scrollAlreadyHappenedThisInteraction={scrollAlreadyHappenedThisInteraction}. Time: {Time.time:F2}");
+        bool anyScrollInTotalInteraction = scrollAlreadyHappenedDuringDrag || inertiaItselfCausedScroll;
 
         IsPerformingInertiaScroll = false;
         inertiaCoroutine = null;
+        ResetAllInternalStates(true);
 
-        // Call ResetAllInternalStates first. It now uses 'fromPointerUpOrInertiaEnd=true'
-        // and should NOT clear pendingValidationHighlightUpdate if IsPerformingInertiaScroll is false (which it is now).
-        // However, the critical part is that pendingValidationHighlightUpdate is set *after* this reset.
-        ResetAllInternalStates(true); // true because inertia (an interaction part) just ended
-
-        if (needsValidationAfterInertia)
+        if (anyScrollInTotalInteraction)
         {
-            pendingValidationHighlightUpdate = true; // Set it AFTER reset, ensuring it persists for the next Update cycle
-            Debug.Log($"GIH Inertia: END. Flagging validation. Total scroll this interaction: {needsValidationAfterInertia}. Time: {Time.time:F2}");
+            pendingValidationHighlightUpdate = true;
+            if (gameManager.CurrentGameDisplayMode == GameManager.DisplayMode.Moves)
+            {
+                // MODIFICATION: Check netScrollOperations
+                if (netScrollOperations != 0)
+                {
+                    // Debug.Log($"GIH Inertia: END. NetOps: {netScrollOperations}. Flagging Move Reduction. Row: {rowForInertia}, Col: {colForInertia}");
+                    pendingMoveReduction = true;
+                    moveReductionRow = forHorizontal ? rowForInertia : -1;
+                    moveReductionCol = forHorizontal ? -1 : colForInertia;
+                }
+                else
+                {
+                    // Debug.Log($"GIH Inertia: END. NetOps: {netScrollOperations}. NO Move Reduction.");
+                }
+            }
         }
-        // If !needsValidationAfterInertia, pendingValidationHighlightUpdate remains false (as cleared by ResetAllInternalStates earlier in OnPointerDown).
     }
 
     private void StopInertiaCoroutine()
     {
         if (inertiaCoroutine != null)
         { StopCoroutine(inertiaCoroutine); inertiaCoroutine = null; }
-        // This is called when a new touch interrupts or inertia ends naturally.
-        // If interrupted, IsPerformingInertiaScroll should be set to false by the calling context
-        // (e.g., OnPointerDown sets it false before calling ResetAllInternalStates(false)).
-        // If inertia ends naturally, the coroutine itself sets IsPerformingInertiaScroll = false.
         IsPerformingInertiaScroll = false;
     }
 
     private void CalculateTargetRowColForDrag(Vector2 localPositionOnPanel)
     {
         Vector2Int gridCoords = CalculateGridCoordsFromLocalPos(localPositionOnPanel);
-        targetRow = gridCoords.x; targetCol = gridCoords.y;
+        targetRow = gridCoords.x;
+        targetCol = gridCoords.y;
     }
 
     private Vector2Int CalculateGridCoordsFromLocalPos(Vector2 localPosition)
@@ -488,11 +487,11 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
         if (wordGridManager == null || cellSizeWithSpacing <= 0.001f) return new Vector2Int(-1, -1);
         float totalGridVisualWidth = wordGridManager.gridSize * wordGridManager.cellSize + Mathf.Max(0, wordGridManager.gridSize - 1) * wordGridManager.spacing;
         float gridContentStartX = -totalGridVisualWidth / 2f;
-        float gridContentStartY = totalGridVisualWidth / 2f;
+        float gridContentTopY = totalGridVisualWidth / 2f;
         float xInGridContent = localPosition.x - gridContentStartX;
-        float yInGridContent = gridContentStartY - localPosition.y;
+        float yFromTopInGridContent = gridContentTopY - localPosition.y;
         int c = Mathf.FloorToInt(xInGridContent / cellSizeWithSpacing);
-        int r = Mathf.FloorToInt(yInGridContent / cellSizeWithSpacing);
+        int r = Mathf.FloorToInt(yFromTopInGridContent / cellSizeWithSpacing);
         if (c < 0 || c >= wordGridManager.gridSize || r < 0 || r >= wordGridManager.gridSize) { return new Vector2Int(-1, -1); }
         return new Vector2Int(r, c);
     }
@@ -540,7 +539,11 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
             dragOriginalColors.Add(img.color);
             img.color = dragHighlightColor;
         }
-        else { dragHighlightedImages.Add(null); dragOriginalColors.Add(Color.clear); }
+        else
+        {
+            dragHighlightedImages.Add(null);
+            dragOriginalColors.Add(Color.clear);
+        }
     }
 
     private void ResetDragHighlight() { ForceResetDragHighlightVisuals(); }
