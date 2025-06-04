@@ -6,17 +6,19 @@ using System.Collections.Generic;
 using DG.Tweening;
 using System.Linq;
 using System; // Required for System.Guid
-using Unity.VisualScripting;
+using UnityEngine.UI; // Required for Slider
 
 public class GameManager : MonoBehaviour
 {
     public enum ScoringMode { LengthBased, ScrabbleBased }
-    public enum GameState { Initializing, Playing, Paused, GameOver }
+    public enum GameState { Initializing, Playing, Paused, GameOver } // Could add LevelComplete if more distinction is needed
     public enum DisplayMode { Timer, Moves, None }
 
     [Header("Game State")]
     [SerializeField] private GameState currentState = GameState.Initializing;
     public GameState CurrentStatePublic => currentState;
+    private bool hasWon = false; // Flag to indicate if the player has won
+    public bool HasWon => hasWon; // Public getter for UI scripts
 
     private bool isProcessingSequentialWords = false;
     public bool IsAnyAnimationPlaying
@@ -46,6 +48,7 @@ public class GameManager : MonoBehaviour
     [Tooltip("Points per letter, used if Scoring Mode is LengthBased for actual scoring, and for ScrabbleBased if a letter has no defined Scrabble value (as a fallback, typically 1).")]
     [SerializeField] private int pointsPerLetter = 10;
     public int GetPointsPerLetterSetting() => pointsPerLetter;
+    [SerializeField] private int targetScoreForLevel = 1000;
 
     private Dictionary<char, int> scrabbleLetterValues;
     public IReadOnlyDictionary<char, int> GetScrabbleLetterValues() => scrabbleLetterValues;
@@ -54,6 +57,7 @@ public class GameManager : MonoBehaviour
     [Header("UI References")]
     [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private RectTransform scoreTextRectTransform;
+    [SerializeField] private Slider scoreProgressBar;
     [SerializeField] private GameObject statusDisplayGroup;
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI movesText;
@@ -78,6 +82,7 @@ public class GameManager : MonoBehaviour
     private float currentTimeRemaining;
     private int currentMovesRemaining;
     private int currentScore = 0;
+    public int CurrentScore => currentScore; // Public getter for currentScore
     public static GameManager instance;
 
     private List<FoundWordData> currentPotentialWords = new List<FoundWordData>();
@@ -107,7 +112,8 @@ public class GameManager : MonoBehaviour
         if (wordGridManager == null) Debug.LogError("GM: WordGridManager missing!", this);
         if (wordValidator == null) Debug.LogError("GM: WordValidator missing!", this);
         if (gridInputHandler == null) Debug.LogError("GM: GridInputHandler missing! Tapping will not work.", this);
-        if (scoreText == null) Debug.LogError("GM: Score Text (TMP) missing!", this);
+        if (scoreText == null) Debug.LogError("GM: Score Text (TMP) for progress bar missing!", this);
+        if (scoreProgressBar == null) Debug.LogError("GM: Score Progress Bar (Slider) missing!", this);
 
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
@@ -176,7 +182,7 @@ public class GameManager : MonoBehaviour
                 if (pausePanel != null) pausePanel.SetActive(true);
                 break;
             case GameState.GameOver:
-                Time.timeScale = 1f;
+                Time.timeScale = 1f; // Keep time scale at 1 for game over animations/UI
                 if (gridInputHandler != null) gridInputHandler.enabled = false;
                 break;
         }
@@ -186,7 +192,15 @@ public class GameManager : MonoBehaviour
     {
         SetState(GameState.Initializing);
         currentScore = 0;
+        hasWon = false; // Reset win state
+
+        if (scoreProgressBar != null)
+        {
+            scoreProgressBar.maxValue = targetScoreForLevel;
+            scoreProgressBar.value = 0;
+        }
         UpdateScoreUI();
+
         currentPotentialWords.Clear();
         currentAppliedHighlightColors.Clear();
 
@@ -224,16 +238,51 @@ public class GameManager : MonoBehaviour
         SetState(GameState.Playing);
     }
 
-    private void EndGame(bool timeout = false, bool noMoves = false)
+    private void PlayerWins()
     {
-        if (currentState == GameState.GameOver) return;
-        if ((timeout && currentDisplayMode != DisplayMode.Timer) || (noMoves && currentDisplayMode != DisplayMode.Moves)) return;
+        if (currentState != GameState.Playing) return; // Already won or game ended otherwise
+
+        Debug.Log("Player Wins! Target score reached.");
+        EndGame(playerDidWin: true);
+    }
+
+    private void EndGame(bool timeout = false, bool noMoves = false, bool playerDidWin = false)
+    {
+        if (currentState == GameState.GameOver) return; // Already in GameOver state
+
+        if (playerDidWin)
+        {
+            hasWon = true;
+        }
+        else
+        {
+            // If EndGame is called for timeout or noMoves, check if player had already won.
+            // If hasWon is true, it means PlayerWins() was called just before timer/moves ran out.
+            if (hasWon) 
+            {
+                // Player reached target score just as time/moves ran out. Still a win.
+                 Debug.Log("EndGame: Player had already won before timeout/noMoves.");
+            }
+            else // This is a loss due to timeout or no moves
+            {
+                if (timeout && currentDisplayMode != DisplayMode.Timer) return; // Invalid timeout call
+                if (noMoves && currentDisplayMode != DisplayMode.Moves) return; // Invalid noMoves call
+                hasWon = false;
+                Debug.Log($"Game Over: Timeout={timeout}, NoMoves={noMoves}");
+            }
+        }
 
         SetState(GameState.GameOver);
         currentPotentialWords.Clear();
         currentAppliedHighlightColors.Clear();
         if (wordGridManager != null) wordGridManager.ClearAllCellHighlights();
-        if (gameOverPanel != null) { gameOverPanel.SetActive(true); }
+
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+            // The script on gameOverPanel (e.g., GameOverUIController) should check GameManager.instance.HasWon
+            // in its OnEnable() or Start() method to display the correct "You Win!" or "You Lose!" message.
+        }
     }
 
     public void UpdatePotentialWordsDisplay(List<FoundWordData> potentialWordsFromValidator, Dictionary<System.Guid, Color> appliedColors)
@@ -299,7 +348,8 @@ public class GameManager : MonoBehaviour
 
         wordsToProcessInSequence = wordsToProcessInSequence
                                     .Where(w => !wordValidator.IsWordFoundThisSession(w.Word))
-                                    .DistinctBy(w => w.ID)
+                                    .GroupBy(w => w.ID) 
+                                    .Select(g => g.First())         
                                     .ToList();
         if (wordsToProcessInSequence.Count == 0) return false;
 
@@ -474,9 +524,9 @@ public class GameManager : MonoBehaviour
                             }
                         }
                     }
-                    else // This 'else' block was restored
+                    else
                     {
-                        cellController.SetAlpha(0f); // Default to making it disappear
+                        cellController.SetAlpha(0f);
                         Debug.LogError($"GM.ProcessSeq: Cell {coord} for '{currentWordData.Word}' not found in usage count. Made invisible.");
                     }
                 }
@@ -514,11 +564,38 @@ public class GameManager : MonoBehaviour
             }
 
             wordValidator.MarkWordAsFoundInSession(currentWordData.Word);
+            
+            // Check for win condition immediately after a word is scored and marked as found
+            if (currentScore >= targetScoreForLevel && currentState == GameState.Playing && !hasWon)
+            {
+                PlayerWins(); // This will set hasWon and call EndGame
+                // If PlayerWins calls EndGame, it will set currentState to GameOver.
+                // We might want to break or return from the coroutine if the game has ended.
+                if(currentState == GameState.GameOver) 
+                {
+                    isProcessingSequentialWords = false; // Ensure flag is reset
+                    yield break; // Exit coroutine as game is over
+                }
+            }
+
 
             if (wordIdx < wordsToAnimateInOrder.Count - 1 && visualPauseBetweenWordsInSequence > 0)
             {
+                // If game ended due to win, don't continue with visual pause for next word
+                if(currentState == GameState.GameOver) 
+                {
+                     isProcessingSequentialWords = false;
+                     yield break;
+                }
                 yield return new WaitForSeconds(visualPauseBetweenWordsInSequence);
             }
+        }
+
+        // If game ended during the loop, this part might not be reached or necessary.
+        if (currentState == GameState.GameOver && hasWon)
+        {
+            isProcessingSequentialWords = false;
+            yield break;
         }
 
         if (replacementDelayAfterEffectStart > 0) yield return new WaitForSeconds(replacementDelayAfterEffectStart);
@@ -528,7 +605,11 @@ public class GameManager : MonoBehaviour
         {
             wordGridManager.ReplaceLettersAt(distinctAffectedCoordinates, true);
             yield return new WaitUntil(() => !wordGridManager.isAnimating);
-            wordGridManager.TriggerValidationCheckAndHighlightUpdate();
+            // Only trigger validation if the game is still playing
+            if (currentState == GameState.Playing)
+            {
+                wordGridManager.TriggerValidationCheckAndHighlightUpdate();
+            }
         }
         isProcessingSequentialWords = false;
     }
@@ -541,10 +622,21 @@ public class GameManager : MonoBehaviour
 
     private void HandleSingleLetterScore(int pointsToAdd)
     {
-        if (pointsToAdd <= 0 || currentState == GameState.GameOver) return;
+        if (pointsToAdd <= 0 || currentState == GameState.GameOver) return; // Don't add score if game is already over
+
         currentScore += pointsToAdd;
         UpdateScoreUI();
-        if (scoreTextRectTransform != null)
+
+        // Check for win condition right after score update, but before shake,
+        // as PlayerWins() might change game state.
+        // This check is now primarily handled in ProcessWordsSequentially after a full word is scored.
+        // However, keeping a check here can be a fallback or if score can be added outside that loop.
+        if (currentScore >= targetScoreForLevel && currentState == GameState.Playing && !hasWon)
+        {
+            PlayerWins();
+        }
+
+        if (scoreTextRectTransform != null && currentState == GameState.Playing) // Only shake if still playing
         {
             scoreTextRectTransform.DOKill(true);
             scoreTextRectTransform.DOShakePosition(scoreShakeDuration, scoreShakeStrength, scoreShakeVibrato, 90, false, true).SetUpdate(true);
@@ -562,16 +654,30 @@ public class GameManager : MonoBehaviour
 
     private void UpdateScoreUI()
     {
-        if (scoreText != null) scoreText.text = currentScore.ToString();
+        if (scoreProgressBar != null)
+        {
+            scoreProgressBar.value = Mathf.Min(currentScore, targetScoreForLevel); // Cap progress bar at max
+        }
+        if (scoreText != null)
+        {
+            scoreText.text = $"{currentScore} / {targetScoreForLevel}";
+        }
     }
 
     private void UpdateTimer()
     {
+        if (currentState != GameState.Playing) return; // Only update timer if playing
+
         if (currentTimeRemaining > 0)
         {
             currentTimeRemaining -= Time.deltaTime;
             UpdateTimerUI();
-            if (currentTimeRemaining <= 0) { currentTimeRemaining = 0; UpdateTimerUI(); EndGame(timeout: true); }
+            if (currentTimeRemaining <= 0)
+            {
+                currentTimeRemaining = 0;
+                UpdateTimerUI();
+                EndGame(timeout: true, noMoves: false, playerDidWin: false);
+            }
         }
     }
     private void UpdateTimerUI()
@@ -584,10 +690,16 @@ public class GameManager : MonoBehaviour
 
     public void DecrementMoves()
     {
-        if (currentState != GameState.Playing || currentDisplayMode != DisplayMode.Moves) return;
+        if (currentState != GameState.Playing) return; // Only decrement if playing
+
         currentMovesRemaining--;
         UpdateMovesUI();
-        if (currentMovesRemaining <= 0) { currentMovesRemaining = 0; UpdateMovesUI(); EndGame(noMoves: true); }
+        if (currentMovesRemaining <= 0)
+        {
+            currentMovesRemaining = 0;
+            UpdateMovesUI();
+            EndGame(timeout: false, noMoves: true, playerDidWin: false);
+        }
     }
     private void UpdateMovesUI()
     {

@@ -454,15 +454,14 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1345162614}
   - {fileID: 497545681}
   - {fileID: 169415963}
   m_Father: {fileID: 54221075}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 529}
-  m_SizeDelta: {x: 1080, y: 261.50903}
+  m_AnchorMin: {x: 0.5, y: 1}
+  m_AnchorMax: {x: 0.5, y: 1}
+  m_AnchoredPosition: {x: 0, y: -92.29498}
+  m_SizeDelta: {x: 1080, y: 184.58997}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &72323417
 GameObject:
@@ -531,12 +530,13 @@ RectTransform:
   m_Children:
   - {fileID: 852315579}
   - {fileID: 72323418}
+  - {fileID: 1345162614}
   m_Father: {fileID: 70585928}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.5}
-  m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 253}
-  m_SizeDelta: {x: -925.68, y: 27.92}
+  m_AnchorMin: {x: 0.5, y: 0}
+  m_AnchorMax: {x: 0.5, y: 0}
+  m_AnchoredPosition: {x: 0, y: -110}
+  m_SizeDelta: {x: 130, y: 35}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &169415964
 MonoBehaviour:
@@ -585,7 +585,7 @@ MonoBehaviour:
   m_MinValue: 0
   m_MaxValue: 1
   m_WholeNumbers: 0
-  m_Value: 0.913
+  m_Value: 1
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -1295,7 +1295,7 @@ GameObject:
   - component: {fileID: 497545683}
   - component: {fileID: 497545682}
   m_Layer: 5
-  m_Name: WordScore
+  m_Name: CurrentWordScore
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1317,7 +1317,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0.000030517578, y: 0}
+  m_AnchoredPosition: {x: 0, y: -400}
   m_SizeDelta: {x: 1080, y: 260}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &497545682
@@ -1737,13 +1737,14 @@ MonoBehaviour:
   - {r: 1, g: 0.8, b: 0.6, a: 0.75}
   wordValidator: {fileID: 593137152}
   gameManager: {fileID: 1480404336}
---- !u!224 &593137151
-RectTransform:
+--- !u!4 &593137151
+Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 593137149}
+  serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
@@ -1751,11 +1752,6 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
-  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &593137152
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2392,8 +2388,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 10, y: 0}
+  m_AnchoredPosition: {x: -2.5, y: 0}
+  m_SizeDelta: {x: 5, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1284207703
 MonoBehaviour:
@@ -2727,15 +2723,15 @@ RectTransform:
   m_GameObject: {fileID: 1345162613}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.14285713, y: 0.07692309, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 70585928}
+  m_Father: {fileID: 169415963}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -0.00000095367, y: -7}
-  m_SizeDelta: {x: 1080, y: 260}
+  m_AnchoredPosition: {x: 0, y: -0.098}
+  m_SizeDelta: {x: 1080, y: 153.8403}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1345162615
 MonoBehaviour:
@@ -2757,7 +2753,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 1000000
+  m_text: 100/100
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -2784,13 +2780,13 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 150
+  m_fontSize: 100
   m_fontSizeBase: 36
   m_fontWeight: 400
   m_enableAutoSizing: 1
   m_fontSizeMin: 72
-  m_fontSizeMax: 150
-  m_fontStyle: 0
+  m_fontSizeMax: 100
+  m_fontStyle: 1
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
@@ -2869,30 +2865,28 @@ MonoBehaviour:
   currentState: 0
   currentDisplayMode: 1
   gameTimeLimit: 180
-  startingMoves: 30
+  startingMoves: 20
   homeSceneName: HomeScene
   currentScoringMode: 1
   pointsPerLetter: 10
+  targetScoreForLevel: 50
   scoreText: {fileID: 1345162615}
   scoreTextRectTransform: {fileID: 1345162614}
+  scoreProgressBar: {fileID: 169415964}
   statusDisplayGroup: {fileID: 331589041}
   timerText: {fileID: 582632626}
   movesText: {fileID: 1234326895}
   gameOverPanel: {fileID: 2019866155}
   pausePanel: {fileID: 0}
-  levelNumberText: {fileID: 0}
-  targetScoreText: {fileID: 0}
-  levelWonPanel: {fileID: 0}
   wordGridManager: {fileID: 593137150}
   wordValidator: {fileID: 593137152}
   gridInputHandler: {fileID: 450983252}
   effectsManager: {fileID: 1480404338}
-  levelManager: {fileID: 0}
   replacementDelayAfterEffectStart: 0.1
   visualPauseBetweenWordsInSequence: 0.25
   scoreShakeDuration: 0.1
-  scoreShakeStrength: 10
-  scoreShakeVibrato: 15
+  scoreShakeStrength: 1
+  scoreShakeVibrato: 1
 --- !u!4 &1480404337
 Transform:
   m_ObjectHideFlags: 0
@@ -2902,7 +2896,7 @@ Transform:
   m_GameObject: {fileID: 1480404335}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 6.690604, y: 14.253704, z: 90.1647}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3453,6 +3447,7 @@ GameObject:
   - component: {fileID: 2019866158}
   - component: {fileID: 2019866157}
   - component: {fileID: 2019866159}
+  - component: {fileID: 2019866160}
   m_Layer: 5
   m_Name: GameOverPanel
   m_TagString: Untagged
@@ -3548,6 +3543,20 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &2019866160
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2019866155}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d60603312fa53bd4f90ad2f4872c0e1f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  winLossMessageText: {fileID: 1289521930}
+  finalScoreText: {fileID: 1870762387}
 --- !u!1 &2028402605
 GameObject:
   m_ObjectHideFlags: 0
@@ -3872,5 +3881,5 @@ SceneRoots:
   - {fileID: 975267544}
   - {fileID: 2061077022}
   - {fileID: 1979694446}
-  - {fileID: 593137151}
   - {fileID: 1480404337}
+  - {fileID: 593137151}
