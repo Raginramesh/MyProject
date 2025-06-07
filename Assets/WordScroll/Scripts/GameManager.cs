@@ -27,8 +27,7 @@ public class GameManager : MonoBehaviour
         {
             return isProcessingSequentialWords ||
                    (effectsManager != null && effectsManager.IsAnimating) ||
-                   (wordGridManager != null && wordGridManager.isAnimating) ||
-                   (gridInputHandler != null && gridInputHandler.IsPerformingInertiaScroll);
+                   (wordGridManager != null && wordGridManager.isAnimating);
         }
     }
 

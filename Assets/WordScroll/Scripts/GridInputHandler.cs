@@ -1,11 +1,12 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Collections;
 using DG.Tweening;
+using System;
+using System.Linq;
 
-public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerDownHandler, IPointerUpHandler
+public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerUpHandler
 {
     [Header("References")]
     [SerializeField] private WordGridManager wordGridManager;
@@ -14,559 +15,464 @@ public class GridInputHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, 
     [SerializeField] private Camera uiCamera;
 
     [Header("Drag Settings")]
-    [SerializeField] private float dragThreshold = 20f;
-    [SerializeField] private float scrollThresholdFactor = 0.4f;
-
-    [Header("Inertia Settings")]
-    [SerializeField] private bool enableInertia = true;
-    [SerializeField] private float minFlickVelocity = 300f;
-    [Range(0.8f, 0.99f)]
-    [SerializeField] private float inertiaDampimgFactor = 0.95f;
-    [SerializeField] private float minInertiaSpeed = 30f;
-    [SerializeField] private int velocityCalculationSamples = 5;
-
-    [Header("Highlight Settings (Drag)")]
-    [SerializeField] private bool enableDragHighlight = true;
-    [SerializeField] private float highlightScaleMultiplier = 1.08f;
-    [SerializeField] private Color dragHighlightColor = new Color(0.9f, 0.9f, 0.9f, 1f);
+    [SerializeField] private float dragInitiationThreshold = 10f;
 
     [Header("Tap Settings")]
     [SerializeField] private float maxTapDuration = 0.3f;
-    [SerializeField] private float maxTapMoveDistance = 15f;
+    [SerializeField] private float maxTapMoveDistance = 20f;
+
+    [Header("Flick Settings")]
+    [SerializeField] private float minFlickVelocity = 200f;
+    [SerializeField] private float flickSnapDuration = 0.25f;
+    [SerializeField] private Ease flickEaseType = Ease.OutQuad;
+
+    [Header("Release Snap Settings")]
+    [SerializeField] private float releaseSnapDuration = 0.2f;
+    [SerializeField] private Ease releaseSnapEaseType = Ease.OutQuad;
 
     private Vector2 pointerDownScreenPosition;
-    private Vector2 dragStartLocalPosition;
+    private Vector2 pointerInitialPanelPosition;
     private float pointerDownTime;
-
     private bool isPointerCurrentlyDown = false;
     private bool isDragging = false;
-    private bool axisLocked = false;
-    private bool isHorizontalDrag;
-    private int targetRow = -1;
-    private int targetCol = -1;
-    private float accumulatedDragDistanceOnAxis = 0f;
-    private float cellSizeWithSpacing;
+    private bool isHorizontalDragLocked = false;
+    private bool isVerticalDragLocked = false;
+    private int activeDragRow = -1;
+    private int activeDragCol = -1;
+    private float currentFrameVisualRemainderOffsetX = 0f;
+    private float currentFrameVisualRemainderOffsetY = 0f;
+    private float totalAccumulatedDragOffsetX = 0f;
+    private float totalAccumulatedDragOffsetY = 0f;
+    private float cellDimensionWithSpacing;
+    private bool dataActuallyShiftedDuringDrag = false;
+    private bool tapCandidate = false;
+    private List<Vector2> pointerPositionsHistory = new List<Vector2>();
+    private List<float> pointerTimesHistory = new List<float>();
+    private const int VELOCITY_TRACKING_SAMPLES = 5;
+    private Coroutine activeSnapAnimationCoroutine = null;
 
-    private struct PointerSample { public Vector2 LocalPosition; public float Time; public PointerSample(Vector2 p, float t) { LocalPosition = p; Time = t; } }
-    private List<PointerSample> pointerSamples = new List<PointerSample>();
-    private Coroutine inertiaCoroutine = null;
-    public bool IsPerformingInertiaScroll { get; private set; } = false;
-
-    private bool pendingValidationHighlightUpdate = false;
-    private bool pendingMoveReduction = false;
-    private int moveReductionRow = -1;
-    private int moveReductionCol = -1;
-    private bool dragActuallyScrolledThisInteraction = false;
-
-    // MODIFICATION: Tracks net cell shifts for the primary interacted row/column
-    private int netScrollOperations = 0;
-
-    private List<CellController> currentlyDragHighlightedCells = new List<CellController>();
-    private List<Image> dragHighlightedImages = new List<Image>();
-    private List<Color> dragOriginalColors = new List<Color>();
-    private Vector3 originalCellScale = Vector3.one;
-    private bool isDragHighlightApplied = false;
+    private char[] initialDragLineData;
+    private bool dragBeganOnValidLine = false;
 
     void Awake()
     {
-        if (wordGridManager == null) wordGridManager = FindFirstObjectByType<WordGridManager>();
-        if (gameManager == null) gameManager = FindFirstObjectByType<GameManager>();
-        if (gridPanelRect == null) gridPanelRect = GetComponent<RectTransform>();
-        if (uiCamera == null)
-        {
-            var canvas = GetComponentInParent<Canvas>();
-            if (canvas && (canvas.renderMode == RenderMode.ScreenSpaceOverlay || canvas.worldCamera == null))
-                uiCamera = Camera.main;
-            else if (canvas)
-                uiCamera = canvas.worldCamera;
-            if (uiCamera == null) uiCamera = Camera.main;
-        }
-
-        if (wordGridManager == null || gameManager == null || gridPanelRect == null || uiCamera == null)
-        { Debug.LogError("GridInputHandler: Critical reference missing! Disabling.", this); enabled = false; return; }
+        if (wordGridManager == null) { Debug.LogError("GIH: WordGridManager not assigned!", this); enabled = false; return; }
+        if (gameManager == null) { Debug.LogError("GIH: GameManager not assigned!", this); enabled = false; return; }
+        if (gridPanelRect == null) { Debug.LogError("GIH: Grid Panel RectTransform not assigned!", this); enabled = false; return; }
     }
 
-    void Start()
+    private void ResetDragState()
     {
-        if (wordGridManager.gridSize > 0)
-        {
-            cellSizeWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
-            if (cellSizeWithSpacing <= 0.01f)
-            { Debug.LogError("GIH: cellSizeWithSpacing is too small or zero. Check WGM config.", this); enabled = false; return; }
-        }
-        else { Debug.LogError("GIH: WordGridManager not ready in Start (gridSize=0).", this); enabled = false; return; }
+        bool wasPreviouslyDraggingRow = activeDragRow != -1;
+        int prevDragRow = activeDragRow;
+        bool wasPreviouslyDraggingCol = activeDragCol != -1;
+        int prevDragCol = activeDragCol;
 
-        UpdateOriginalCellScale();
-        ResetAllInternalStates();
-    }
-
-    void OnEnable() { ResetAllInternalStates(); }
-    void OnDisable() { ResetAllInternalStates(); if (isDragHighlightApplied) ForceResetDragHighlightVisuals(); }
-
-    private void ResetAllInternalStates(bool fromPointerUpOrInertiaEnd = false)
-    {
-        if (!fromPointerUpOrInertiaEnd)
-        {
-            IsPerformingInertiaScroll = false;
-            StopInertiaCoroutine();
-            pendingValidationHighlightUpdate = false;
-            pendingMoveReduction = false;
-            moveReductionRow = -1;
-            moveReductionCol = -1;
-            netScrollOperations = 0; // MODIFICATION: Reset net scroll operations for new interaction
-            targetRow = -1;          // Reset target row/col for a completely new interaction
-            targetCol = -1;
-        }
-
-        isPointerCurrentlyDown = false;
         isDragging = false;
-        axisLocked = false;
-        accumulatedDragDistanceOnAxis = 0f;
-        dragActuallyScrolledThisInteraction = false;
+        isHorizontalDragLocked = false;
+        isVerticalDragLocked = false;
+        activeDragRow = -1;
+        activeDragCol = -1;
+        currentFrameVisualRemainderOffsetX = 0f;
+        currentFrameVisualRemainderOffsetY = 0f;
+        totalAccumulatedDragOffsetX = 0f;
+        totalAccumulatedDragOffsetY = 0f;
+        dataActuallyShiftedDuringDrag = false;
+        pointerPositionsHistory.Clear();
+        pointerTimesHistory.Clear();
 
-        if (isDragHighlightApplied) ForceResetDragHighlightVisuals();
-        pointerSamples.Clear();
-    }
+        initialDragLineData = null;
+        dragBeganOnValidLine = false;
 
-    void Update()
-    {
-        if (gameManager == null || wordGridManager == null) return;
-        if (gameManager.CurrentStatePublic != GameManager.GameState.Playing) return;
-
-        bool gmAnimating = gameManager.IsAnyAnimationPlaying;
-        bool wgmAnimating = wordGridManager.isAnimating;
-
-        if (gmAnimating || wgmAnimating || IsPerformingInertiaScroll)
+        if (activeSnapAnimationCoroutine != null)
         {
-            return;
-        }
-
-        if (pendingMoveReduction)
-        {
-            pendingMoveReduction = false;
-            wordGridManager.ApplyPendingMoveReduction(moveReductionRow, moveReductionCol);
-            moveReductionRow = -1;
-            moveReductionCol = -1;
-        }
-
-        if (pendingValidationHighlightUpdate)
-        {
-            pendingValidationHighlightUpdate = false;
-            wordGridManager.TriggerValidationCheckAndHighlightUpdate();
+            StopCoroutine(activeSnapAnimationCoroutine);
+            activeSnapAnimationCoroutine = null;
+            if (wordGridManager != null)
+            {
+                if (wasPreviouslyDraggingRow && prevDragRow != -1) wordGridManager.SnapRowToGrid(prevDragRow);
+                if (wasPreviouslyDraggingCol && prevDragCol != -1) wordGridManager.SnapColumnToGrid(prevDragCol);
+            }
         }
     }
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        if (gameManager.IsAnyAnimationPlaying && !IsPerformingInertiaScroll)
-        { return; }
-
-        if (IsPerformingInertiaScroll)
-        {
-            StopInertiaCoroutine();
-        }
-        ResetAllInternalStates(false); // This now also resets netScrollOperations
+        if (gameManager.IsAnyAnimationPlaying || gameManager.CurrentStatePublic != GameManager.GameState.Playing || activeSnapAnimationCoroutine != null) return;
 
         isPointerCurrentlyDown = true;
+        tapCandidate = true;
+        pointerDownTime = Time.time;
         pointerDownScreenPosition = eventData.position;
-        pointerDownTime = Time.unscaledTime;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, pointerDownScreenPosition, uiCamera, out Vector2 initialLocalPos);
-        pointerSamples.Clear();
-        AddPointerSample(initialLocalPos);
+
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            gridPanelRect,
+            pointerDownScreenPosition,
+            uiCamera,
+            out pointerInitialPanelPosition
+        );
+
+        isDragging = false;
+        isHorizontalDragLocked = false;
+        isVerticalDragLocked = false;
+        currentFrameVisualRemainderOffsetX = 0f;
+        currentFrameVisualRemainderOffsetY = 0f;
+        totalAccumulatedDragOffsetX = 0f;
+        totalAccumulatedDragOffsetY = 0f;
+        dataActuallyShiftedDuringDrag = false;
+        initialDragLineData = null;
+        dragBeganOnValidLine = false;
+        pointerPositionsHistory.Clear();
+        pointerTimesHistory.Clear();
+
+        AddPointerSample(eventData.position);
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        if (!isPointerCurrentlyDown) { return; }
-        if (gameManager.IsAnyAnimationPlaying && !IsPerformingInertiaScroll) { return; }
+        if (!isPointerCurrentlyDown || gameManager.IsAnyAnimationPlaying || gameManager.CurrentStatePublic != GameManager.GameState.Playing || activeSnapAnimationCoroutine != null) return;
+
+        AddPointerSample(eventData.position);
+        Vector2 currentScreenPosition = eventData.position;
+        float dragDistance = Vector2.Distance(currentScreenPosition, pointerDownScreenPosition);
+
+        if (!isDragging && dragDistance < dragInitiationThreshold)
+        {
+            return;
+        }
+
+        if (!isDragging)
+        {
+            isDragging = true;
+            tapCandidate = false;
+
+            Vector2 initialTouchLocalPos;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                gridPanelRect, pointerDownScreenPosition, uiCamera, out initialTouchLocalPos);
+            Vector2Int gridCoords = CalculateGridCoordsFromLocalPos(initialTouchLocalPos);
+
+            Vector2 dragVector = currentScreenPosition - pointerDownScreenPosition;
+
+            if (Mathf.Abs(dragVector.x) > Mathf.Abs(dragVector.y))
+            {
+                isHorizontalDragLocked = true;
+                activeDragRow = gridCoords.x;
+                activeDragCol = -1;
+                if (activeDragRow != -1)
+                {
+                    cellDimensionWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
+                    initialDragLineData = wordGridManager.GetRowData(activeDragRow);
+                    dragBeganOnValidLine = initialDragLineData != null;
+                }
+                else { isDragging = false; isHorizontalDragLocked = false; return; }
+            }
+            else
+            {
+                isVerticalDragLocked = true;
+                activeDragCol = gridCoords.y;
+                activeDragRow = -1;
+                if (activeDragCol != -1)
+                {
+                    cellDimensionWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
+                    initialDragLineData = wordGridManager.GetColumnData(activeDragCol);
+                    dragBeganOnValidLine = initialDragLineData != null;
+                }
+                else { isDragging = false; isVerticalDragLocked = false; return; }
+            }
+
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, eventData.position, uiCamera, out pointerInitialPanelPosition);
+            totalAccumulatedDragOffsetX = 0;
+            totalAccumulatedDragOffsetY = 0;
+        }
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (!isPointerCurrentlyDown) return;
-        if (gameManager.IsAnyAnimationPlaying && !IsPerformingInertiaScroll) return;
-
-        Vector2 currentScreenPos = eventData.position;
-        RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, currentScreenPos, uiCamera, out Vector2 currentLocalPos);
-        AddPointerSample(currentLocalPos);
-
-        if (!isDragging)
+        if (!isDragging || (!isHorizontalDragLocked && !isVerticalDragLocked) || gameManager.IsAnyAnimationPlaying || gameManager.CurrentStatePublic != GameManager.GameState.Playing || activeSnapAnimationCoroutine != null)
         {
-            float screenDistanceMoved = Vector2.Distance(pointerDownScreenPosition, currentScreenPos);
-            if (screenDistanceMoved > dragThreshold)
-            {
-                isDragging = true;
-                axisLocked = false;
-                dragStartLocalPosition = currentLocalPos;
-                accumulatedDragDistanceOnAxis = 0f;
-
-                Vector2 screenDragVector = currentScreenPos - pointerDownScreenPosition;
-                if (!axisLocked)
-                {
-                    axisLocked = true;
-                    isHorizontalDrag = Mathf.Abs(screenDragVector.x) > Mathf.Abs(screenDragVector.y);
-                    CalculateTargetRowColForDrag(dragStartLocalPosition);
-                    if (enableDragHighlight && targetRow != -1 && targetCol != -1)
-                    {
-                        if (isHorizontalDrag) ApplyDragHighlightRow(targetRow);
-                        else ApplyDragHighlightColumn(targetCol);
-                    }
-                }
-            }
-            else { return; }
-        }
-
-        if (wordGridManager.isAnimating && !IsPerformingInertiaScroll)
-        {
-            dragStartLocalPosition = currentLocalPos;
-            accumulatedDragDistanceOnAxis = 0f;
             return;
         }
+        AddPointerSample(eventData.position);
 
-        float frameDragDeltaOnAxis = isHorizontalDrag ? (currentLocalPos.x - dragStartLocalPosition.x) : (currentLocalPos.y - dragStartLocalPosition.y);
-        accumulatedDragDistanceOnAxis += frameDragDeltaOnAxis;
+        Vector2 currentPanelPosition;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            gridPanelRect,
+            eventData.position,
+            uiCamera,
+            out currentPanelPosition
+        );
 
-        float scrollTriggerDistance = cellSizeWithSpacing * scrollThresholdFactor;
-        if (Mathf.Abs(accumulatedDragDistanceOnAxis) >= scrollTriggerDistance)
+        if (isHorizontalDragLocked && activeDragRow != -1)
         {
-            if (wordGridManager.isAnimating)
+            float panelDeltaXSinceLastSnap = currentPanelPosition.x - pointerInitialPanelPosition.x;
+            totalAccumulatedDragOffsetX = panelDeltaXSinceLastSnap;
+            currentFrameVisualRemainderOffsetX = totalAccumulatedDragOffsetX;
+
+            if (Mathf.Abs(currentFrameVisualRemainderOffsetX) >= cellDimensionWithSpacing)
             {
-                dragStartLocalPosition = currentLocalPos;
-                accumulatedDragDistanceOnAxis = 0;
-                return;
-            }
-
-            int scrollDirection = (int)Mathf.Sign(accumulatedDragDistanceOnAxis);
-            float scrollAmountAbs = Mathf.Abs(accumulatedDragDistanceOnAxis);
-            bool scrollRequestedThisFrame = false;
-            Sequence scrollSequence = null;
-            int wgmEffectiveDirection = 0; // To store the direction WGM's data actually shifts
-
-            if (isHorizontalDrag && targetRow != -1)
-            {
-                wgmEffectiveDirection = scrollDirection;
-                scrollSequence = wordGridManager.RequestRowScroll(targetRow, wgmEffectiveDirection, scrollAmountAbs);
-                scrollRequestedThisFrame = true;
-            }
-            else if (!isHorizontalDrag && targetCol != -1)
-            {
-                wgmEffectiveDirection = -scrollDirection; // WGM's RequestColumnScroll inverts UI Y-drag for data shift
-                scrollSequence = wordGridManager.RequestColumnScroll(targetCol, wgmEffectiveDirection, scrollAmountAbs);
-                scrollRequestedThisFrame = true;
-            }
-
-            if (scrollRequestedThisFrame && scrollSequence != null) // Ensure scroll was actually initiated by WGM
-            {
-                if (!dragActuallyScrolledThisInteraction)
-                    dragActuallyScrolledThisInteraction = true;
-
-                netScrollOperations += wgmEffectiveDirection; // MODIFICATION: Update net operations
-                // Debug.Log($"GIH OnDrag: Scrolled. NetOps: {netScrollOperations}");
-
-                accumulatedDragDistanceOnAxis -= scrollDirection * scrollTriggerDistance;
-            }
-        }
-        dragStartLocalPosition = currentLocalPos;
-    }
-
-    public void OnPointerUp(PointerEventData eventData)
-    {
-        if (!isPointerCurrentlyDown) { return; }
-
-        bool wasDraggingBeforeUp = isDragging;
-        bool didActuallyScrollInThisDragCycle = dragActuallyScrolledThisInteraction;
-
-        if (isDragHighlightApplied) { ResetDragHighlight(); }
-
-        isPointerCurrentlyDown = false;
-        isDragging = false;
-
-        if (wasDraggingBeforeUp)
-        {
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, eventData.position, uiCamera, out Vector2 finalLocalPos);
-            AddPointerSample(finalLocalPos);
-
-            if (enableInertia && axisLocked)
-            {
-                Vector2 releaseVelocity = CalculateVelocity();
-                float speedOnAxis = isHorizontalDrag ? Mathf.Abs(releaseVelocity.x) : Mathf.Abs(releaseVelocity.y);
-
-                if (speedOnAxis > minFlickVelocity)
+                int cellsToShift = Mathf.FloorToInt(currentFrameVisualRemainderOffsetX / cellDimensionWithSpacing);
+                if (cellsToShift != 0)
                 {
-                    float relevantVelocityComponent = isHorizontalDrag ? releaseVelocity.x : releaseVelocity.y;
-                    if (inertiaCoroutine != null) StopCoroutine(inertiaCoroutine);
-                    inertiaCoroutine = StartCoroutine(InertiaScrollCoroutine(relevantVelocityComponent, isHorizontalDrag, targetRow, targetCol, didActuallyScrollInThisDragCycle));
-                    return;
+                    wordGridManager.ShiftRowDataAndRefresh(activeDragRow, cellsToShift);
+                    currentFrameVisualRemainderOffsetX -= cellsToShift * cellDimensionWithSpacing;
+                    totalAccumulatedDragOffsetX = currentFrameVisualRemainderOffsetX;
+                    dataActuallyShiftedDuringDrag = true;
+                    pointerInitialPanelPosition.x += cellsToShift * cellDimensionWithSpacing;
                 }
             }
-
-            if (didActuallyScrollInThisDragCycle)
-            {
-                pendingValidationHighlightUpdate = true;
-                if (gameManager.CurrentGameDisplayMode == GameManager.DisplayMode.Moves)
-                {
-                    // MODIFICATION: Check netScrollOperations
-                    if (netScrollOperations != 0)
-                    {
-                        // Debug.Log($"GIH OnPointerUp: Drag ended, scroll occurred, no inertia. NetOps: {netScrollOperations}. Flagging Move Reduction. Row: {targetRow}, Col: {targetCol}");
-                        pendingMoveReduction = true;
-                        moveReductionRow = isHorizontalDrag ? targetRow : -1;
-                        moveReductionCol = isHorizontalDrag ? -1 : targetCol;
-                    }
-                    else
-                    {
-                        // Debug.Log($"GIH OnPointerUp: Drag ended, scroll occurred, no inertia. NetOps: {netScrollOperations}. NO Move Reduction.");
-                    }
-                }
-            }
-            else
-            {
-                pendingValidationHighlightUpdate = true; // Still validate if it was a drag, even if no scroll
-            }
+            wordGridManager.SetRowVisualOffset(activeDragRow, currentFrameVisualRemainderOffsetX);
         }
-        else
+        else if (isVerticalDragLocked && activeDragCol != -1)
         {
-            float duration = Time.unscaledTime - pointerDownTime;
-            float distance = Vector2.Distance(pointerDownScreenPosition, eventData.position);
-            if (duration <= maxTapDuration && distance <= maxTapMoveDistance)
+            float panelDeltaYSinceLastSnap = currentPanelPosition.y - pointerInitialPanelPosition.y;
+            totalAccumulatedDragOffsetY = panelDeltaYSinceLastSnap;
+            currentFrameVisualRemainderOffsetY = totalAccumulatedDragOffsetY;
+
+            if (Mathf.Abs(currentFrameVisualRemainderOffsetY) >= cellDimensionWithSpacing)
             {
-                if (!gameManager.IsAnyAnimationPlaying)
+                int cellsToShift = Mathf.FloorToInt(currentFrameVisualRemainderOffsetY / cellDimensionWithSpacing);
+                if (cellsToShift != 0)
                 {
-                    RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, eventData.position, uiCamera, out Vector2 localTapPos);
-                    Vector2Int tappedGridCoord = CalculateGridCoordsFromLocalPos(localTapPos);
-                    if (tappedGridCoord.x != -1 && tappedGridCoord.y != -1)
-                    {
-                        bool wordProcessed = gameManager.AttemptTapValidation(tappedGridCoord);
-                        if (!wordProcessed)
-                        {
-                            pendingValidationHighlightUpdate = true;
-                        }
-                    }
+                    wordGridManager.ShiftColumnDataAndRefresh(activeDragCol, -cellsToShift);
+                    currentFrameVisualRemainderOffsetY -= cellsToShift * cellDimensionWithSpacing;
+                    totalAccumulatedDragOffsetY = currentFrameVisualRemainderOffsetY;
+                    dataActuallyShiftedDuringDrag = true;
+                    pointerInitialPanelPosition.y += cellsToShift * cellDimensionWithSpacing;
                 }
             }
-            else
-            {
-                pendingValidationHighlightUpdate = true;
-            }
+            wordGridManager.SetColumnVisualOffset(activeDragCol, currentFrameVisualRemainderOffsetY);
         }
-        ResetAllInternalStates(true);
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (!IsPerformingInertiaScroll && isPointerCurrentlyDown)
+        if (!isDragging)
         {
-            ResetAllInternalStates(true);
+            if (isPointerCurrentlyDown) OnPointerUp(eventData);
+            return;
         }
-    }
+        AddPointerSample(eventData.position);
 
-    private void AddPointerSample(Vector2 localPositionOnPanel)
-    {
-        pointerSamples.Add(new PointerSample(localPositionOnPanel, Time.unscaledTime));
-        while (pointerSamples.Count > velocityCalculationSamples && velocityCalculationSamples > 0)
-        { pointerSamples.RemoveAt(0); }
-    }
+        float currentRemainderOffset = 0f;
+        int lineIndex = -1;
+        bool horizontalDrag = false;
 
-    private Vector2 CalculateVelocity()
-    {
-        if (pointerSamples.Count < 2) return Vector2.zero;
-        PointerSample first = pointerSamples[0];
-        PointerSample last = pointerSamples[pointerSamples.Count - 1];
-        float timeDelta = last.Time - first.Time;
-        if (timeDelta <= 0.001f) return Vector2.zero;
-        return (last.LocalPosition - first.LocalPosition) / timeDelta;
-    }
-
-    private IEnumerator InertiaScrollCoroutine(float initialAxisVelocityLocal, bool forHorizontal, int rowForInertia, int colForInertia, bool scrollAlreadyHappenedDuringDrag)
-    {
-        IsPerformingInertiaScroll = true;
-        bool inertiaItselfCausedScroll = false;
-
-        float currentAxisVelocityLocal = initialAxisVelocityLocal;
-        float inertiaAccumulatedScrollDistance = 0f;
-
-        if (forHorizontal && (rowForInertia < 0 || rowForInertia >= wordGridManager.gridSize))
-        { IsPerformingInertiaScroll = false; inertiaCoroutine = null; ResetAllInternalStates(true); yield break; }
-        if (!forHorizontal && (colForInertia < 0 || colForInertia >= wordGridManager.gridSize))
-        { IsPerformingInertiaScroll = false; inertiaCoroutine = null; ResetAllInternalStates(true); yield break; }
-
-        while (Mathf.Abs(currentAxisVelocityLocal) > minInertiaSpeed)
+        if (isHorizontalDragLocked && activeDragRow != -1)
         {
-            if (gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing || wordGridManager == null)
-            { IsPerformingInertiaScroll = false; inertiaCoroutine = null; ResetAllInternalStates(true); yield break; }
+            currentRemainderOffset = currentFrameVisualRemainderOffsetX;
+            lineIndex = activeDragRow;
+            horizontalDrag = true;
+        }
+        else if (isVerticalDragLocked && activeDragCol != -1)
+        {
+            currentRemainderOffset = currentFrameVisualRemainderOffsetY;
+            lineIndex = activeDragCol;
+            horizontalDrag = false;
+        }
+        else
+        {
+            ResetDragState();
+            if (isPointerCurrentlyDown) isPointerCurrentlyDown = false;
+            return;
+        }
 
-            currentAxisVelocityLocal *= inertiaDampimgFactor;
-            float moveAmountThisFrameLocal = currentAxisVelocityLocal * Time.deltaTime;
-            inertiaAccumulatedScrollDistance += moveAmountThisFrameLocal;
+        if (activeSnapAnimationCoroutine != null) StopCoroutine(activeSnapAnimationCoroutine);
 
-            if (Mathf.Abs(inertiaAccumulatedScrollDistance) >= cellSizeWithSpacing * scrollThresholdFactor)
+        Vector2 flickVelocity = CalculateVelocity();
+        bool isFlick = (horizontalDrag && Mathf.Abs(flickVelocity.x) > minFlickVelocity) ||
+                       (!horizontalDrag && Mathf.Abs(flickVelocity.y) > minFlickVelocity);
+
+        bool finalSnapWillShiftData = false;
+
+        if (isFlick)
+        {
+            int flickDirection = 0;
+            if (horizontalDrag) flickDirection = Math.Sign(flickVelocity.x);
+            else flickDirection = Math.Sign(flickVelocity.y);
+
+            if (flickDirection != 0)
             {
-                yield return new WaitUntil(() => !wordGridManager.isAnimating);
-                if (gameManager == null || gameManager.CurrentStatePublic != GameManager.GameState.Playing)
-                { IsPerformingInertiaScroll = false; inertiaCoroutine = null; ResetAllInternalStates(true); yield break; }
-
-                int scrollDirection = (int)Mathf.Sign(inertiaAccumulatedScrollDistance); // UI perspective
-                float scrollAmountAbs = Mathf.Abs(inertiaAccumulatedScrollDistance);
-                Sequence inertiaScrollSequence = null;
-                int wgmEffectiveDirection = 0;
-
-                if (forHorizontal)
-                {
-                    wgmEffectiveDirection = scrollDirection;
-                    inertiaScrollSequence = wordGridManager.RequestRowScroll(rowForInertia, wgmEffectiveDirection, scrollAmountAbs);
-                }
-                else
-                { // Vertical
-                    wgmEffectiveDirection = -scrollDirection; // WGM's RequestColumnScroll inverts UI Y-drag for data shift
-                    inertiaScrollSequence = wordGridManager.RequestColumnScroll(colForInertia, wgmEffectiveDirection, scrollAmountAbs);
-                }
-
-                if (inertiaScrollSequence != null && inertiaScrollSequence.IsActive())
-                {
-                    yield return inertiaScrollSequence.WaitForCompletion();
-                }
-                else
-                {
-                    break;
-                }
-
-                if (!inertiaItselfCausedScroll) inertiaItselfCausedScroll = true;
-
-                netScrollOperations += wgmEffectiveDirection; // MODIFICATION: Update net operations
-                                                              // Debug.Log($"GIH Inertia: Scrolled. NetOps: {netScrollOperations}");
-
-                inertiaAccumulatedScrollDistance -= scrollDirection * (cellSizeWithSpacing * scrollThresholdFactor);
+                int dataShiftForFlick = horizontalDrag ? flickDirection : -flickDirection;
+                finalSnapWillShiftData = true;
+                activeSnapAnimationCoroutine = StartCoroutine(AnimateSnapAndShift(lineIndex, horizontalDrag, currentRemainderOffset, dataShiftForFlick, flickSnapDuration, flickEaseType, finalSnapWillShiftData));
             }
-            if (Mathf.Abs(currentAxisVelocityLocal) <= minInertiaSpeed) break;
-            yield return null;
-        }
-
-        bool anyScrollInTotalInteraction = scrollAlreadyHappenedDuringDrag || inertiaItselfCausedScroll;
-
-        IsPerformingInertiaScroll = false;
-        inertiaCoroutine = null;
-        ResetAllInternalStates(true);
-
-        if (anyScrollInTotalInteraction)
-        {
-            pendingValidationHighlightUpdate = true;
-            if (gameManager.CurrentGameDisplayMode == GameManager.DisplayMode.Moves)
+            else
             {
-                // MODIFICATION: Check netScrollOperations
-                if (netScrollOperations != 0)
+                finalSnapWillShiftData = Mathf.Abs(currentRemainderOffset) > cellDimensionWithSpacing / 2f;
+                int additionalDataShiftOnRelease = 0;
+                if (finalSnapWillShiftData)
                 {
-                    // Debug.Log($"GIH Inertia: END. NetOps: {netScrollOperations}. Flagging Move Reduction. Row: {rowForInertia}, Col: {colForInertia}");
-                    pendingMoveReduction = true;
-                    moveReductionRow = forHorizontal ? rowForInertia : -1;
-                    moveReductionCol = forHorizontal ? -1 : colForInertia;
+                    additionalDataShiftOnRelease = Math.Sign(currentRemainderOffset);
+                    if (!horizontalDrag) additionalDataShiftOnRelease = -additionalDataShiftOnRelease;
                 }
-                else
-                {
-                    // Debug.Log($"GIH Inertia: END. NetOps: {netScrollOperations}. NO Move Reduction.");
-                }
+                activeSnapAnimationCoroutine = StartCoroutine(AnimateSnapAndShift(lineIndex, horizontalDrag, currentRemainderOffset, additionalDataShiftOnRelease, releaseSnapDuration, releaseSnapEaseType, finalSnapWillShiftData));
             }
         }
+        else
+        {
+            int additionalDataShiftOnRelease = 0;
+            if (Mathf.Abs(currentRemainderOffset) > cellDimensionWithSpacing / 2f)
+            {
+                additionalDataShiftOnRelease = Math.Sign(currentRemainderOffset);
+                if (!horizontalDrag) additionalDataShiftOnRelease = -additionalDataShiftOnRelease;
+                finalSnapWillShiftData = true;
+            }
+            activeSnapAnimationCoroutine = StartCoroutine(AnimateSnapAndShift(lineIndex, horizontalDrag, currentRemainderOffset, additionalDataShiftOnRelease, releaseSnapDuration, releaseSnapEaseType, finalSnapWillShiftData));
+        }
     }
 
-    private void StopInertiaCoroutine()
+    private IEnumerator AnimateSnapAndShift(int lineIndex, bool horizontal, float visualStartOffset, int dataShiftSteps, float duration, Ease easeType, bool snapActionShiftsData)
     {
-        if (inertiaCoroutine != null)
-        { StopCoroutine(inertiaCoroutine); inertiaCoroutine = null; }
-        IsPerformingInertiaScroll = false;
+        bool actualDataShiftOccurredInThisSnap = false;
+        if (dataShiftSteps != 0)
+        {
+            if (horizontal) wordGridManager.ShiftRowDataAndRefresh(lineIndex, dataShiftSteps);
+            else wordGridManager.ShiftColumnDataAndRefresh(lineIndex, dataShiftSteps);
+            actualDataShiftOccurredInThisSnap = true;
+
+            visualStartOffset -= dataShiftSteps * cellDimensionWithSpacing;
+            if (!horizontal && dataShiftSteps != 0) visualStartOffset *= (Math.Sign(dataShiftSteps) == Math.Sign(visualStartOffset) ? 1 : -1);
+        }
+
+        float targetVisualOffset = 0f;
+        float currentVisualOffsetForAnimation = visualStartOffset;
+
+        Tween snapTween = DOTween.To(() => currentVisualOffsetForAnimation, x => currentVisualOffsetForAnimation = x, targetVisualOffset, duration)
+            .SetEase(easeType)
+            .OnUpdate(() =>
+            {
+                if (horizontal) wordGridManager.SetRowVisualOffset(lineIndex, currentVisualOffsetForAnimation);
+                else wordGridManager.SetColumnVisualOffset(lineIndex, currentVisualOffsetForAnimation);
+            })
+            .OnComplete(() =>
+            {
+                if (horizontal) wordGridManager.SnapRowToGrid(lineIndex);
+                else wordGridManager.SnapColumnToGrid(lineIndex);
+
+                bool netDataChangedFromDragStart = false;
+                if (dragBeganOnValidLine && initialDragLineData != null)
+                {
+                    char[] finalDragLineData;
+                    if (horizontal) finalDragLineData = wordGridManager.GetRowData(lineIndex);
+                    else finalDragLineData = wordGridManager.GetColumnData(lineIndex);
+
+                    if (finalDragLineData != null && !initialDragLineData.SequenceEqual(finalDragLineData))
+                    {
+                        netDataChangedFromDragStart = true;
+                    }
+                }
+                else if (dataActuallyShiftedDuringDrag || actualDataShiftOccurredInThisSnap)
+                {
+                    netDataChangedFromDragStart = true;
+                }
+
+                if (netDataChangedFromDragStart)
+                {
+                    wordGridManager.ApplyPendingMoveReduction(lineIndex, horizontal ? -1 : lineIndex, 1);
+                }
+
+                if (dataActuallyShiftedDuringDrag || actualDataShiftOccurredInThisSnap)
+                {
+                    wordGridManager.TriggerValidationCheckAndHighlightUpdate();
+                }
+                ResetDragStateAfterAnimation();
+            });
+
+        yield return snapTween.WaitForCompletion();
     }
 
-    private void CalculateTargetRowColForDrag(Vector2 localPositionOnPanel)
+    private void ResetDragStateAfterAnimation()
     {
-        Vector2Int gridCoords = CalculateGridCoordsFromLocalPos(localPositionOnPanel);
-        targetRow = gridCoords.x;
-        targetCol = gridCoords.y;
+        ResetDragState();
+        activeSnapAnimationCoroutine = null;
+    }
+
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        if (!isPointerCurrentlyDown) return;
+
+        bool wasDraggingBeforeSnapAttempt = isDragging;
+
+        if (activeSnapAnimationCoroutine == null)
+        {
+            float pressDuration = Time.time - pointerDownTime;
+            float moveDistance = Vector2.Distance(eventData.position, pointerDownScreenPosition);
+
+            if (!wasDraggingBeforeSnapAttempt && tapCandidate && pressDuration <= maxTapDuration && moveDistance <= maxTapMoveDistance)
+            {
+                Vector2 originalPointerDownPanelPos;
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    gridPanelRect,
+                    pointerDownScreenPosition,
+                    uiCamera,
+                    out originalPointerDownPanelPos);
+
+                Vector2Int tappedGridCoords = CalculateGridCoordsFromLocalPos(originalPointerDownPanelPos);
+                if (tappedGridCoords.x != -1)
+                {
+                    gameManager.AttemptTapValidation(tappedGridCoords);
+                }
+            }
+
+            if (!wasDraggingBeforeSnapAttempt || (wasDraggingBeforeSnapAttempt && !isDragging))
+            {
+                ResetDragState();
+            }
+        }
+
+        isPointerCurrentlyDown = false;
+        tapCandidate = false;
     }
 
     private Vector2Int CalculateGridCoordsFromLocalPos(Vector2 localPosition)
     {
-        if (wordGridManager == null || cellSizeWithSpacing <= 0.001f) return new Vector2Int(-1, -1);
-        float totalGridVisualWidth = wordGridManager.gridSize * wordGridManager.cellSize + Mathf.Max(0, wordGridManager.gridSize - 1) * wordGridManager.spacing;
-        float gridContentStartX = -totalGridVisualWidth / 2f;
-        float gridContentTopY = totalGridVisualWidth / 2f;
-        float xInGridContent = localPosition.x - gridContentStartX;
-        float yFromTopInGridContent = gridContentTopY - localPosition.y;
-        int c = Mathf.FloorToInt(xInGridContent / cellSizeWithSpacing);
-        int r = Mathf.FloorToInt(yFromTopInGridContent / cellSizeWithSpacing);
-        if (c < 0 || c >= wordGridManager.gridSize || r < 0 || r >= wordGridManager.gridSize) { return new Vector2Int(-1, -1); }
-        return new Vector2Int(r, c);
-    }
+        if (wordGridManager == null) return new Vector2Int(-1, -1);
 
-    private void UpdateOriginalCellScale()
-    {
-        if (wordGridManager != null && wordGridManager.gridSize > 0)
+        float cDimWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
+        if (cDimWithSpacing <= 0) return new Vector2Int(-1, -1);
+
+        float gridContentWidth = wordGridManager.gridSize * wordGridManager.cellSize + (wordGridManager.gridSize - 1) * wordGridManager.spacing;
+
+        float gridStartX = -gridContentWidth / 2f;
+        float gridStartY = gridContentWidth / 2f;
+
+        float xInGrid = localPosition.x - gridStartX;
+        float yInGrid = gridStartY - localPosition.y;
+
+        int col = Mathf.FloorToInt(xInGrid / cDimWithSpacing);
+        int row = Mathf.FloorToInt(yInGrid / cDimWithSpacing);
+
+        if (row >= 0 && row < wordGridManager.gridSize && col >= 0 && col < wordGridManager.gridSize)
         {
-            CellController sample = wordGridManager.GetCellController(new Vector2Int(0, 0));
-            if (sample != null && sample.RectTransform != null) originalCellScale = sample.RectTransform.localScale;
-            else originalCellScale = Vector3.one;
+            return new Vector2Int(row, col);
         }
-        else originalCellScale = Vector3.one;
+        return new Vector2Int(-1, -1);
     }
 
-    private void ApplyDragHighlightRow(int rowIndex)
+    private void AddPointerSample(Vector2 position)
     {
-        if (!enableDragHighlight || isDragHighlightApplied || wordGridManager == null || rowIndex < 0 || rowIndex >= wordGridManager.gridSize) return;
-        ForceResetDragHighlightVisuals();
-        for (int c = 0; c < wordGridManager.gridSize; c++)
-        { AddCellToDragHighlight(wordGridManager.GetCellController(new Vector2Int(rowIndex, c))); }
-        isDragHighlightApplied = currentlyDragHighlightedCells.Count > 0;
-    }
-
-    private void ApplyDragHighlightColumn(int colIndex)
-    {
-        if (!enableDragHighlight || isDragHighlightApplied || wordGridManager == null || colIndex < 0 || colIndex >= wordGridManager.gridSize) return;
-        ForceResetDragHighlightVisuals();
-        for (int r = 0; r < wordGridManager.gridSize; r++)
-        { AddCellToDragHighlight(wordGridManager.GetCellController(new Vector2Int(r, colIndex))); }
-        isDragHighlightApplied = currentlyDragHighlightedCells.Count > 0;
-    }
-
-    private void AddCellToDragHighlight(CellController cc)
-    {
-        if (cc == null || cc.RectTransform == null) return;
-        cc.RectTransform.DOKill();
-        cc.RectTransform.localScale = originalCellScale * highlightScaleMultiplier;
-        currentlyDragHighlightedCells.Add(cc);
-        Image img = cc.GetComponent<Image>() ?? cc.GetComponentInChildren<Image>();
-        if (img != null)
+        pointerPositionsHistory.Add(position);
+        pointerTimesHistory.Add(Time.time);
+        while (pointerPositionsHistory.Count > VELOCITY_TRACKING_SAMPLES)
         {
-            img.DOKill();
-            dragHighlightedImages.Add(img);
-            dragOriginalColors.Add(img.color);
-            img.color = dragHighlightColor;
-        }
-        else
-        {
-            dragHighlightedImages.Add(null);
-            dragOriginalColors.Add(Color.clear);
+            pointerPositionsHistory.RemoveAt(0);
+            pointerTimesHistory.RemoveAt(0);
         }
     }
 
-    private void ResetDragHighlight() { ForceResetDragHighlightVisuals(); }
-
-    private void ForceResetDragHighlightVisuals()
+    private Vector2 CalculateVelocity()
     {
-        for (int i = 0; i < currentlyDragHighlightedCells.Count; i++)
-        {
-            CellController cc = currentlyDragHighlightedCells[i];
-            if (cc != null && cc.RectTransform != null)
-            {
-                cc.RectTransform.DOKill();
-                cc.RectTransform.localScale = originalCellScale;
-                if (i < dragHighlightedImages.Count && dragHighlightedImages[i] != null && i < dragOriginalColors.Count)
-                {
-                    dragHighlightedImages[i].DOKill();
-                    dragHighlightedImages[i].color = dragOriginalColors[i];
-                }
-            }
-        }
-        currentlyDragHighlightedCells.Clear();
-        dragHighlightedImages.Clear();
-        dragOriginalColors.Clear();
-        isDragHighlightApplied = false;
+        if (pointerPositionsHistory.Count < 2) return Vector2.zero;
+
+        int lastIndex = pointerPositionsHistory.Count - 1;
+        int firstIndex = Mathf.Max(0, lastIndex - (VELOCITY_TRACKING_SAMPLES - 1));
+        if (lastIndex == firstIndex) return Vector2.zero;
+
+        Vector2 deltaPosition = pointerPositionsHistory[lastIndex] - pointerPositionsHistory[firstIndex];
+        float deltaTime = pointerTimesHistory[lastIndex] - pointerTimesHistory[firstIndex];
+
+        if (deltaTime <= 0.001f) return Vector2.zero;
+
+        return deltaPosition / deltaTime;
     }
 }
