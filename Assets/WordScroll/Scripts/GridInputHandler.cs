@@ -142,6 +142,12 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
             isDragging = true;
             tapCandidate = false;
 
+            // Clear all highlights when a drag gesture officially starts
+            if (wordGridManager != null)
+            {
+                wordGridManager.ClearAllCellHighlights(false); // false to reset to stored default colors
+            }
+
             Vector2 initialTouchLocalPos;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 gridPanelRect, pointerDownScreenPosition, uiCamera, out initialTouchLocalPos);

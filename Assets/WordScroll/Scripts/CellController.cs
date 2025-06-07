@@ -165,10 +165,10 @@ public class CellController : MonoBehaviour
             backgroundImage.DOColor(newHighlightColor, 0.15f);
             RectTransform.DOScale(originalScale * highlightScaleMultiplier, 0.15f).SetEase(Ease.OutBack);
         }
-        else
+        else // isHighlighted is false
         {
-            backgroundImage.DOColor(defaultColor, 0.15f);
-            RectTransform.DOScale(originalScale, 0.15f).SetEase(Ease.OutBack);
+            backgroundImage.DOColor(defaultColor, 0.15f); // Uses the stored defaultColor
+            RectTransform.DOScale(originalScale, 0.15f).SetEase(Ease.OutBack); // Resets to originalScale
         }
     }
 

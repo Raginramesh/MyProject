@@ -350,32 +350,57 @@ public class WordGridManager : MonoBehaviour
     public void ReplaceLettersAt(List<Vector2Int> coordinates, bool fadeIn = false)
     {
         if (coordinates == null || coordinates.Count == 0) return;
-        isAnimating = true;
-        Sequence replacementSequence = DOTween.Sequence();
+        isAnimating = true; // Potentially set this at the start of the sequence if DOTween is used.
+
+        Sequence replacementSequence = DOTween.Sequence(); // Good for managing sequential fades
 
         foreach (var coord in coordinates)
         {
             if (coord.x >= 0 && coord.x < gridSize && coord.y >= 0 && coord.y < gridSize)
             {
-                gridData[coord.x, coord.y] = GetRandomLetter();
-                CellController cell = gridCells[coord.x, coord.y];
+                CellController cell = gridCells[coord.x, coord.y]; // Assuming gridCells holds the primary, visible cells
                 if (cell != null)
                 {
+                    // 1. Reset visual state BEFORE setting new letter and fading in
+                    cell.SetHighlightState(false, cell.GetDefaultColor()); // Resets color and scale
+
+                    gridData[coord.x, coord.y] = GetRandomLetter(); // Get new letter for the data grid
+
                     if (fadeIn)
                     {
-                        cell.FadeOutImmediate();
-                        replacementSequence.AppendCallback(() => cell.SetLetter(gridData[coord.x, coord.y]));
-                        replacementSequence.AppendInterval(0.01f);
-                        replacementSequence.Append(cell.GetComponent<CanvasGroup>().DOFade(1f, cellFadeInDuration * 0.5f));
+                        cell.SetAlpha(0f); // Ensure it's fully transparent before fade
+                        replacementSequence.AppendCallback(() => {
+                            cell.SetLetter(gridData[coord.x, coord.y]); // Set new letter
+                            // Re-apply the correct primary/alternate background color based on its position
+                            Image bgImage = cell.GetComponent<Image>();
+                            if (bgImage != null)
+                            {
+                                bgImage.color = (coord.x + coord.y) % 2 == 0 ? cellColorPrimary : cellColorAlternate;
+                                cell.StoreDefaultColor(); // Store this new base color as its default
+                            }
+                        });
+                        replacementSequence.Append(cell.GetComponent<CanvasGroup>().DOFade(1f, cellFadeInDuration * 0.75f)); // Slightly faster fade for replacement
                     }
                     else
                     {
                         cell.SetLetter(gridData[coord.x, coord.y]);
+                        // Re-apply the correct primary/alternate background color
+                        Image bgImage = cell.GetComponent<Image>();
+                        if (bgImage != null)
+                        {
+                            bgImage.color = (coord.x + coord.y) % 2 == 0 ? cellColorPrimary : cellColorAlternate;
+                            cell.StoreDefaultColor();
+                        }
+                        cell.SetAlpha(1f); // Ensure it's visible
                     }
                 }
             }
         }
-        replacementSequence.OnComplete(() => ResetAnimationFlag("ReplaceLettersAt"));
+
+        replacementSequence.OnComplete(() => {
+            ResetAnimationFlag("ReplaceLettersAt");
+            TriggerValidationCheckAndHighlightUpdate();
+        });
     }
 
     public void TriggerValidationCheckAndHighlightUpdate()

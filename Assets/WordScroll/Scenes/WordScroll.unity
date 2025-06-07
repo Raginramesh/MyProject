@@ -1272,6 +1272,7 @@ MonoBehaviour:
   gridPanelRect: {fileID: 450983248}
   uiCamera: {fileID: 24250974}
   dragInitiationThreshold: 10
+  snapToNextThresholdPercentage: 0.6
   maxTapDuration: 500
   maxTapMoveDistance: 500
   minFlickVelocity: 500
@@ -2859,7 +2860,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
-  currentDisplayMode: 2
+  currentDisplayMode: 1
   gameTimeLimit: 180
   startingMoves: 20
   homeSceneName: HomeScene
@@ -3608,6 +3609,7 @@ MonoBehaviour:
   gridPanelRect: {fileID: 0}
   uiCamera: {fileID: 0}
   dragInitiationThreshold: 10
+  snapToNextThresholdPercentage: 0.6
   maxTapDuration: 0.3
   maxTapMoveDistance: 15
   minFlickVelocity: 300
