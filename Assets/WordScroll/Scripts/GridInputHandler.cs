@@ -16,6 +16,8 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
 
     [Header("Drag Settings")]
     [SerializeField] private float dragInitiationThreshold = 10f;
+    [Tooltip("Percentage of cell dimension to cross for snap to next cell (0.0 to 1.0)")]
+    [SerializeField] private float snapToNextThresholdPercentage = 0.6f; // 60%
 
     [Header("Tap Settings")]
     [SerializeField] private float maxTapDuration = 0.3f;
@@ -41,8 +43,6 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
     private int activeDragCol = -1;
     private float currentFrameVisualRemainderOffsetX = 0f;
     private float currentFrameVisualRemainderOffsetY = 0f;
-    private float totalAccumulatedDragOffsetX = 0f;
-    private float totalAccumulatedDragOffsetY = 0f;
     private float cellDimensionWithSpacing;
     private bool dataActuallyShiftedDuringDrag = false;
     private bool tapCandidate = false;
@@ -75,8 +75,6 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         activeDragCol = -1;
         currentFrameVisualRemainderOffsetX = 0f;
         currentFrameVisualRemainderOffsetY = 0f;
-        totalAccumulatedDragOffsetX = 0f;
-        totalAccumulatedDragOffsetY = 0f;
         dataActuallyShiftedDuringDrag = false;
         pointerPositionsHistory.Clear();
         pointerTimesHistory.Clear();
@@ -117,8 +115,6 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         isVerticalDragLocked = false;
         currentFrameVisualRemainderOffsetX = 0f;
         currentFrameVisualRemainderOffsetY = 0f;
-        totalAccumulatedDragOffsetX = 0f;
-        totalAccumulatedDragOffsetY = 0f;
         dataActuallyShiftedDuringDrag = false;
         initialDragLineData = null;
         dragBeganOnValidLine = false;
@@ -181,8 +177,8 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
             }
 
             RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, eventData.position, uiCamera, out pointerInitialPanelPosition);
-            totalAccumulatedDragOffsetX = 0;
-            totalAccumulatedDragOffsetY = 0;
+            currentFrameVisualRemainderOffsetX = 0;
+            currentFrameVisualRemainderOffsetY = 0;
         }
     }
 
@@ -204,9 +200,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
 
         if (isHorizontalDragLocked && activeDragRow != -1)
         {
-            float panelDeltaXSinceLastSnap = currentPanelPosition.x - pointerInitialPanelPosition.x;
-            totalAccumulatedDragOffsetX = panelDeltaXSinceLastSnap;
-            currentFrameVisualRemainderOffsetX = totalAccumulatedDragOffsetX;
+            currentFrameVisualRemainderOffsetX = currentPanelPosition.x - pointerInitialPanelPosition.x;
 
             if (Mathf.Abs(currentFrameVisualRemainderOffsetX) >= cellDimensionWithSpacing)
             {
@@ -215,7 +209,6 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                 {
                     wordGridManager.ShiftRowDataAndRefresh(activeDragRow, cellsToShift);
                     currentFrameVisualRemainderOffsetX -= cellsToShift * cellDimensionWithSpacing;
-                    totalAccumulatedDragOffsetX = currentFrameVisualRemainderOffsetX;
                     dataActuallyShiftedDuringDrag = true;
                     pointerInitialPanelPosition.x += cellsToShift * cellDimensionWithSpacing;
                 }
@@ -224,9 +217,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         }
         else if (isVerticalDragLocked && activeDragCol != -1)
         {
-            float panelDeltaYSinceLastSnap = currentPanelPosition.y - pointerInitialPanelPosition.y;
-            totalAccumulatedDragOffsetY = panelDeltaYSinceLastSnap;
-            currentFrameVisualRemainderOffsetY = totalAccumulatedDragOffsetY;
+            currentFrameVisualRemainderOffsetY = currentPanelPosition.y - pointerInitialPanelPosition.y;
 
             if (Mathf.Abs(currentFrameVisualRemainderOffsetY) >= cellDimensionWithSpacing)
             {
@@ -235,7 +226,6 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                 {
                     wordGridManager.ShiftColumnDataAndRefresh(activeDragCol, -cellsToShift);
                     currentFrameVisualRemainderOffsetY -= cellsToShift * cellDimensionWithSpacing;
-                    totalAccumulatedDragOffsetY = currentFrameVisualRemainderOffsetY;
                     dataActuallyShiftedDuringDrag = true;
                     pointerInitialPanelPosition.y += cellsToShift * cellDimensionWithSpacing;
                 }
@@ -253,19 +243,19 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         }
         AddPointerSample(eventData.position);
 
-        float currentRemainderOffset = 0f;
+        float visualRemainderAtRelease = 0f;
         int lineIndex = -1;
         bool horizontalDrag = false;
 
         if (isHorizontalDragLocked && activeDragRow != -1)
         {
-            currentRemainderOffset = currentFrameVisualRemainderOffsetX;
+            visualRemainderAtRelease = currentFrameVisualRemainderOffsetX;
             lineIndex = activeDragRow;
             horizontalDrag = true;
         }
         else if (isVerticalDragLocked && activeDragCol != -1)
         {
-            currentRemainderOffset = currentFrameVisualRemainderOffsetY;
+            visualRemainderAtRelease = currentFrameVisualRemainderOffsetY;
             lineIndex = activeDragCol;
             horizontalDrag = false;
         }
@@ -282,7 +272,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         bool isFlick = (horizontalDrag && Mathf.Abs(flickVelocity.x) > minFlickVelocity) ||
                        (!horizontalDrag && Mathf.Abs(flickVelocity.y) > minFlickVelocity);
 
-        bool finalSnapWillShiftData = false;
+        int dataShiftOnRelease = 0;
 
         if (isFlick)
         {
@@ -292,60 +282,59 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
 
             if (flickDirection != 0)
             {
-                int dataShiftForFlick = horizontalDrag ? flickDirection : -flickDirection;
-                finalSnapWillShiftData = true;
-                activeSnapAnimationCoroutine = StartCoroutine(AnimateSnapAndShift(lineIndex, horizontalDrag, currentRemainderOffset, dataShiftForFlick, flickSnapDuration, flickEaseType, finalSnapWillShiftData));
+                dataShiftOnRelease = horizontalDrag ? flickDirection : -flickDirection;
             }
             else
             {
-                finalSnapWillShiftData = Mathf.Abs(currentRemainderOffset) > cellDimensionWithSpacing / 2f;
-                int additionalDataShiftOnRelease = 0;
-                if (finalSnapWillShiftData)
+                if (Mathf.Abs(visualRemainderAtRelease) > cellDimensionWithSpacing * snapToNextThresholdPercentage)
                 {
-                    additionalDataShiftOnRelease = Math.Sign(currentRemainderOffset);
-                    if (!horizontalDrag) additionalDataShiftOnRelease = -additionalDataShiftOnRelease;
+                    dataShiftOnRelease = Math.Sign(visualRemainderAtRelease);
+                    if (!horizontalDrag) dataShiftOnRelease *= -1;
                 }
-                activeSnapAnimationCoroutine = StartCoroutine(AnimateSnapAndShift(lineIndex, horizontalDrag, currentRemainderOffset, additionalDataShiftOnRelease, releaseSnapDuration, releaseSnapEaseType, finalSnapWillShiftData));
             }
         }
         else
         {
-            int additionalDataShiftOnRelease = 0;
-            if (Mathf.Abs(currentRemainderOffset) > cellDimensionWithSpacing / 2f)
+            if (Mathf.Abs(visualRemainderAtRelease) > cellDimensionWithSpacing * snapToNextThresholdPercentage)
             {
-                additionalDataShiftOnRelease = Math.Sign(currentRemainderOffset);
-                if (!horizontalDrag) additionalDataShiftOnRelease = -additionalDataShiftOnRelease;
-                finalSnapWillShiftData = true;
+                dataShiftOnRelease = Math.Sign(visualRemainderAtRelease);
+                if (!horizontalDrag) dataShiftOnRelease *= -1;
             }
-            activeSnapAnimationCoroutine = StartCoroutine(AnimateSnapAndShift(lineIndex, horizontalDrag, currentRemainderOffset, additionalDataShiftOnRelease, releaseSnapDuration, releaseSnapEaseType, finalSnapWillShiftData));
         }
+
+        activeSnapAnimationCoroutine = StartCoroutine(AnimateSnapAndShift(lineIndex, horizontalDrag, visualRemainderAtRelease, dataShiftOnRelease, isFlick ? flickSnapDuration : releaseSnapDuration, isFlick ? flickEaseType : releaseSnapEaseType));
     }
 
-    private IEnumerator AnimateSnapAndShift(int lineIndex, bool horizontal, float visualStartOffset, int dataShiftSteps, float duration, Ease easeType, bool snapActionShiftsData)
+    private IEnumerator AnimateSnapAndShift(int lineIndex, bool horizontal, float visualStartOffset, int dataShiftSteps, float duration, Ease easeType)
     {
-        bool actualDataShiftOccurredInThisSnap = false;
-        if (dataShiftSteps != 0)
+        float animationTargetVisualOffset = dataShiftSteps * cellDimensionWithSpacing;
+        if (!horizontal && dataShiftSteps != 0)
         {
-            if (horizontal) wordGridManager.ShiftRowDataAndRefresh(lineIndex, dataShiftSteps);
-            else wordGridManager.ShiftColumnDataAndRefresh(lineIndex, dataShiftSteps);
-            actualDataShiftOccurredInThisSnap = true;
-
-            visualStartOffset -= dataShiftSteps * cellDimensionWithSpacing;
-            if (!horizontal && dataShiftSteps != 0) visualStartOffset *= (Math.Sign(dataShiftSteps) == Math.Sign(visualStartOffset) ? 1 : -1);
+            animationTargetVisualOffset = -dataShiftSteps * cellDimensionWithSpacing;
         }
 
-        float targetVisualOffset = 0f;
-        float currentVisualOffsetForAnimation = visualStartOffset;
+        float currentAnimatedOffset = visualStartOffset;
 
-        Tween snapTween = DOTween.To(() => currentVisualOffsetForAnimation, x => currentVisualOffsetForAnimation = x, targetVisualOffset, duration)
+        Tween snapTween = DOTween.To(() => currentAnimatedOffset, x => currentAnimatedOffset = x, animationTargetVisualOffset, duration)
             .SetEase(easeType)
             .OnUpdate(() =>
             {
-                if (horizontal) wordGridManager.SetRowVisualOffset(lineIndex, currentVisualOffsetForAnimation);
-                else wordGridManager.SetColumnVisualOffset(lineIndex, currentVisualOffsetForAnimation);
+                if (horizontal) wordGridManager.SetRowVisualOffset(lineIndex, currentAnimatedOffset);
+                else wordGridManager.SetColumnVisualOffset(lineIndex, currentAnimatedOffset);
             })
             .OnComplete(() =>
             {
+                bool actualDataShiftOccurredThisSnap = false;
+                if (dataShiftSteps != 0)
+                {
+                    if (horizontal) wordGridManager.ShiftRowDataAndRefresh(lineIndex, dataShiftSteps);
+                    else wordGridManager.ShiftColumnDataAndRefresh(lineIndex, dataShiftSteps);
+                    actualDataShiftOccurredThisSnap = true;
+                }
+
+                if (horizontal) wordGridManager.SetRowVisualOffset(lineIndex, 0f);
+                else wordGridManager.SetColumnVisualOffset(lineIndex, 0f);
+
                 if (horizontal) wordGridManager.SnapRowToGrid(lineIndex);
                 else wordGridManager.SnapColumnToGrid(lineIndex);
 
@@ -361,7 +350,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                         netDataChangedFromDragStart = true;
                     }
                 }
-                else if (dataActuallyShiftedDuringDrag || actualDataShiftOccurredInThisSnap)
+                else if (dataActuallyShiftedDuringDrag || actualDataShiftOccurredThisSnap)
                 {
                     netDataChangedFromDragStart = true;
                 }
@@ -371,7 +360,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                     wordGridManager.ApplyPendingMoveReduction(lineIndex, horizontal ? -1 : lineIndex, 1);
                 }
 
-                if (dataActuallyShiftedDuringDrag || actualDataShiftOccurredInThisSnap)
+                if (dataActuallyShiftedDuringDrag || actualDataShiftOccurredThisSnap)
                 {
                     wordGridManager.TriggerValidationCheckAndHighlightUpdate();
                 }
@@ -414,7 +403,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                 }
             }
 
-            if (!wasDraggingBeforeSnapAttempt || (wasDraggingBeforeSnapAttempt && !isDragging))
+            if (!wasDraggingBeforeSnapAttempt)
             {
                 ResetDragState();
             }

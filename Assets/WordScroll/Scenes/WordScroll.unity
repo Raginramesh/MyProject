@@ -2859,7 +2859,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
-  currentDisplayMode: 1
+  currentDisplayMode: 2
   gameTimeLimit: 180
   startingMoves: 20
   homeSceneName: HomeScene

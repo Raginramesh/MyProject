@@ -42,6 +42,15 @@ public class WordGridManager : MonoBehaviour
     private List<char> WeightedLetters = new List<char>();
     private Vector2 gridCenterOffset;
 
+    // Define the number of extra cells for wrap-around effect
+    private const int WRAP_PADDING = 3;
+    
+    // Expanded cell pool for wraparound (includes hidden cells outside visible grid)
+    private CellController[,] extendedGridCells;
+    
+    // Track if cells are initialized for wraparound
+    private bool wraparoundInitialized = false;
+
     void Awake()
     {
         if (letterCellPrefab == null) { Debug.LogError("WGM: Letter Cell Prefab not assigned!", this); enabled = false; return; }
@@ -127,6 +136,9 @@ public class WordGridManager : MonoBehaviour
             }
         }
 
+        // Now initialize wraparound cells
+        InitializeWraparoundGrid();
+
         DOVirtual.DelayedCall(cellFadeInDuration + 0.1f, () =>
         {
             ResetAnimationFlag("InitializeGrid");
@@ -173,73 +185,110 @@ public class WordGridManager : MonoBehaviour
     public void SetRowVisualOffset(int rowIndex, float currentFrameVisualOffset)
     {
         if (rowIndex < 0 || rowIndex >= gridSize) return;
-        for (int c = 0; c < gridSize; c++)
-        {
-            if (gridCells[rowIndex, c] == null) continue;
-            Vector2 basePos = GetBaseCellPosition(rowIndex, c);
-            gridCells[rowIndex, c].transform.localPosition = new Vector3(basePos.x + currentFrameVisualOffset, basePos.y, 0);
-        }
+        
+        // Use our wraparound scroll method
+        UpdateScrollVisualsWithWrap(rowIndex, true, currentFrameVisualOffset);
     }
 
     public void SetColumnVisualOffset(int colIndex, float currentFrameVisualOffset)
     {
         if (colIndex < 0 || colIndex >= gridSize) return;
-        for (int r = 0; r < gridSize; r++)
-        {
-            if (gridCells[r, colIndex] == null) continue;
-            Vector2 basePos = GetBaseCellPosition(r, colIndex);
-            gridCells[r, colIndex].transform.localPosition = new Vector3(basePos.x, basePos.y + currentFrameVisualOffset, 0);
-        }
+        
+        // Use our wraparound scroll method
+        UpdateScrollVisualsWithWrap(colIndex, false, currentFrameVisualOffset);
     }
 
     public void SnapRowToGrid(int rowIndex)
     {
         if (rowIndex < 0 || rowIndex >= gridSize) return;
-        for (int c = 0; c < gridSize; c++)
+        if (!wraparoundInitialized) InitializeWraparoundGrid();
+
+        // Ensure letters are set according to current gridData before snapping position
+        for (int extendedCol = 0; extendedCol < gridSize + WRAP_PADDING * 2; extendedCol++)
         {
-            if (gridCells[rowIndex, c] != null)
-            {
-                gridCells[rowIndex, c].transform.localPosition = GetBaseCellPosition(rowIndex, c);
-                gridCells[rowIndex, c].SetLetter(gridData[rowIndex, c]); // Ensure letter is correct
-            }
+            CellController cell = extendedGridCells[rowIndex + WRAP_PADDING, extendedCol];
+            if (cell == null) continue;
+            int virtualCol = extendedCol - WRAP_PADDING;
+            int dataColIndex = (virtualCol % gridSize + gridSize) % gridSize;
+            cell.SetLetter(gridData[rowIndex, dataColIndex]);
         }
+        UpdateScrollVisualsWithWrap(rowIndex, true, 0f); // Then snap positions
     }
 
     public void SnapColumnToGrid(int colIndex)
     {
         if (colIndex < 0 || colIndex >= gridSize) return;
-        for (int r = 0; r < gridSize; r++)
+        if (!wraparoundInitialized) InitializeWraparoundGrid();
+
+        for (int extendedRow = 0; extendedRow < gridSize + WRAP_PADDING * 2; extendedRow++)
         {
-            if (gridCells[r, colIndex] != null)
-            {
-                gridCells[r, colIndex].transform.localPosition = GetBaseCellPosition(r, colIndex);
-                gridCells[r, colIndex].SetLetter(gridData[r, colIndex]); // Ensure letter is correct
-            }
+            CellController cell = extendedGridCells[extendedRow, colIndex + WRAP_PADDING];
+            if (cell == null) continue;
+            int virtualRow = extendedRow - WRAP_PADDING;
+            int dataRowIndex = (virtualRow % gridSize + gridSize) % gridSize;
+            cell.SetLetter(gridData[dataRowIndex, colIndex]);
         }
+        UpdateScrollVisualsWithWrap(colIndex, false, 0f);
     }
 
-    // Shifts data and refreshes cell letters
+    // Shifts data AND refreshes letters on ALL relevant extended cells
     public void ShiftRowDataAndRefresh(int rowIndex, int cellsToShift)
     {
         if (rowIndex < 0 || rowIndex >= gridSize || cellsToShift == 0) return;
+        if (!wraparoundInitialized) InitializeWraparoundGrid(); // Ensure extended grid is ready
+
         int direction = Math.Sign(cellsToShift);
         for (int i = 0; i < Math.Abs(cellsToShift); i++)
         {
-            ShiftRowDataInternal(rowIndex, direction);
+            ShiftRowDataInternal(rowIndex, direction); // This modifies gridData
         }
-        RefreshCellLettersInRow(rowIndex);
+
+        // Now, update the letters on all extended cells for this row based on the NEW gridData
+        for (int extendedCol = 0; extendedCol < gridSize + WRAP_PADDING * 2; extendedCol++)
+        {
+            CellController cell = extendedGridCells[rowIndex + WRAP_PADDING, extendedCol];
+            if (cell == null) continue;
+
+            // 'virtualCol' is the cell's 0-indexed position in the conceptual infinite strip of cells
+            // (e.g., -3, -2, -1 for left padding, 0 to gridSize-1 for main grid, gridSize to gridSize+2 for right padding)
+            int virtualCol = extendedCol - WRAP_PADDING; 
+            
+            // Map this virtualCol to an index in the gridData array.
+            // This ensures that the cell at a specific visual position in the extended strip
+            // always shows the letter from the corresponding wrapped index of the current gridData.
+            int dataColIndex = (virtualCol % gridSize + gridSize) % gridSize;
+            
+            cell.SetLetter(gridData[rowIndex, dataColIndex]);
+        }
+        
+        // After letters are authoritatively set, snap visual positions to 0 offset.
+        // This call to UpdateScrollVisualsWithWrap will now only move cells (as SetLetter is removed from it).
+        UpdateScrollVisualsWithWrap(rowIndex, true, 0f); 
     }
 
-    // Shifts data and refreshes cell letters
     public void ShiftColumnDataAndRefresh(int colIndex, int cellsToShift)
     {
         if (colIndex < 0 || colIndex >= gridSize || cellsToShift == 0) return;
+        if (!wraparoundInitialized) InitializeWraparoundGrid();
+
         int direction = Math.Sign(cellsToShift);
         for (int i = 0; i < Math.Abs(cellsToShift); i++)
         {
-            ShiftColumnDataInternal(colIndex, direction);
+            ShiftColumnDataInternal(colIndex, direction); // Modifies gridData
         }
-        RefreshCellLettersInColumn(colIndex);
+
+        // Now, update the letters on all extended cells for this column based on the NEW gridData
+        for (int extendedRow = 0; extendedRow < gridSize + WRAP_PADDING * 2; extendedRow++)
+        {
+            CellController cell = extendedGridCells[extendedRow, colIndex + WRAP_PADDING];
+            if (cell == null) continue;
+
+            int virtualRow = extendedRow - WRAP_PADDING;
+            int dataRowIndex = (virtualRow % gridSize + gridSize) % gridSize;
+            cell.SetLetter(gridData[dataRowIndex, colIndex]);
+        }
+        
+        UpdateScrollVisualsWithWrap(colIndex, false, 0f);
     }
 
     // Internal method for single step data shift
@@ -456,4 +505,162 @@ public class WordGridManager : MonoBehaviour
         }
         return col;
     }
+
+    // Initialize extended grid with wraparound cells
+    public void InitializeWraparoundGrid()
+    {
+        if (wraparoundInitialized) return;
+        
+        // Create expanded grid
+        extendedGridCells = new CellController[gridSize + WRAP_PADDING*2, gridSize + WRAP_PADDING*2];
+        
+        // Copy existing cells to center of extended grid
+        for (int r = 0; r < gridSize; r++)
+        {
+            for (int c = 0; c < gridSize; c++)
+            {
+                extendedGridCells[r + WRAP_PADDING, c + WRAP_PADDING] = gridCells[r, c];
+            }
+        }
+        
+        // Create wraparound cells (left/right edges, top/bottom edges, and corners)
+        for (int r = 0; r < gridSize + WRAP_PADDING*2; r++)
+        {
+            for (int c = 0; c < gridSize + WRAP_PADDING*2; c++)
+            {
+                // Skip the main grid area
+                if (r >= WRAP_PADDING && r < WRAP_PADDING + gridSize && 
+                    c >= WRAP_PADDING && c < WRAP_PADDING + gridSize) continue;
+                
+                // Map to the corresponding cell in the main grid
+                int mappedRow = ((r % gridSize) + gridSize) % gridSize;
+                int mappedCol = ((c % gridSize) + gridSize) % gridSize;
+                
+                // Create a new cell for the wraparound position
+                GameObject cellGO = Instantiate(letterCellPrefab, gridParent);
+                CellController cell = cellGO.GetComponent<CellController>();
+                
+                if (cell == null)
+                {
+                    Debug.LogError($"WGM: Cell prefab is missing CellController script.", this);
+                    Destroy(cellGO);
+                    continue;
+                }
+                
+                extendedGridCells[r, c] = cell;
+                
+                // Set properties
+                cell.gameObject.name = $"WrapCell_{r}_{c}";
+                
+                // Size the cell
+                RectTransform cellRT = cellGO.GetComponent<RectTransform>();
+                if (cellRT != null)
+                {
+                    cellRT.sizeDelta = new Vector2(cellSize, cellSize);
+                }
+                
+                // Position outside the visible area (will be moved during scrolling)
+                cell.transform.localPosition = GetExtendedCellBasePosition(r, c);
+                
+                // Set letter from the mapped position in gridData - this ensures wrap cells match the data pattern
+                cell.SetLetter(gridData[mappedRow, mappedCol]);
+                
+                // Set the appearance and make it initially invisible
+                Image bgImage = cell.GetComponent<Image>();
+                if (bgImage != null)
+                {
+                    bgImage.color = (mappedRow + mappedCol) % 2 == 0 ? cellColorPrimary : cellColorAlternate;
+                }
+                cell.StoreDefaultColor();
+                cell.SetAlpha(0f); // Hide initially
+            }
+        }
+        
+        wraparoundInitialized = true;
+    }
+    
+    // Get position for extended grid cell
+    private Vector2 GetExtendedCellBasePosition(int r, int c)
+    {
+        // Convert extended grid indices to relative positions
+        int relativeRow = r - WRAP_PADDING;
+        int relativeCol = c - WRAP_PADDING;
+        
+        float xPos = relativeCol * (cellSize + spacing) - gridCenterOffset.x;
+        float yPos = -(relativeRow * (cellSize + spacing) - gridCenterOffset.y);
+        return new Vector2(xPos, yPos);
+    }
+    
+    // Core method for the continuous scrolling effect - cells move, letters are fixed during drag
+    public void UpdateScrollVisualsWithWrap(int lineIndex, bool isHorizontal, float totalOffset)
+    {
+        if (!wraparoundInitialized) InitializeWraparoundGrid();
+        
+        float cellDimensionWithSpacing = cellSize + spacing; 
+        
+        if (isHorizontal) // Row scrolling
+        {
+            int rowIndex = lineIndex;
+            
+            for (int extendedCol = 0; extendedCol < gridSize + WRAP_PADDING*2; extendedCol++)
+            {
+                CellController cell = extendedGridCells[rowIndex + WRAP_PADDING, extendedCol];
+                if (cell == null) continue;
+                
+                // Position the cell with the full totalOffset - directly follow finger
+                Vector2 basePos = GetExtendedCellBasePosition(rowIndex + WRAP_PADDING, extendedCol);
+                cell.transform.localPosition = new Vector3(basePos.x + totalOffset, basePos.y, 0);
+                
+                // Visibility logic
+                int virtualCol = extendedCol - WRAP_PADDING;
+                float scrollOffsetInCells = totalOffset / cellDimensionWithSpacing;
+                bool isVisible = (virtualCol + scrollOffsetInCells >= -WRAP_PADDING) && 
+                                 (virtualCol + scrollOffsetInCells < gridSize + WRAP_PADDING);
+
+                if (isVisible && cell.GetComponent<CanvasGroup>().alpha < 1f)
+                {
+                    cell.SetAlpha(1f);
+                }
+                else if (!isVisible && cell.GetComponent<CanvasGroup>().alpha > 0f)
+                {
+                    cell.SetAlpha(0f);
+                }
+                // DO NOT SET LETTER HERE - Letters are fixed to their specific CellController instance during drag.
+            }
+        }
+        else // Column scrolling
+        {
+            int colIndex = lineIndex;
+            
+            for (int extendedRow = 0; extendedRow < gridSize + WRAP_PADDING*2; extendedRow++)
+            {
+                CellController cell = extendedGridCells[extendedRow, colIndex + WRAP_PADDING];
+                if (cell == null) continue;
+                
+                RectTransform cellRect = cell.GetComponent<RectTransform>();
+                if (cellRect != null) {
+                    cellRect.DOKill(true);
+                    cellRect.localScale = Vector3.one;
+                }
+                
+                Vector2 basePos = GetExtendedCellBasePosition(extendedRow, colIndex + WRAP_PADDING);
+                cell.transform.localPosition = new Vector3(basePos.x, basePos.y + totalOffset, 0);
+                
+                int virtualRow = extendedRow - WRAP_PADDING;
+                float scrollOffsetInCells = totalOffset / cellDimensionWithSpacing;
+                bool isVisible = (virtualRow + scrollOffsetInCells >= -WRAP_PADDING) && 
+                                 (virtualRow + scrollOffsetInCells < gridSize + WRAP_PADDING);
+                
+                if (isVisible && cell.GetComponent<CanvasGroup>().alpha < 1f)
+                {
+                    cell.SetAlpha(1f);
+                }
+                else if (!isVisible && cell.GetComponent<CanvasGroup>().alpha > 0f)
+                {
+                    cell.SetAlpha(0f);
+                }
+                // DO NOT SET LETTER HERE
+            }
+        }
+    }   
 }

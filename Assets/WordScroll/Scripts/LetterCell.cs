@@ -67,4 +67,15 @@ public class LetterCell : MonoBehaviour
         UpdateMovesDisplay(); // Ensure the text visibility updates immediately
         // You might want to update other visual appearance based on this state
     }
+
+    public void SetLetterFromGrid(int virtualCol, int scrolledCells, int gridSize, int rowIndex, char[,] gridData)
+    {
+        int dataCol = Mathf.FloorToInt(((virtualCol + scrolledCells) % gridSize + gridSize) % gridSize);
+        SetLetter(gridData[rowIndex, dataCol]);
+    }
+
+    public void SetLetter(char letter)
+    {
+        // Implementation for setting the letter (not provided in the original code)
+    }
 }
