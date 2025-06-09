@@ -230,7 +230,10 @@ namespace MoreMountains.Tools
 				return;
 			}
 
-			string callerObjectName = new StackTrace().GetFrame(1).GetMethod().ReflectedType.Name;
+			string callerObjectName = "";
+			#if !UNITY_WEBGL
+			 callerObjectName = new StackTrace().GetFrame(1).GetMethod().ReflectedType.Name;
+			#endif
 			color = (color == "") ? "#00FFFF" : color;
             
 			// colors

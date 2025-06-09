@@ -262,7 +262,7 @@ namespace MoreMountains.Feedbacks
 
 		private void OnDisable()
 		{
-			Undo.undoRedoPerformed += OnUndoRedo;
+			Undo.undoRedoPerformed -= OnUndoRedo;
 			EditorApplication.update -= OnEditorUpdate;
 		}
 

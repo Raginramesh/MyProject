@@ -68,6 +68,9 @@ namespace MoreMountains.Feedbacks
 		/// The layer index. If layer is -1, it plays the first state with the given state name or hash.
 		[Tooltip("The layer index. If layer is -1, it plays the first state with the given state name or hash.")]
 		public int LayerIndex = -1;
+		/// the name of the Animator layer you want the state to play on. This is optional. If left empty, the layer ID above will be used, if not empty, the Layer id specified above will be ignored.
+		[Tooltip("the name of the Animator layer you want the state to play on. This is optional. If left empty, the layer ID above will be used, if not empty, the Layer id specified above will be ignored.")]
+		public string LayerName = "";
 
 		[MMFInspectorGroup("Layer Weights", true, 22)]
 		/// whether or not to set layer weights on the specified layer when playing this feedback
@@ -83,6 +86,7 @@ namespace MoreMountains.Feedbacks
 		public float NewWeight = 0.5f;
 
 		protected int _targetParameter;
+		protected int _layerID;
 
 		/// <summary>
 		/// Custom Init
@@ -92,6 +96,11 @@ namespace MoreMountains.Feedbacks
 		{
 			base.CustomInitialization(owner);
 			_targetParameter = Animator.StringToHash(StateName);
+			_layerID = TargetLayerIndex;
+			if ((LayerName != "") && (BoundAnimator != null))
+			{
+				_layerID = BoundAnimator.GetLayerIndex(LayerName);
+			}
 		}
 
 		/// <summary>
@@ -130,7 +139,7 @@ namespace MoreMountains.Feedbacks
 		{
 			if (SetLayerWeight)
 			{
-				targetAnimator.SetLayerWeight(TargetLayerIndex, NewWeight);
+				targetAnimator.SetLayerWeight(_layerID, NewWeight);
 			}
 			
 			if (Mode == Modes.NormalizedTime)

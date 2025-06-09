@@ -333,51 +333,38 @@ namespace MoreMountains.Feedbacks
 			float startTime = FeedbackTime;
 			_totalCharacters = _richTextLength;
 			int visibleCharacters = 0;
-			float lastCharAt = FeedbackTime;
-	            
+
 			IsPlaying = true;
-			while ((visibleCharacters <= _totalCharacters) && !Owner.SkippingToTheEnd)
+			TargetTMPText.maxVisibleCharacters = 0;
+
+			while ((visibleCharacters < _totalCharacters) && !Owner.SkippingToTheEnd)
 			{
-				float time = FeedbackTime;
+				float currentTime = FeedbackTime;
+				float elapsed = currentTime - startTime;
 
-				if (time - lastCharAt < IntervalBetweenReveals)
-				{
-					yield return null;
-				}
-		            
-				TargetTMPText.maxVisibleCharacters = visibleCharacters;
-				InvokeRevealEvents();
+				int expectedVisibleCharacters = 0;
 
-				float timeSinceLastChar = time - lastCharAt;
-				int numberOfIntervals = (int)Mathf.Round(timeSinceLastChar / IntervalBetweenReveals);
-				for (int i = 0; i < numberOfIntervals; i++)
-				{
-					visibleCharacters++;
-				}            
-				lastCharAt = time;
-
-				// we adjust our delay
-	                
-				float delay = 0f;
-	                
 				if (DurationMode == DurationModes.Interval)
 				{
-					_delay = Mathf.Max(IntervalBetweenReveals, FeedbackDeltaTime);
-					delay = _delay - FeedbackDeltaTime;
+					expectedVisibleCharacters = Mathf.FloorToInt(elapsed / IntervalBetweenReveals);
 				}
-				else
+				else 
 				{
-					int remainingCharacters = _totalCharacters - visibleCharacters;
-					float elapsedTime = time - startTime;
-					if (remainingCharacters != 0)
-					{
-						_delay = (RevealDuration - elapsedTime) / remainingCharacters;   
-					}
-					delay = _delay - FeedbackDeltaTime;
+					expectedVisibleCharacters = Mathf.FloorToInt((_totalCharacters * elapsed) / RevealDuration);
 				}
-	                
-				yield return WaitFor(delay);
+
+				expectedVisibleCharacters = Mathf.Clamp(expectedVisibleCharacters, 0, _totalCharacters);
+
+				if (expectedVisibleCharacters > visibleCharacters)
+				{
+					visibleCharacters = expectedVisibleCharacters;
+					TargetTMPText.maxVisibleCharacters = visibleCharacters;
+					InvokeRevealEvents();
+				}
+
+				yield return null;
 			}
+
 			TargetTMPText.maxVisibleCharacters = _richTextLength;
 			IsPlaying = false;
 		}

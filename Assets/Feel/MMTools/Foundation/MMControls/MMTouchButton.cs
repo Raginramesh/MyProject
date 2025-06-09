@@ -320,7 +320,7 @@ namespace MoreMountains.Tools
 				return;
 			}
 			
-			if (Time.time - _lastClickTimestamp < BufferDuration)
+			if (Time.unscaledTime - _lastClickTimestamp < BufferDuration)
 			{
 				return;
 			}
@@ -330,7 +330,7 @@ namespace MoreMountains.Tools
 				return;
 			}
 			CurrentState = ButtonStates.ButtonDown;
-			_lastClickTimestamp = Time.time;
+			_lastClickTimestamp = Time.unscaledTime;
 			InvokeButtonStateChange(PointerEventData.FramePressState.Pressed, data);
 			if ((Time.timeScale != 0) && (PressedFirstTimeDelay > 0))
 			{

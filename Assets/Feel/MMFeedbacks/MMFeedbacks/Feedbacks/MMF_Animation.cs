@@ -156,6 +156,9 @@ namespace MoreMountains.Feedbacks
 		[Tooltip("the index of the layer to target when changing layer weights")]
 		[MMFCondition("SetLayerWeight", true)]
 		public int TargetLayerIndex = 1;
+		/// the name of the Animator layer you want the layer weight change to occur on. This is optional. If left empty, the layer ID above will be used, if not empty, the Layer id specified above will be ignored.
+		[Tooltip("the name of the Animator layer you want the layer weight change to occur on. This is optional. If left empty, the layer ID above will be used, if not empty, the Layer id specified above will be ignored.")]
+		public string LayerName = "";
 		/// the new weight to set on the target animator layer
 		[Tooltip("the new weight to set on the target animator layer")]
 		[MMFCondition("SetLayerWeight", true)]
@@ -167,6 +170,7 @@ namespace MoreMountains.Feedbacks
 		protected int _floatParameter;
 		protected List<int> _randomTriggerParameters;
 		protected List<int> _randomBoolParameters;
+		protected int _layerID;
 
 		/// <summary>
 		/// Custom Init
@@ -201,6 +205,12 @@ namespace MoreMountains.Feedbacks
 			foreach (string name in RandomBoolParameterNames)
 			{
 				_randomBoolParameters.Add(Animator.StringToHash(name));
+			}
+			
+			_layerID = TargetLayerIndex;
+			if ((LayerName != "") && (BoundAnimator != null))
+			{
+				_layerID = BoundAnimator.GetLayerIndex(LayerName);
 			}
 		}
 
@@ -308,7 +318,7 @@ namespace MoreMountains.Feedbacks
 
 			if (SetLayerWeight)
 			{
-				targetAnimator.SetLayerWeight(TargetLayerIndex, NewWeight);
+				targetAnimator.SetLayerWeight(_layerID, NewWeight);
 			}
 		}
         

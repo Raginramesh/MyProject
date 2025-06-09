@@ -14,6 +14,9 @@ namespace MoreMountains.Tools
 	{
 		[HideInInspector]
 		public bool Initialized;
+
+		[HideInInspector]
+		public AudioResource AudioResourceToPlay;
 		
 		[Header("Track")]
 		/// the track on which to play the sound
@@ -149,6 +152,7 @@ namespace MoreMountains.Tools
 			{
 				MMSoundManagerPlayOptions defaultOptions = new MMSoundManagerPlayOptions();
 				defaultOptions.Initialized = true;
+				defaultOptions.AudioResourceToPlay = null;
 				defaultOptions.MmSoundManagerTrack = MMSoundManager.MMSoundManagerTracks.Sfx;
 				defaultOptions.Location = Vector3.zero;
 				defaultOptions.Loop = false;

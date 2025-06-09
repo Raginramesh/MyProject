@@ -60,11 +60,21 @@ namespace MoreMountains.Feedbacks
 		/// the duration of this feedback is the duration of the clip being played
 		public override float FeedbackDuration { get { return GetDuration(); } }
 		public override bool HasRandomness => true;
-        
+		
+		public enum Sources { AudioClip, AudioResource }
+
 		[MMFInspectorGroup("Sound", true, 14, true)]
+		/// whether this feedback should play an audio clip or an AudioResource
+		[Tooltip("whether this feedback should play an audio clip or an AudioResource")]
+		public Sources Source = Sources.AudioClip;
 		/// the sound clip to play
 		[Tooltip("the sound clip to play")]
+		[MMFEnumCondition("Source", (int)Sources.AudioClip)]
 		public AudioClip Sfx;
+		/// alternatively, instead of an audio clip you can specify an AudioResource, in which case the Sfx above will be ignored, and the AudioResource will be used
+		[Tooltip("alternatively, instead of an audio clip you can specify an AudioResource, in which case the Sfx above will be ignored, and the AudioResource will be used")]
+		[MMFEnumCondition("Source", (int)Sources.AudioResource)]
+		public AudioResource AudioResourceToPlay;
 
 		[MMFInspectorGroup("Random Sound", true, 39, true)]
         
@@ -347,9 +357,9 @@ namespace MoreMountains.Feedbacks
 				}
 			}
 			
-			if (Sfx != null)
+			if ((Sfx != null) || (AudioResourceToPlay != null))
 			{
-				PlaySound(Sfx, position, intensityMultiplier);
+				PlaySound(Sfx, position, intensityMultiplier, AudioResourceToPlay);
 				return;
 			}
 		}
@@ -452,7 +462,7 @@ namespace MoreMountains.Feedbacks
 		/// <param name="sfx"></param>
 		/// <param name="position"></param>
 		/// <param name="intensity"></param>
-		protected virtual void PlaySound(AudioClip sfx, Vector3 position, float intensity)
+		protected virtual void PlaySound(AudioClip sfx, Vector3 position, float intensity, AudioResource audioResource = null)
 		{
 			if (DoNotPlayIfClipAlreadyPlaying) 
 			{
@@ -473,7 +483,8 @@ namespace MoreMountains.Feedbacks
 			RandomizeTimes();
 
 			int timeSamples = NormalPlayDirection ? 0 : sfx.samples - 1;
-            
+
+			_options.AudioResourceToPlay = audioResource;
 			_options.MmSoundManagerTrack = MmSoundManagerTrack;
 			_options.Location = position;
 			_options.Loop = Loop;
@@ -514,7 +525,7 @@ namespace MoreMountains.Feedbacks
 			_options.UseReverbZoneMixCurve = UseReverbZoneMixCurve;
 			_options.ReverbZoneMixCurve = ReverbZoneMixCurve;
 			_options.DoNotAutoRecycleIfNotDonePlaying = true;
-
+			
 			_playedAudioSource = MMSoundManagerSoundPlayEvent.Trigger(sfx, _options);
 
 			Owner.StartCoroutine(IsPlayingCoroutine());
@@ -622,7 +633,7 @@ namespace MoreMountains.Feedbacks
 		protected virtual async void TestPlaySound()
 		{
 			AudioClip tmpAudioClip = null;
-
+			
 			if (Sfx != null)
 			{
 				tmpAudioClip = Sfx;
@@ -633,7 +644,7 @@ namespace MoreMountains.Feedbacks
 				tmpAudioClip = PickRandomClip();
 			}
 
-			if (tmpAudioClip == null)
+			if ((tmpAudioClip == null) && (AudioResourceToPlay == null))
 			{
 				Debug.LogError(Label + " on " + Owner.gameObject.name + " can't play in editor mode, you haven't set its Sfx.");
 				return;
@@ -645,11 +656,23 @@ namespace MoreMountains.Feedbacks
 			GameObject temporaryAudioHost = new GameObject("EditorTestAS_WillAutoDestroy");
 			SceneManager.MoveGameObjectToScene(temporaryAudioHost.gameObject, Owner.gameObject.scene);
 			temporaryAudioHost.transform.position = Owner.transform.position;
+			if (!Application.isPlaying)
+			{
+				temporaryAudioHost.AddComponent<MMForceDestroyInPlayMode>();
+			}
 			_editorAudioSource = temporaryAudioHost.AddComponent<AudioSource>() as AudioSource;
-			PlayAudioSource(_editorAudioSource, tmpAudioClip, volume, pitch, _randomPlaybackTime, _randomPlaybackDuration);
+			PlayAudioSource(_editorAudioSource, tmpAudioClip, volume, pitch, _randomPlaybackTime, _randomPlaybackDuration, AudioResourceToPlay);
 			_lastPlayTimestamp = FeedbackTime;
 			_lastPlayedClip = tmpAudioClip;
-			float length = (_randomPlaybackDuration > 0) ? _randomPlaybackDuration : tmpAudioClip.length;
+			float length = 0f;
+			if (tmpAudioClip != null)
+			{
+				length = (_randomPlaybackDuration > 0) ? _randomPlaybackDuration : tmpAudioClip.length;
+			}
+			else
+			{
+				length = 10f;
+			}
 			length *= 1000;
 			length = length / Mathf.Abs(pitch);
 			await Task.Delay((int)length);
@@ -674,11 +697,18 @@ namespace MoreMountains.Feedbacks
 		/// <param name="sfx"></param>
 		/// <param name="volume"></param>
 		/// <param name="pitch"></param>
-		protected virtual void PlayAudioSource(AudioSource audioSource, AudioClip sfx, float volume, float pitch, float time, float playbackDuration)
+		protected virtual void PlayAudioSource(AudioSource audioSource, AudioClip sfx, float volume, float pitch, float time, float playbackDuration, AudioResource audioResourceToPlay)
 		{
-			// we set that audio source clip to the one in paramaters
-			audioSource.clip = sfx;
-			audioSource.time = time;
+			// we set that audio source clip to the one in parameters
+			if (audioResourceToPlay == null)
+			{
+				audioSource.clip = sfx;
+				audioSource.time = time;
+			}
+			else
+			{
+				audioSource.resource = audioResourceToPlay;
+			}
 			// we set the audio source volume to the one in parameters
 			audioSource.volume = volume;
 			audioSource.pitch = pitch;

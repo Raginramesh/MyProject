@@ -4,6 +4,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.Scripting.APIUpdating;
+using UnityEngine.Serialization;
 
 namespace MoreMountains.Feedbacks
 {
@@ -48,9 +49,10 @@ namespace MoreMountains.Feedbacks
 		/// the ID of the material to target on the renderer
 		[Tooltip("the ID of the material to target on the renderer")]
 		public int MaterialID = 0;
-		/// the ID of the property to set, as exposed by the Visual Effect Graph
-		[Tooltip("the ID of the property to set, as exposed by the Visual Effect Graph")] 
-		public string PropertyID;
+		/// the name of the property to set, as exposed by your material's shader (should be something like _Emission, or _Color, or _MainText, etc)
+		[Tooltip("the name of the property to set, as exposed by your material's shader (should be something like _Emission, or _Color, or _MainText, etc)")] 
+		[FormerlySerializedAs("PropertyID")]
+		public string PropertyName;
 		/// the type of the property to set
 		[Tooltip("the type of the property to set")]
 		public PropertyTypes PropertyType = PropertyTypes.Float;
@@ -120,7 +122,7 @@ namespace MoreMountains.Feedbacks
 		{
 			base.CustomInitialization(owner);
 
-			_propertyID = Shader.PropertyToID(PropertyID);
+			_propertyID = Shader.PropertyToID(PropertyName);
 			
 			if (TargetRenderer == null)
 			{
