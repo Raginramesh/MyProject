@@ -460,7 +460,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: 0, y: -92.29498}
+  m_AnchoredPosition: {x: 0, y: -92.29492}
   m_SizeDelta: {x: 1080, y: 184.58997}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &72323417
@@ -1718,12 +1718,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2cd82ee15ff64a14d903d5a4aec35f8c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _gridSize: 5
-  _cellSize: 170
+  _gridSize: 3
+  _cellSize: 275
   _spacing: 10
   letterCellPrefab: {fileID: 9110838812193733251, guid: cc9c4ccdc67a2564f96eadc2f42672d0, type: 3}
   gridParent: {fileID: 450983248}
-  cellFadeInDuration: 0.5
+  cellFadeInDuration: 0.1
   cellColorPrimary: {r: 1, g: 1, b: 1, a: 1}
   cellColorAlternate: {r: 1, g: 1, b: 1, a: 1}
   wordHighlightPalette:
@@ -1764,7 +1764,7 @@ MonoBehaviour:
   wordGridManager: {fileID: 593137150}
   gameManager: {fileID: 1480404336}
   wordListFile: {fileID: 4900000, guid: 18e3f9beda31baa46be256b20b84d7fc, type: 3}
-  minWordLength: 4
+  minWordLength: 3
   maxWordLength: 5
 --- !u!1 &773578373
 GameObject:
@@ -2879,8 +2879,8 @@ MonoBehaviour:
   wordValidator: {fileID: 593137152}
   gridInputHandler: {fileID: 450983252}
   effectsManager: {fileID: 1480404338}
-  replacementDelayAfterEffectStart: 0.1
-  visualPauseBetweenWordsInSequence: 0.25
+  replacementDelayAfterEffectStart: 0.01
+  visualPauseBetweenWordsInSequence: 0.1
   scoreShakeDuration: 0.1
   scoreShakeStrength: 1
   scoreShakeVibrato: 1
@@ -2913,7 +2913,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   flyingLetterPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
   scoreTargetRectTransform: {fileID: 1345162614}
-  flyingLetterInitialScale: 1.5
+  flyingLetterInitialScale: 2.7
   activelyFlyingLetterSortOrder: 100
   liftOffDistance: 1
   liftOffDuration: 0.15
