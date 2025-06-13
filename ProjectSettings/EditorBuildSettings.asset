@@ -6,7 +6,7 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/HomeScene.unity
+    path: Assets/WordScroll/Scenes/HomeScene.unity
     guid: 40a6580a0e51596458b4c25da624b9cb
   - enabled: 1
     path: Assets/WordScroll/Scenes/WordScroll.unity
