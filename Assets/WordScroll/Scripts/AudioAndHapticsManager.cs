@@ -1,15 +1,11 @@
 using UnityEngine;
-using UnityEngine.Audio; // Added for AudioMixerGroup
-using MoreMountains.Tools; // For MMSoundManager features (if using Feel for audio)
-using Lofelt.NiceVibrations; // Ensure this is the correct namespace for HapticPatterns
+using UnityEngine.Audio; // For AudioMixerGroup (though Feel's SO might handle this more)
+using MoreMountains.Tools;
+using Lofelt.NiceVibrations; // Correct namespace for HapticPatterns
 
 public class AudioAndHapticsManager : MonoBehaviour
 {
     public static AudioAndHapticsManager Instance { get; private set; }
-
-    [Header("Audio Sources & Mixers (Optional - Feel handles this)")]
-    [SerializeField] private AudioMixerGroup musicMixerGroup;
-    [SerializeField] private AudioMixerGroup sfxMixerGroup;
 
     [Header("Music Clips")]
     [SerializeField] private AudioClip homeScreenMusic;
@@ -24,25 +20,12 @@ public class AudioAndHapticsManager : MonoBehaviour
     [SerializeField] private AudioClip multiplierIncreaseSFX;
     [SerializeField] private AudioClip letterReplacementSFX;
 
-    private AudioSource _musicAudioSource;
-
     void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-
-            _musicAudioSource = gameObject.GetComponent<AudioSource>();
-            if (_musicAudioSource == null)
-            {
-                _musicAudioSource = gameObject.AddComponent<AudioSource>();
-            }
-            _musicAudioSource.loop = true;
-            if (musicMixerGroup != null)
-            {
-                _musicAudioSource.outputAudioMixerGroup = musicMixerGroup;
-            }
         }
         else
         {
@@ -69,87 +52,91 @@ public class AudioAndHapticsManager : MonoBehaviour
             return;
         }
 
-        if (_musicAudioSource.clip == musicClip && _musicAudioSource.isPlaying) return;
-        _musicAudioSource.clip = musicClip;
-        _musicAudioSource.Play();
+        if (MMSoundManager.Instance == null)
+        {
+            Debug.LogError("AudioAndHapticsManager: MMSoundManager.Instance is null. Cannot play music.");
+            return;
+        }
+
+        // Stop any currently playing music on the Music track first
+        MMSoundManager.Instance.StopTrack(MMSoundManager.MMSoundManagerTracks.Music);
+
+        MMSoundManagerPlayOptions options = MMSoundManagerPlayOptions.Default;
+        options.Loop = true;
+        options.MmSoundManagerTrack = MMSoundManager.MMSoundManagerTracks.Music;
+        MMSoundManager.Instance.PlaySound(musicClip, options);
     }
 
     public void StopMusic()
     {
-        _musicAudioSource.Stop();
+        if (MMSoundManager.Instance != null)
+        {
+            MMSoundManager.Instance.StopTrack(MMSoundManager.MMSoundManagerTracks.Music);
+        }
     }
 
     // --- Sound Effect & Haptic Methods ---
 
-    // Generic Button Click
     public void PlayButtonClick()
     {
-        PlaySFX(genericButtonClickSFX);
+        PlaySFX(genericButtonClickSFX, MMSoundManager.MMSoundManagerTracks.UI);
         HapticPatterns.PlayPreset(HapticPatterns.PresetType.LightImpact);
     }
 
-    // Cell Scrolling (continuous or per step)
     public void PlayCellScrollStep()
     {
-        PlaySFX(cellScrollSFX, 0.8f, 1.2f);
+        PlaySFX(cellScrollSFX, MMSoundManager.MMSoundManagerTracks.Sfx, 0.8f, 1.2f);
         HapticPatterns.PlayPreset(HapticPatterns.PresetType.Selection);
     }
 
-    // Cell Snaps back to its original data position (full cycle scroll)
     public void PlayCellSnapToOriginalPosition()
     {
-        PlaySFX(cellSnapToOriginalPositionSFX);
+        PlaySFX(cellSnapToOriginalPositionSFX, MMSoundManager.MMSoundManagerTracks.Sfx);
         HapticPatterns.PlayPreset(HapticPatterns.PresetType.MediumImpact);
     }
 
-    // Cell Snaps to a new data position (after a partial scroll and release)
     public void PlayCellSnapToNewPosition()
     {
-        PlaySFX(cellSnapToNewPositionSFX);
+        PlaySFX(cellSnapToNewPositionSFX, MMSoundManager.MMSoundManagerTracks.Sfx);
         HapticPatterns.PlayPreset(HapticPatterns.PresetType.LightImpact);
     }
 
-    // Word Scored (base score part)
     public void PlayWordScoreSound()
     {
-        PlaySFX(wordScoreSFX);
+        PlaySFX(wordScoreSFX, MMSoundManager.MMSoundManagerTracks.Sfx);
         HapticPatterns.PlayPreset(HapticPatterns.PresetType.Success);
     }
 
-    // Multiplier Increase (e.g., "2X!")
     public void PlayMultiplierIncreaseSound()
     {
-        PlaySFX(multiplierIncreaseSFX);
+        PlaySFX(multiplierIncreaseSFX, MMSoundManager.MMSoundManagerTracks.Sfx);
         HapticPatterns.PlayPreset(HapticPatterns.PresetType.Warning);
     }
 
-    // Letters are replaced on the grid
     public void PlayLetterReplacementSound()
     {
-        PlaySFX(letterReplacementSFX, 0.9f, 1.1f);
-        // Optional: HapticPatterns.PlayPreset(HapticPatterns.PresetType.LightImpact);
+        PlaySFX(letterReplacementSFX, MMSoundManager.MMSoundManagerTracks.Sfx, 0.9f, 1.1f);
     }
 
-    // --- Helper to Play SFX ---
-    private void PlaySFX(AudioClip clip, float minPitch = 1.0f, float maxPitch = 1.0f, float volume = 1.0f)
+    // Helper to Play SFX using MMSoundManager
+    private void PlaySFX(AudioClip clip, MMSoundManager.MMSoundManagerTracks track, float minPitch = 1.0f, float maxPitch = 1.0f, float volume = 1.0f)
     {
         if (clip == null)
         {
             return;
         }
 
+        if (MMSoundManager.Instance == null)
+        {
+            Debug.LogWarning("AudioAndHapticsManager: MMSoundManager.Instance is null. Cannot play SFX.");
+            return;
+        }
+
         MMSoundManagerPlayOptions options = MMSoundManagerPlayOptions.Default;
-        options.MmSoundManagerTrack = MMSoundManager.MMSoundManagerTracks.Sfx;
+        options.MmSoundManagerTrack = track;
         options.Volume = volume;
         options.Pitch = Random.Range(minPitch, maxPitch);
 
-        if (MMSoundManager.Instance != null)
-        {
-            MMSoundManager.Instance.PlaySound(clip, options);
-        }
-        else
-        {
-            Debug.LogWarning("AudioAndHapticsManager: MMSoundManager.Instance is null. Cannot play SFX via Feel.");
-        }
+        MMSoundManager.Instance.PlaySound(clip, options);
     }
 }
