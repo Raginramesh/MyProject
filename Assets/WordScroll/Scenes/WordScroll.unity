@@ -1718,8 +1718,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2cd82ee15ff64a14d903d5a4aec35f8c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _gridSize: 3
-  _cellSize: 275
+  _gridSize: 5
+  _cellSize: 170
   _spacing: 10
   letterCellPrefab: {fileID: 9110838812193733251, guid: cc9c4ccdc67a2564f96eadc2f42672d0, type: 3}
   gridParent: {fileID: 450983248}
@@ -1764,7 +1764,7 @@ MonoBehaviour:
   wordGridManager: {fileID: 593137150}
   gameManager: {fileID: 1480404336}
   wordListFile: {fileID: 4900000, guid: 18e3f9beda31baa46be256b20b84d7fc, type: 3}
-  minWordLength: 3
+  minWordLength: 4
   maxWordLength: 5
 --- !u!1 &773578373
 GameObject:
@@ -2841,7 +2841,7 @@ GameObject:
   - component: {fileID: 1480404336}
   - component: {fileID: 1480404338}
   m_Layer: 0
-  m_Name: GameManager
+  m_Name: Managers
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

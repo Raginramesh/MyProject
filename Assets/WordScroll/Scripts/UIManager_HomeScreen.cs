@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement; // Required for loading scenes
 using System.Collections.Generic; // Required for Lists
+using WordScroll.UI; // <<< ADDED for ModifierSelectionUI
 
 public class UIManager_HomeScreen : MonoBehaviour
 {
@@ -21,15 +22,18 @@ public class UIManager_HomeScreen : MonoBehaviour
     [SerializeField] private Button playButton; // Assign the Play button inside HomeContentPanel
 
     [Header("Scene To Load")]
-    [SerializeField] private string gameSceneName = "WordScrollGame"; // <<< SET YOUR GAME SCENE NAME HERE
+    [SerializeField] private string gameSceneName = "WordScrollGame";
+
+    [Header("Modifier Selection UI")] // <<< CORRECTED HEADER PLACEMENT
+    [SerializeField] private ModifierSelectionUI modifierSelectionUI; // <<< ADDED FIELD
 
     void Start()
     {
         // --- Validate References ---
         if (coinText == null || heartText == null || settingsButton == null || playButton == null || tabButtons.Count == 0 || contentPanels.Count == 0 || tabButtons.Count != contentPanels.Count)
         {
-            Debug.LogError("UIManager_HomeScreen: References not set correctly in Inspector!");
-            this.enabled = false; // Disable script if setup is wrong
+            Debug.LogError("UIManager_HomeScreen: UI References not set correctly in Inspector!");
+            this.enabled = false; 
             return;
         }
         if (string.IsNullOrEmpty(gameSceneName))
@@ -38,34 +42,36 @@ public class UIManager_HomeScreen : MonoBehaviour
             this.enabled = false;
             return;
         }
+        if (modifierSelectionUI == null) 
+        {
+            Debug.LogWarning("UIManager_HomeScreen: ModifierSelectionUI is not set in Inspector! Modifier selection will not be available.");
+            // Not returning or disabling, so the game can still function without modifiers if not set up.
+        }
 
 
         // --- Add Listeners ---
         settingsButton.onClick.AddListener(OnSettingsClicked);
         playButton.onClick.AddListener(OnPlayClicked);
 
-        // Add listeners for each tab button
         for (int i = 0; i < tabButtons.Count; i++)
         {
-            int index = i; // Required to capture the correct index in the lambda
+            int index = i; 
             tabButtons[i].onClick.AddListener(() => SelectTab(index));
         }
 
         // --- Initial State ---
         UpdateResourceUI();
-        SelectTab(0); // Select the first tab (Home) by default
+        SelectTab(0); 
     }
 
     void OnDestroy()
     {
-        // --- Remove Listeners ---
         if (settingsButton != null) settingsButton.onClick.RemoveListener(OnSettingsClicked);
         if (playButton != null) playButton.onClick.RemoveListener(OnPlayClicked);
 
-        // Remove tab button listeners
         for (int i = 0; i < tabButtons.Count; i++)
         {
-            if (tabButtons[i] != null) tabButtons[i].onClick.RemoveAllListeners(); // Simple removal
+            if (tabButtons[i] != null) tabButtons[i].onClick.RemoveAllListeners(); 
         }
     }
 
@@ -84,40 +90,52 @@ public class UIManager_HomeScreen : MonoBehaviour
             return;
         }
 
-        // Deactivate all content panels
         for (int i = 0; i < contentPanels.Count; i++)
         {
             if (contentPanels[i] != null)
                 contentPanels[i].SetActive(false);
         }
 
-        // Activate the selected one
         if (contentPanels[tabIndex] != null)
             contentPanels[tabIndex].SetActive(true);
 
-        // Optional: Add visual feedback to buttons (e.g., change color of selected tab)
         for (int i = 0; i < tabButtons.Count; i++)
         {
-            // Example: Change interactable state or color tint
             var colors = tabButtons[i].colors;
-            colors.colorMultiplier = (i == tabIndex) ? 1f : 0.8f; // Make selected slightly brighter
+            colors.colorMultiplier = (i == tabIndex) ? 1f : 0.8f; 
             tabButtons[i].colors = colors;
         }
     }
 
-    // --- Button Click Handlers ---
-
     void OnSettingsClicked()
     {
         Debug.Log("Settings Button Clicked!");
-        // TODO: Implement settings panel logic
     }
 
     void OnPlayClicked()
     {
-        Debug.Log($"Play Button Clicked! Loading scene: {gameSceneName}");
-        // Load the main game scene
-        // Ensure the scene is added to Build Settings!
-        SceneManager.LoadScene(gameSceneName);
+        Debug.Log("UIManager_HomeScreen: OnPlayClicked() initiated."); // <<< ADDED DEBUG
+
+        if (modifierSelectionUI != null)
+        {
+            Debug.Log("UIManager_HomeScreen: modifierSelectionUI reference is VALID. Attempting to show."); // <<< ADDED DEBUG
+            modifierSelectionUI.Show();
+        }
+        else
+        {
+            Debug.LogError("UIManager_HomeScreen: OnPlayClicked - modifierSelectionUI reference is NULL!"); // <<< CHANGED TO LOGERROR
+            // Fallback: Load game directly, or do nothing, or show an error to the player.
+            Debug.LogWarning("Fallback: Loading game scene directly as ModifierSelectionUI is missing.");
+            SceneManager.LoadScene(gameSceneName);
+        }
+    }
+
+    /// <summary>
+    /// Shows the main home content panel. Typically called when ModifierSelectionUI is closed.
+    /// </summary>
+    public void ShowHomeContent()
+    {
+        // Ensure the home tab (index 0) and its content are active.
+        SelectTab(0); 
     }
 }
