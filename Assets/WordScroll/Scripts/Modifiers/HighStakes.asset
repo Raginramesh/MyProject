@@ -16,7 +16,8 @@ MonoBehaviour:
   cardType: 0
   rarity: 0
   icon: {fileID: 0}
-  effectDescription: Describes the temporary effect.
+  effectDescription: All words score double points, but your available moves are
+    reduced by 20%.
   strategicUseCase: Describes what kind of level or playstyle it supports.
   synergyNotes: Optional tips on combinations.
   effectType: 2

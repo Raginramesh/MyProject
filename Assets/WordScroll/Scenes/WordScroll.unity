@@ -833,6 +833,40 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 196797811}
   m_CullTransparentMesh: 1
+--- !u!1 &259212089
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 259212090}
+  m_Layer: 0
+  m_Name: Managers
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &259212090
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 259212089}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1480404337}
+  - {fileID: 633469391}
+  - {fileID: 593137151}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &301890060
 GameObject:
   m_ObjectHideFlags: 0
@@ -1742,12 +1776,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 593137149}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 259212090}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &593137152
 MonoBehaviour:
@@ -1766,6 +1800,62 @@ MonoBehaviour:
   wordListFile: {fileID: 4900000, guid: 18e3f9beda31baa46be256b20b84d7fc, type: 3}
   minWordLength: 4
   maxWordLength: 5
+--- !u!1 &633469390
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 633469391}
+  - component: {fileID: 633469392}
+  m_Layer: 0
+  m_Name: EffectsManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &633469391
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633469390}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 259212090}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &633469392
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633469390}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 025125069ede12648af069326479d7aa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  flyingLetterPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
+  scoreTargetRectTransform: {fileID: 1345162614}
+  flyingLetterInitialScale: 1.7
+  activelyFlyingLetterSortOrder: 100
+  liftOffDistance: 1
+  liftOffDuration: 0.15
+  liftOffEase: 2
+  flyToScoreDurationPerLetter: 0
+  flyToScoreEase: 2
+  scaleDownFactorDuringFly: 0.1
+  delayBetweenLetterFlights: 0.15
+  flyingLetterParent: {fileID: 54221075}
 --- !u!1 &773578373
 GameObject:
   m_ObjectHideFlags: 0
@@ -2839,9 +2929,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1480404337}
   - component: {fileID: 1480404336}
-  - component: {fileID: 1480404338}
   m_Layer: 0
-  m_Name: Managers
+  m_Name: GameManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2878,7 +2967,7 @@ MonoBehaviour:
   wordGridManager: {fileID: 593137150}
   wordValidator: {fileID: 593137152}
   gridInputHandler: {fileID: 450983252}
-  effectsManager: {fileID: 1480404338}
+  effectsManager: {fileID: 0}
   replacementDelayAfterEffectStart: 0.01
   visualPauseBetweenWordsInSequence: 0.1
   scoreShakeDuration: 0.1
@@ -2892,37 +2981,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1480404335}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 259212090}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1480404338
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1480404335}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 025125069ede12648af069326479d7aa, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  flyingLetterPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
-  scoreTargetRectTransform: {fileID: 1345162614}
-  flyingLetterInitialScale: 2.7
-  activelyFlyingLetterSortOrder: 100
-  liftOffDistance: 1
-  liftOffDuration: 0.15
-  liftOffEase: 2
-  flyToScoreDurationPerLetter: 0
-  flyToScoreEase: 2
-  scaleDownFactorDuringFly: 0.1
-  delayBetweenLetterFlights: 0.15
-  flyingLetterParent: {fileID: 54221075}
 --- !u!1 &1534631787
 GameObject:
   m_ObjectHideFlags: 0
@@ -3875,5 +3940,4 @@ SceneRoots:
   - {fileID: 975267544}
   - {fileID: 2061077022}
   - {fileID: 1979694446}
-  - {fileID: 1480404337}
-  - {fileID: 593137151}
+  - {fileID: 259212090}

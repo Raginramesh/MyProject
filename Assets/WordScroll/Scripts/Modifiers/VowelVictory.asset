@@ -16,7 +16,8 @@ MonoBehaviour:
   cardType: 0
   rarity: 0
   icon: {fileID: 0}
-  effectDescription: Describes the temporary effect.
+  effectDescription: Gain +5 bonus points for each word submitted containing at least
+    2 vowels.
   strategicUseCase: Describes what kind of level or playstyle it supports.
   synergyNotes: Optional tips on combinations.
   effectType: 3

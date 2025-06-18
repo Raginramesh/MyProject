@@ -134,7 +134,50 @@ namespace WordScroll.Modifiers
         /// <returns>The ModifierCardData if found, otherwise null.</returns>
         public ModifierCardData GetActiveModifierByType(ModifierEffectType effectType)
         {
-            return activeModifiers.FirstOrDefault(mod => mod.effectType == effectType);
+            if (activeModifiers == null || activeModifiers.Count == 0)
+            {
+                Debug.Log($"ModifierManager: GetActiveModifierByType({effectType}) called, but activeModifiers list is null or empty.");
+                return null;
+            }
+
+            foreach (ModifierCardData modifier in activeModifiers)
+            {
+                if (modifier == null)
+                {
+                    Debug.LogWarning($"ModifierManager: Encountered a null modifier in activeModifiers list when searching for type {effectType}.");
+                    continue;
+                }
+
+                if (modifier.effectType == effectType)
+                {
+                    string effectDetailsLog = $"ModifierManager: Found active modifier '{modifier.cardName}' with primary effect type {effectType}.";
+                    switch (effectType)
+                    {
+                        case ModifierEffectType.SpecificWordLengthScoreBonus:
+                            effectDetailsLog += $" TargetWordLength: {modifier.targetWordLength}, Multiplier: {modifier.wordLengthScoreMultiplier}";
+                            break;
+                        case ModifierEffectType.GeneralScoreBonusAndMoveReduction:
+                            effectDetailsLog += $" GeneralMultiplier: {modifier.generalScoreMultiplier}, MoveReduction: {modifier.moveReductionPercentage}";
+                            break;
+                        case ModifierEffectType.VowelCountBonus:
+                            effectDetailsLog += $" MinVowelCount: {modifier.minVowelCount}, BonusPoints: {modifier.vowelBonusPoints}";
+                            break;
+                        // Add cases for other effect types as needed
+                    }
+                    Debug.Log(effectDetailsLog);
+                    return modifier;
+                }
+                else
+                {
+                    // This log can be very noisy if you have many active modifiers not matching the type.
+                    // Consider making it a Debug.LogVerbose or similar if it clutters the console.
+                    // For now, keeping it to ensure we see the flow.
+                    Debug.Log($"ModifierManager: Checked active modifier '{modifier.cardName}' (Type: {modifier.effectType}), does not match requested type {effectType}.");
+                }
+            }
+
+            Debug.Log($"ModifierManager: No active modifier found with the primary effect type {effectType} after checking all {activeModifiers.Count} active modifiers.");
+            return null;
         }
 
         /// <summary>
