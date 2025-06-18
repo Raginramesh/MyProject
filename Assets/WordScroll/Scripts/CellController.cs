@@ -76,29 +76,32 @@ public class CellController : MonoBehaviour
         // ADDED: Logic to display letter score
         if (letterScoreText != null)
         {
-            // Use ScoreManager for letter score
-            var scoreManager = WordScroll.Managers.ScoreManager.Instance;
-            if (scoreManager != null)
+            if (GameManager.instance != null)
             {
                 GameManager.ScoringMode currentMode = GameManager.instance.GetCurrentScoringModeSetting();
                 if (currentMode == GameManager.ScoringMode.ScrabbleBased)
                 {
-                    // Only display, do NOT update the score!
-                    int score = 1; // Default fallback
-                    // If you have a Scrabble letter value dictionary, use it here instead of calling CalculateWordScore
-                    // Avoid calling CalculateWordScore here, as it adds to the total score!
-                    // Example: score = ScrabbleValues[letter];
-                    letterScoreText.text = score.ToString();
-                    letterScoreText.gameObject.SetActive(true);
+                    int score = GameManager.instance.CalculateScoreValueForLetter(letter);
+                    if (score > 0)
+                    {
+                        letterScoreText.text = score.ToString();
+                        letterScoreText.gameObject.SetActive(true);
+                    }
+                    else
+                    {
+                        letterScoreText.gameObject.SetActive(false); // Hide if score is 0 (e.g. blank tile if you add them)
+                    }
                 }
                 else // LengthBased or other modes
                 {
-                    letterScoreText.gameObject.SetActive(false);
+                    letterScoreText.gameObject.SetActive(false); // Hide score text
                 }
             }
             else
             {
+                // GameManager not found, hide score
                 letterScoreText.gameObject.SetActive(false);
+                Debug.LogWarning($"CellController ({gameObject.name}): GameManager.instance is null. Cannot retrieve letter score.");
             }
         }
     }

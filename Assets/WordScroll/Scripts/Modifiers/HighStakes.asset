@@ -23,7 +23,7 @@ MonoBehaviour:
   effectType: 2
   targetWordLength: 5
   wordLengthScoreMultiplier: 2
-  generalScoreMultiplier: 2
+  generalScoreMultiplier: 3
   moveReductionPercentage: 0.2
   minVowelCount: 2
   vowelBonusPoints: 5

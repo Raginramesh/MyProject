@@ -193,20 +193,5 @@ namespace WordScroll.Modifiers
         // Methods for managing gift inventory (AddGift, UseGift, GetGiftCount)
         // Methods for managing equipped upgrades (EquipUpgrade, UnequipUpgrade, IsUpgradeEquipped)
 
-        void Awake()
-        {
-            if (Instance == null)
-            {
-                Instance = this;
-                DontDestroyOnLoad(gameObject); // Ensure ModifierManager persists across scenes
-            }
-            else
-            {
-                Destroy(gameObject);
-                return;
-            }
-        }
-
-        private static ModifierManager Instance;
     }
 }
