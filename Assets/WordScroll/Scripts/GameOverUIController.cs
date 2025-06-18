@@ -42,8 +42,13 @@ public class GameOverUIController : MonoBehaviour
         // Update Final Score Text
         if (finalScoreText != null)
         {
-            // Use the new public property CurrentScore from GameManager
-            finalScoreText.text = "Final Score: " + GameManager.instance.CurrentScore.ToString();
+            // Use ScoreManager for final score
+            int finalScore = 0;
+            if (WordScroll.Managers.ScoreManager.Instance != null)
+            {
+                finalScore = WordScroll.Managers.ScoreManager.Instance.PlayerScore;
+            }
+            finalScoreText.text = "Final Score: " + finalScore.ToString();
         }
     }
 }

@@ -69,6 +69,9 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GridInputHandler gridInputHandler;
     [SerializeField] private EffectsManager effectsManager;
 
+    [Header("Modifier References")]
+    private WordScroll.Modifiers.ModifierManager modifierManager;
+
     [Header("Timing & Combo Settings")]
     [SerializeField] private float replacementDelayAfterEffectStart = 0.4f;
     [SerializeField] private float visualPauseBetweenWordsInSequence = 0.25f;
@@ -80,8 +83,6 @@ public class GameManager : MonoBehaviour
 
     private float currentTimeRemaining;
     private int currentMovesRemaining;
-    private int currentScore = 0;
-    public int CurrentScore => currentScore; // Public getter for currentScore
     public static GameManager instance;
 
     private List<FoundWordData> currentPotentialWords = new List<FoundWordData>();
@@ -119,6 +120,43 @@ public class GameManager : MonoBehaviour
 
         if (wordValidator != null) wordValidator.SetGameManager(this);
         if (wordGridManager != null) wordGridManager.SetGameManager(this);
+
+        // Subscribe to ScoreManager's OnScoreChanged event for UI updates
+        if (WordScroll.Managers.ScoreManager.Instance != null)
+        {
+            WordScroll.Managers.ScoreManager.OnScoreChanged += OnScoreChangedHandler;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // Unsubscribe from ScoreManager event
+        if (WordScroll.Managers.ScoreManager.Instance != null)
+        {
+            WordScroll.Managers.ScoreManager.OnScoreChanged -= OnScoreChangedHandler;
+        }
+    }
+
+    private void OnScoreChangedHandler(int newScore)
+    {
+        // Update UI and check win condition
+        if (scoreProgressBar != null)
+        {
+            scoreProgressBar.value = Mathf.Min(newScore, targetScoreForLevel);
+        }
+        if (scoreText != null)
+        {
+            scoreText.text = $"{newScore} / {targetScoreForLevel}";
+        }
+        if (newScore >= targetScoreForLevel && currentState == GameState.Playing && !hasWon)
+        {
+            PlayerWins();
+        }
+        if (scoreTextRectTransform != null && currentState == GameState.Playing)
+        {
+            scoreTextRectTransform.DOKill(true);
+            scoreTextRectTransform.DOShakePosition(scoreShakeDuration, scoreShakeStrength, scoreShakeVibrato, 90, false, true).SetUpdate(true);
+        }
     }
 
     void InitializeScrabbleValues()
@@ -190,7 +228,6 @@ public class GameManager : MonoBehaviour
     private void StartGame()
     {
         SetState(GameState.Initializing);
-        currentScore = 0;
         hasWon = false; // Reset win state
 
         if (scoreProgressBar != null)
@@ -198,10 +235,36 @@ public class GameManager : MonoBehaviour
             scoreProgressBar.maxValue = targetScoreForLevel;
             scoreProgressBar.value = 0;
         }
-        UpdateScoreUI();
+        if (scoreText != null)
+        {
+            scoreText.text = $"0 / {targetScoreForLevel}";
+        }
+        // Reset ScoreManager's score
+        if (WordScroll.Managers.ScoreManager.Instance != null)
+        {
+            WordScroll.Managers.ScoreManager.Instance.ResetScore();
+        }
 
         currentPotentialWords.Clear();
         currentAppliedHighlightColors.Clear();
+
+        if (modifierManager == null)
+        {
+            modifierManager = FindFirstObjectByType<WordScroll.Modifiers.ModifierManager>();
+        }
+
+        int movesToSet = startingMoves;
+        if (modifierManager != null)
+        {
+            var moveReductionMod = modifierManager.GetActiveModifierByType(WordScroll.Modifiers.ModifierEffectType.GeneralScoreBonusAndMoveReduction);
+            if (moveReductionMod != null)
+            {
+                float reduction = moveReductionMod.moveReductionPercentage;
+                movesToSet = Mathf.RoundToInt(startingMoves * (1f - reduction));
+                movesToSet = Mathf.Max(1, movesToSet); // Ensure at least 1 move
+                Debug.Log($"GameManager: Applied move reduction modifier '{moveReductionMod.cardName}'. Moves reduced to {movesToSet}");
+            }
+        }
 
         if (statusDisplayGroup != null)
         {
@@ -212,7 +275,7 @@ public class GameManager : MonoBehaviour
                 if (timerText != null) timerText.gameObject.SetActive(currentDisplayMode == DisplayMode.Timer);
                 if (movesText != null) movesText.gameObject.SetActive(currentDisplayMode == DisplayMode.Moves);
                 if (currentDisplayMode == DisplayMode.Timer) { currentTimeRemaining = gameTimeLimit; UpdateTimerUI(); }
-                else if (currentDisplayMode == DisplayMode.Moves) { currentMovesRemaining = startingMoves; UpdateMovesUI(); }
+                else if (currentDisplayMode == DisplayMode.Moves) { currentMovesRemaining = movesToSet; UpdateMovesUI(); }
             }
         }
         if (wordGridManager != null)
@@ -295,372 +358,6 @@ public class GameManager : MonoBehaviour
         }
         currentPotentialWords = potentialWordsFromValidator ?? new List<FoundWordData>();
         currentAppliedHighlightColors = appliedColors ?? new Dictionary<System.Guid, Color>();
-    }
-
-    private int GetPointsForActualScoring(char letter)
-    {
-        char upperLetter = char.ToUpperInvariant(letter);
-        if (currentScoringMode == ScoringMode.ScrabbleBased)
-        {
-            if (scrabbleLetterValues.TryGetValue(upperLetter, out int val))
-            {
-                return val;
-            }
-            return 1;
-        }
-        return pointsPerLetter;
-    }
-
-    public int CalculateTotalScoreForWord(FoundWordData wordData)
-    {
-        if (wordData.Word == null) return 0;
-        int totalScore = 0;
-        foreach (char letter in wordData.Word)
-        {
-            totalScore += GetPointsForActualScoring(letter);
-        }
-        return totalScore;
-    }
-
-    public bool AttemptTapValidation(Vector2Int tappedCoordinate)
-    {
-        if (currentState != GameState.Playing || IsAnyAnimationPlaying)
-        {
-            return false;
-        }
-
-        List<FoundWordData> initialCandidatesFromTap = new List<FoundWordData>();
-        foreach (var potentialWord in currentPotentialWords)
-        {
-            if (potentialWord.Coordinates.Contains(tappedCoordinate) &&
-                !wordValidator.IsWordFoundThisSession(potentialWord.Word))
-            {
-                initialCandidatesFromTap.Add(potentialWord);
-            }
-        }
-
-        if (initialCandidatesFromTap.Count == 0) return false;
-        List<FoundWordData> allConnectedCandidates = FindAllConnectedWords(initialCandidatesFromTap);
-        if (allConnectedCandidates.Count == 0) return false;
-
-        List<FoundWordData> wordsToProcessInSequence = FilterSubWordsFromSelectedBatch(allConnectedCandidates);
-
-        wordsToProcessInSequence = wordsToProcessInSequence
-                                    .Where(w => !wordValidator.IsWordFoundThisSession(w.Word))
-                                    .GroupBy(w => w.ID) 
-                                    .Select(g => g.First())         
-                                    .ToList();
-        if (wordsToProcessInSequence.Count == 0) return false;
-
-        wordsToProcessInSequence = wordsToProcessInSequence
-            .OrderByDescending(w => CalculateTotalScoreForWord(w))
-            .ThenByDescending(w => w.Word.Length)
-            .ThenBy(w => w.ID.ToString())
-            .ToList();
-
-        Debug.Log($"GM.AttemptTap: Starting sequence for {wordsToProcessInSequence.Count} FINAL words: " +
-                  $"{string.Join(", ", wordsToProcessInSequence.Select(w => w.Word + $"({CalculateTotalScoreForWord(w)}pts)"))}");
-
-        StartCoroutine(ProcessWordsSequentially(wordsToProcessInSequence));
-        return true;
-    }
-
-    private List<FoundWordData> FilterSubWordsFromSelectedBatch(List<FoundWordData> candidates)
-    {
-        if (candidates == null || candidates.Count <= 1) return candidates ?? new List<FoundWordData>();
-
-        var sortedCandidates = candidates.OrderByDescending(w => w.Word.Length).ThenBy(w => w.ID).ToList();
-        List<FoundWordData> keptWords = new List<FoundWordData>();
-        HashSet<System.Guid> discardedWordIds = new HashSet<System.Guid>();
-
-        for (int i = 0; i < sortedCandidates.Count; i++)
-        {
-            FoundWordData currentWord = sortedCandidates[i];
-            if (discardedWordIds.Contains(currentWord.ID)) continue;
-            for (int j = 0; j < sortedCandidates.Count; j++)
-            {
-                if (i == j) continue;
-                FoundWordData otherWord = sortedCandidates[j];
-                if (discardedWordIds.Contains(otherWord.ID)) continue;
-                if (otherWord.Word.Length < currentWord.Word.Length &&
-                    currentWord.Word.Contains(otherWord.Word) &&
-                    AreCoordinatesContainedAndAligned(otherWord.Coordinates, otherWord.GetOrientation(), currentWord.Coordinates, currentWord.GetOrientation()))
-                {
-                    discardedWordIds.Add(otherWord.ID);
-                }
-            }
-        }
-        foreach (var word in sortedCandidates)
-        {
-            if (!discardedWordIds.Contains(word.ID)) keptWords.Add(word);
-        }
-        return keptWords;
-    }
-
-    private bool AreCoordinatesContainedAndAligned(
-        List<Vector2Int> innerCoords, FoundWordData.WordOrientation innerOrientation,
-        List<Vector2Int> outerCoords, FoundWordData.WordOrientation outerOrientation)
-    {
-        if (innerCoords == null || outerCoords == null || innerCoords.Count == 0 || innerCoords.Count > outerCoords.Count) return false;
-        if (innerOrientation != outerOrientation) return false;
-        for (int i = 0; i <= outerCoords.Count - innerCoords.Count; i++)
-        {
-            bool match = true;
-            for (int j = 0; j < innerCoords.Count; j++)
-            {
-                if (outerCoords[i + j] != innerCoords[j]) { match = false; break; }
-            }
-            if (match) return true;
-        }
-        return false;
-    }
-
-    private List<FoundWordData> FindAllConnectedWords(List<FoundWordData> startingWords)
-    {
-        List<FoundWordData> connectedWords = new List<FoundWordData>();
-        Queue<FoundWordData> wordsToVisit = new Queue<FoundWordData>();
-        HashSet<System.Guid> visitedWordIds = new HashSet<System.Guid>();
-
-        foreach (var startWord in startingWords)
-        {
-            if (!wordValidator.IsWordFoundThisSession(startWord.Word) && visitedWordIds.Add(startWord.ID))
-            {
-                wordsToVisit.Enqueue(startWord);
-                connectedWords.Add(startWord);
-            }
-        }
-
-        while (wordsToVisit.Count > 0)
-        {
-            FoundWordData currentWord = wordsToVisit.Dequeue();
-            Vector2Int intersectionPoint;
-            foreach (var potentialWordOnGrid in currentPotentialWords)
-            {
-                if (potentialWordOnGrid.ID == currentWord.ID ||
-                    visitedWordIds.Contains(potentialWordOnGrid.ID) ||
-                    wordValidator.IsWordFoundThisSession(potentialWordOnGrid.Word))
-                {
-                    continue;
-                }
-                if (wordValidator.CheckIntersection(currentWord, potentialWordOnGrid, out intersectionPoint))
-                {
-                    if (visitedWordIds.Add(potentialWordOnGrid.ID))
-                    {
-                        connectedWords.Add(potentialWordOnGrid);
-                        wordsToVisit.Enqueue(potentialWordOnGrid);
-                    }
-                }
-            }
-        }
-        return connectedWords;
-    }
-
-    private IEnumerator ProcessWordsSequentially(List<FoundWordData> wordsToAnimateInOrder)
-    {
-        if (wordsToAnimateInOrder == null || wordsToAnimateInOrder.Count == 0) yield break;
-
-        isProcessingSequentialWords = true;
-        List<Vector2Int> allUniqueAffectedCoordinatesFromThisSequence = new List<Vector2Int>();
-        Dictionary<Vector2Int, int> cellUsageCountInSequence = new Dictionary<Vector2Int, int>();
-
-        foreach (var wordData in wordsToAnimateInOrder)
-        {
-            if (wordData.Coordinates == null) continue;
-            foreach (var coord in wordData.Coordinates)
-            {
-                if (cellUsageCountInSequence.ContainsKey(coord)) cellUsageCountInSequence[coord]++;
-                else cellUsageCountInSequence[coord] = 1;
-                allUniqueAffectedCoordinatesFromThisSequence.Add(coord);
-            }
-        }
-
-        for (int wordIdx = 0; wordIdx < wordsToAnimateInOrder.Count; wordIdx++)
-        {
-            FoundWordData currentWordData = wordsToAnimateInOrder[wordIdx];
-            if (wordValidator.IsWordFoundThisSession(currentWordData.Word)) continue;
-
-            Debug.Log($"GM.ProcessSeq: Animating word {wordIdx + 1}/{wordsToAnimateInOrder.Count}: {currentWordData.Word}");
-
-            if (wordGridManager != null && currentWordData.Coordinates != null)
-            {
-                foreach (Vector2Int coord in currentWordData.Coordinates)
-                {
-                    CellController cellController = wordGridManager.GetCellController(coord);
-                    if (cellController == null) continue;
-
-                    if (cellUsageCountInSequence.ContainsKey(coord))
-                    {
-                        cellUsageCountInSequence[coord]--;
-
-                        if (cellUsageCountInSequence[coord] == 0)
-                        {
-                            cellController.SetAlpha(0f);
-                        }
-                        else
-                        {
-                            FoundWordData nextSharingWord = default;
-                            bool foundNextUser = false;
-                            for (int nextWordIdx = wordIdx + 1; nextWordIdx < wordsToAnimateInOrder.Count; nextWordIdx++)
-                            {
-                                if (wordsToAnimateInOrder[nextWordIdx].Coordinates != null &&
-                                    wordsToAnimateInOrder[nextWordIdx].Coordinates.Contains(coord))
-                                {
-                                    nextSharingWord = wordsToAnimateInOrder[nextWordIdx];
-                                    foundNextUser = true;
-                                    break;
-                                }
-                            }
-                            if (foundNextUser && currentAppliedHighlightColors.TryGetValue(nextSharingWord.ID, out Color nextWordColor))
-                            {
-                                cellController.SetHighlightState(true, nextWordColor);
-                                cellController.SetAlpha(1f);
-                            }
-                            else
-                            {
-                                cellController.SetHighlightState(false, cellController.GetDefaultColor());
-                                cellController.SetAlpha(1f);
-                                Debug.LogWarning($"GM.ProcessSeq: Shared cell {coord} for '{currentWordData.Word}' had usage but couldn't find/color for next. Reverted.");
-                            }
-                        }
-                    }
-                    else
-                    {
-                        cellController.SetAlpha(0f);
-                        Debug.LogError($"GM.ProcessSeq: Cell {coord} for '{currentWordData.Word}' not found in usage count. Made invisible.");
-                    }
-                }
-            }
-
-            List<GameObject> floatingPrefabsForThisWord = new List<GameObject>();
-            if (effectsManager != null && currentWordData.Coordinates != null)
-            {
-                List<RectTransform> sourceCellRects = GetRectTransformsForCoords(currentWordData.Coordinates);
-                if (sourceCellRects != null && sourceCellRects.Count == currentWordData.Word.Length)
-                {
-                    floatingPrefabsForThisWord = effectsManager.SpawnAndFloatLetterPrefabs(sourceCellRects, currentWordData.Word);
-                }
-            }
-
-            currentPotentialWords.RemoveAll(pwd => pwd.ID == currentWordData.ID);
-
-            if (effectsManager != null && floatingPrefabsForThisWord.Count > 0)
-            {
-                yield return StartCoroutine(effectsManager.PerformGlobalLiftOff(floatingPrefabsForThisWord));
-            }
-
-            if (floatingPrefabsForThisWord.Count > 0)
-            {
-                List<int> individualLetterScores = currentWordData.Word.Select(letter => GetPointsForActualScoring(letter)).ToList();
-                if (effectsManager != null)
-                {
-                    yield return StartCoroutine(effectsManager.FlyPrefabsToScoreSequentially(floatingPrefabsForThisWord, individualLetterScores, HandleSingleLetterScore));
-                }
-                else { foreach (int scoreValue in individualLetterScores) HandleSingleLetterScore(scoreValue); }
-            }
-            else
-            {
-                foreach (char letter in currentWordData.Word) HandleSingleLetterScore(GetPointsForActualScoring(letter));
-            }
-
-            wordValidator.MarkWordAsFoundInSession(currentWordData.Word);
-            
-            // Check for win condition immediately after a word is scored and marked as found
-            if (currentScore >= targetScoreForLevel && currentState == GameState.Playing && !hasWon)
-            {
-                PlayerWins(); // This will set hasWon and call EndGame
-                // If PlayerWins calls EndGame, it will set currentState to GameOver.
-                // We might want to break or return from the coroutine if the game has ended.
-                if(currentState == GameState.GameOver) 
-                {
-                    isProcessingSequentialWords = false; // Ensure flag is reset
-                    yield break; // Exit coroutine as game is over
-                }
-            }
-
-
-            if (wordIdx < wordsToAnimateInOrder.Count - 1 && visualPauseBetweenWordsInSequence > 0)
-            {
-                // If game ended due to win, don't continue with visual pause for next word
-                if(currentState == GameState.GameOver) 
-                {
-                     isProcessingSequentialWords = false;
-                     yield break;
-                }
-                yield return new WaitForSeconds(visualPauseBetweenWordsInSequence);
-            }
-        }
-
-        // If game ended during the loop, this part might not be reached or necessary.
-        if (currentState == GameState.GameOver && hasWon)
-        {
-            isProcessingSequentialWords = false;
-            yield break;
-        }
-
-        if (replacementDelayAfterEffectStart > 0) yield return new WaitForSeconds(replacementDelayAfterEffectStart);
-
-        List<Vector2Int> distinctAffectedCoordinates = allUniqueAffectedCoordinatesFromThisSequence.Distinct().ToList();
-        if (wordGridManager != null && distinctAffectedCoordinates.Count > 0)
-        {
-            wordGridManager.ReplaceLettersAt(distinctAffectedCoordinates, true);
-            yield return new WaitUntil(() => !wordGridManager.isAnimating);
-            // Only trigger validation if the game is still playing
-            if (currentState == GameState.Playing)
-            {
-                wordGridManager.TriggerValidationCheckAndHighlightUpdate();
-            }
-        }
-        isProcessingSequentialWords = false;
-    }
-
-    public void ClearPotentialWords()
-    {
-        currentPotentialWords.Clear();
-        currentAppliedHighlightColors.Clear();
-    }
-
-    private void HandleSingleLetterScore(int pointsToAdd)
-    {
-        if (pointsToAdd <= 0 || currentState == GameState.GameOver) return; // Don't add score if game is already over
-
-        currentScore += pointsToAdd;
-        UpdateScoreUI();
-
-        // Check for win condition right after score update, but before shake,
-        // as PlayerWins() might change game state.
-        // This check is now primarily handled in ProcessWordsSequentially after a full word is scored.
-        // However, keeping a check here can be a fallback or if score can be added outside that loop.
-        if (currentScore >= targetScoreForLevel && currentState == GameState.Playing && !hasWon)
-        {
-            PlayerWins();
-        }
-
-        if (scoreTextRectTransform != null && currentState == GameState.Playing) // Only shake if still playing
-        {
-            scoreTextRectTransform.DOKill(true);
-            scoreTextRectTransform.DOShakePosition(scoreShakeDuration, scoreShakeStrength, scoreShakeVibrato, 90, false, true).SetUpdate(true);
-        }
-    }
-
-    public int CalculateScoreValueForLetter(char letter)
-    {
-        char upperLetter = char.ToUpperInvariant(letter);
-        if (currentScoringMode == ScoringMode.ScrabbleBased && scrabbleLetterValues.TryGetValue(upperLetter, out int val))
-            return val;
-        if (currentScoringMode == ScoringMode.LengthBased) return 0;
-        return 0;
-    }
-
-    private void UpdateScoreUI()
-    {
-        if (scoreProgressBar != null)
-        {
-            scoreProgressBar.value = Mathf.Min(currentScore, targetScoreForLevel); // Cap progress bar at max
-        }
-        if (scoreText != null)
-        {
-            scoreText.text = $"{currentScore} / {targetScoreForLevel}";
-        }
     }
 
     private void UpdateTimer()
@@ -758,4 +455,157 @@ public class GameManager : MonoBehaviour
     public List<FoundWordData> GetCurrentPotentialWords() => new List<FoundWordData>(currentPotentialWords);
     public Dictionary<System.Guid, Color> GetCurrentAppliedHighlightColors() => new Dictionary<System.Guid, Color>(currentAppliedHighlightColors);
     public bool IsWordInCurrentProcessingSequence(System.Guid wordId) => false;
+
+    // Make this coroutine public so it can be started from other scripts
+    public IEnumerator ProcessWordsSequentially(List<FoundWordData> wordsToAnimateInOrder)
+    {
+        if (wordsToAnimateInOrder == null || wordsToAnimateInOrder.Count == 0) yield break;
+
+        isProcessingSequentialWords = true;
+        List<Vector2Int> allUniqueAffectedCoordinatesFromThisSequence = new List<Vector2Int>();
+        Dictionary<Vector2Int, int> cellUsageCountInSequence = new Dictionary<Vector2Int, int>();
+
+        foreach (var wordData in wordsToAnimateInOrder)
+        {
+            if (wordData.Coordinates == null) continue;
+            foreach (var coord in wordData.Coordinates)
+            {
+                if (cellUsageCountInSequence.ContainsKey(coord)) cellUsageCountInSequence[coord]++;
+                else cellUsageCountInSequence[coord] = 1;
+                allUniqueAffectedCoordinatesFromThisSequence.Add(coord);
+            }
+        }
+
+        for (int wordIdx = 0; wordIdx < wordsToAnimateInOrder.Count; wordIdx++)
+        {
+            FoundWordData currentWordData = wordsToAnimateInOrder[wordIdx];
+            if (wordValidator.IsWordFoundThisSession(currentWordData.Word)) continue;
+
+            Debug.Log($"GM.ProcessSeq: Animating word {wordIdx + 1}/{wordsToAnimateInOrder.Count}: {currentWordData.Word}");
+
+            if (wordGridManager != null && currentWordData.Coordinates != null)
+            {
+                foreach (Vector2Int coord in currentWordData.Coordinates)
+                {
+                    CellController cellController = wordGridManager.GetCellController(coord);
+                    if (cellController == null) continue;
+
+                    if (cellUsageCountInSequence.ContainsKey(coord))
+                    {
+                        cellUsageCountInSequence[coord]--;
+
+                        if (cellUsageCountInSequence[coord] == 0)
+                        {
+                            cellController.SetAlpha(0f);
+                        }
+                        else
+                        {
+                            FoundWordData nextSharingWord = default;
+                            bool foundNextUser = false;
+                            for (int nextWordIdx = wordIdx + 1; nextWordIdx < wordsToAnimateInOrder.Count; nextWordIdx++)
+                            {
+                                if (wordsToAnimateInOrder[nextWordIdx].Coordinates != null &&
+                                    wordsToAnimateInOrder[nextWordIdx].Coordinates.Contains(coord))
+                                {
+                                    nextSharingWord = wordsToAnimateInOrder[nextWordIdx];
+                                    foundNextUser = true;
+                                    break;
+                                }
+                            }
+                            if (foundNextUser && currentAppliedHighlightColors.TryGetValue(nextSharingWord.ID, out Color nextWordColor))
+                            {
+                                cellController.SetHighlightState(true, nextWordColor);
+                                cellController.SetAlpha(1f);
+                            }
+                            else
+                            {
+                                cellController.SetHighlightState(false, cellController.GetDefaultColor());
+                                cellController.SetAlpha(1f);
+                                Debug.LogWarning($"GM.ProcessSeq: Shared cell {coord} for '{currentWordData.Word}' had usage but couldn't find/color for next. Reverted.");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        cellController.SetAlpha(0f);
+                        Debug.LogError($"GM.ProcessSeq: Cell {coord} for '{currentWordData.Word}' not found in usage count. Made invisible.");
+                    }
+                }
+            }
+
+            List<GameObject> floatingPrefabsForThisWord = new List<GameObject>();
+            if (effectsManager != null && currentWordData.Coordinates != null)
+            {
+                List<RectTransform> sourceCellRects = GetRectTransformsForCoords(currentWordData.Coordinates);
+                if (sourceCellRects != null && sourceCellRects.Count == currentWordData.Word.Length)
+                {
+                    floatingPrefabsForThisWord = effectsManager.SpawnAndFloatLetterPrefabs(sourceCellRects, currentWordData.Word);
+                }
+            }
+
+            currentPotentialWords.RemoveAll(pwd => pwd.ID == currentWordData.ID);
+
+            if (effectsManager != null && floatingPrefabsForThisWord.Count > 0)
+            {
+                yield return StartCoroutine(effectsManager.PerformGlobalLiftOff(floatingPrefabsForThisWord));
+                // Fly prefabs to score and destroy them after animation
+                List<int> individualLetterScores = currentWordData.Word.Select(letter => 1).ToList(); // Or use your scoring logic
+                yield return StartCoroutine(effectsManager.FlyPrefabsToScoreSequentially(floatingPrefabsForThisWord, individualLetterScores, null));
+            }
+
+            // --- CENTRALIZED SCORING ---
+            int wordScore = 0;
+            if (WordScroll.Managers.ScoreManager.Instance != null)
+            {
+                wordScore = WordScroll.Managers.ScoreManager.Instance.CalculateWordScore(currentWordData.Word, currentWordData.Word.ToList());
+            }
+            else
+            {
+                Debug.LogError("ScoreManager.Instance is null! Word score not added.");
+            }
+
+            wordValidator.MarkWordAsFoundInSession(currentWordData.Word);
+
+            // Check for win condition immediately after a word is scored and marked as found
+            if (WordScroll.Managers.ScoreManager.Instance != null && WordScroll.Managers.ScoreManager.Instance.PlayerScore >= targetScoreForLevel && currentState == GameState.Playing && !hasWon)
+            {
+                PlayerWins();
+                if(currentState == GameState.GameOver) 
+                {
+                    isProcessingSequentialWords = false;
+                    yield break;
+                }
+            }
+
+            if (wordIdx < wordsToAnimateInOrder.Count - 1 && visualPauseBetweenWordsInSequence > 0)
+            {
+                if(currentState == GameState.GameOver) 
+                {
+                     isProcessingSequentialWords = false;
+                     yield break;
+                }
+                yield return new WaitForSeconds(visualPauseBetweenWordsInSequence);
+            }
+        }
+
+        if (currentState == GameState.GameOver && hasWon)
+        {
+            isProcessingSequentialWords = false;
+            yield break;
+        }
+
+        if (replacementDelayAfterEffectStart > 0) yield return new WaitForSeconds(replacementDelayAfterEffectStart);
+
+        List<Vector2Int> distinctAffectedCoordinates = allUniqueAffectedCoordinatesFromThisSequence.Distinct().ToList();
+        if (wordGridManager != null && distinctAffectedCoordinates.Count > 0)
+        {
+            wordGridManager.ReplaceLettersAt(distinctAffectedCoordinates, true);
+            yield return new WaitUntil(() => !wordGridManager.isAnimating);
+            if (currentState == GameState.Playing)
+            {
+                wordGridManager.TriggerValidationCheckAndHighlightUpdate();
+            }
+        }
+        isProcessingSequentialWords = false;
+    }
 }

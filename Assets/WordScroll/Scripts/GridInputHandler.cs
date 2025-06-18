@@ -405,7 +405,26 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                 Vector2Int tappedGridCoords = CalculateGridCoordsFromLocalPos(originalPointerDownPanelPos);
                 if (tappedGridCoords.x != -1)
                 {
-                    gameManager.AttemptTapValidation(tappedGridCoords);
+                    // Use GameManager's GetCurrentPotentialWords to get the list
+                    if (gameManager != null && gameManager.CurrentStatePublic == GameManager.GameState.Playing && !gameManager.IsAnyAnimationPlaying)
+                    {
+                        var potentialWords = gameManager.GetCurrentPotentialWords();
+                        var selectedWords = new System.Collections.Generic.List<FoundWordData>();
+                        foreach (var word in potentialWords)
+                        {
+                            if (word.Coordinates != null && word.Coordinates.Contains(tappedGridCoords))
+                            {
+                                selectedWords.Add(word);
+                            }
+                        }
+                        if (selectedWords.Count > 0)
+                        {
+                            // Optionally filter subwords as in the original AttemptTapValidation
+                            // If needed, call a filter method here
+                            // Start the scoring/animation coroutine
+                            gameManager.StartCoroutine(gameManager.ProcessWordsSequentially(selectedWords));
+                        }
+                    }
                 }
             }
 
