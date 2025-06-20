@@ -14,7 +14,8 @@ namespace WordScroll.UI
         public GameObject modifierSelectionPanelObject; 
 
         [Header("Manager References")]
-        public ModifierManager modifierManager; 
+        // Remove the public field - we'll use the singleton instead
+        // public ModifierManager modifierManager; 
 
         [Header("Scene Configuration")]
         public string gameSceneName = "WordScroll"; 
@@ -62,9 +63,9 @@ namespace WordScroll.UI
                 return; 
             }
 
-            if (modifierManager == null)
+            if (ModifierManager.Instance == null)
             {
-                Debug.LogError("ModifierSelectionUI: ModifierManager not assigned!");
+                Debug.LogError("ModifierSelectionUI: ModifierManager instance not found!");
                 modifierSelectionPanelObject.SetActive(false); // Hide panel if critical component is missing
                 return;
             }
@@ -147,9 +148,9 @@ namespace WordScroll.UI
             }
             _instantiatedCardItems.Clear();
 
-            if (modifierManager == null) return;
+            if (ModifierManager.Instance == null) return;
 
-            List<ModifierCardData> offers = modifierManager.GetNewModifierOffer();
+            List<ModifierCardData> offers = ModifierManager.Instance.GetNewModifierOffer();
 
             if (offers.Count == 0)
             {
@@ -212,9 +213,9 @@ namespace WordScroll.UI
                 return; 
             }
 
-            if (modifierManager != null && _selectedModifierForGame != null)
+            if (ModifierManager.Instance != null && _selectedModifierForGame != null)
             {
-                modifierManager.ActivateModifier(_selectedModifierForGame); 
+                ModifierManager.Instance.ActivateModifier(_selectedModifierForGame); 
                 Debug.Log($"ModifierSelectionUI: Activating '{_selectedModifierForGame.cardName}' and loading game scene.");
             }
             

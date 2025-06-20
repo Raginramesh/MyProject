@@ -6,6 +6,9 @@ namespace WordScroll.Modifiers
 {
     public class ModifierManager : MonoBehaviour
     {
+        // Singleton pattern
+        public static ModifierManager Instance { get; private set; }
+        
         [Header("Modifier Configuration")]
         [Tooltip("All possible ModifierCardData assets that can be drawn for selection. Populate this in the Inspector.")]
         public List<ModifierCardData> allAvailableModifierCards = new List<ModifierCardData>();
@@ -19,6 +22,23 @@ namespace WordScroll.Modifiers
 
         [Tooltip("The current selection of modifiers offered to the player.")]
         private List<ModifierCardData> currentOfferedModifiers = new List<ModifierCardData>();
+
+        private void Awake()
+        {
+            // Singleton pattern with scene persistence
+            if (Instance == null)
+            {
+                Instance = this;
+                DontDestroyOnLoad(gameObject);
+                Debug.Log("ModifierManager: Singleton instance created and set to persist across scenes.");
+            }
+            else if (Instance != this)
+            {
+                Debug.Log("ModifierManager: Duplicate instance found, destroying this one.");
+                Destroy(gameObject);
+                return;
+            }
+        }
 
         // --- Public Methods ---
 
@@ -83,6 +103,9 @@ namespace WordScroll.Modifiers
 
             activeModifiers.Add(chosenModifier);
             Debug.Log($"ModifierManager: Activated modifier '{chosenModifier.cardName}'. Type: {chosenModifier.cardType}");
+
+            // Log modifier activation to debug system
+            LogModifierActivation(chosenModifier);
 
             // TODO: Implement logic for temporary modifiers (e.g., start a timer to deactivate them)
             // TODO: Broadcast an event or call a method to notify other systems that a modifier has been activated.
@@ -187,6 +210,16 @@ namespace WordScroll.Modifiers
         public List<ModifierCardData> GetAllActiveModifiers()
         {
             return new List<ModifierCardData>(activeModifiers);
+        }
+
+        /// <summary>
+        /// Log modifier activation to the debug system
+        /// </summary>
+        private void LogModifierActivation(ModifierCardData modifier)
+        {
+            // Create a list with just this modifier for logging
+            var modifiers = new List<ModifierCardData> { modifier };
+            global::DebugSystemHelper.SendMessageToDebugSystem("LogModifierApplication", modifiers);
         }
 
         // --- TODO: Gift and Upgrade Card Handling ---

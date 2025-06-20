@@ -36,11 +36,11 @@ namespace WordScroll.Managers
 
         void Start()
         {
-            // Find the ModifierManager in the scene
-            _modifierManager = FindFirstObjectByType<ModifierManager>();
+            // Use the ModifierManager singleton instance
+            _modifierManager = ModifierManager.Instance;
             if (_modifierManager == null)
             {
-                Debug.LogError("ScoreManager: ModifierManager not found in the scene! Modifier effects on score will not be applied.");
+                Debug.LogError("ScoreManager: ModifierManager instance not found! Modifier effects on score will not be applied.");
             }
         }
 

@@ -21,7 +21,7 @@ MonoBehaviour:
   synergyNotes: 
   effectType: 1
   targetWordLength: 5
-  wordLengthScoreMultiplier: 3
+  wordLengthScoreMultiplier: 2
   generalScoreMultiplier: 2
   moveReductionPercentage: 0.2
   minVowelCount: 2

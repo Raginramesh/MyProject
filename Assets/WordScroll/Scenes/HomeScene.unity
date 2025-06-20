@@ -822,7 +822,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   modifierSelectionPanelObject: {fileID: 1477788721}
-  modifierManager: {fileID: 197657820}
   gameSceneName: WordScroll
   modifierCardDisplayItemPrefab: {fileID: 2912418809161815185, guid: fbabc6979408e48a4916a8b43cec29a7, type: 3}
   cardDisplayParent: {fileID: 553390092}
