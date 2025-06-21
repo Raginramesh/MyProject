@@ -5,6 +5,7 @@ using WordScroll.Modifiers;
 
 /// <summary>
 /// Represents a single numerical scoring step
+/// NOTE: Animation delays are currently disabled (set to 0) for instant score population display
 /// </summary>
 [System.Serializable]
 public class ScoreStep
@@ -187,14 +188,14 @@ public class NumericalScoringData
         Debug.Log("└──────────────────────────────────────────────────────────────────┘");
         
         steps.Clear();
-        float currentDelay = 0f;
+        float currentDelay = 0f; // Keep variable for future use, but set all delays to 0
         int runningScore = 0;
         
         // Step 1: Intersection score (if any)
         if (intersectionScore > 0)
         {
             var intersectionStep = new ScoreStep(ScoreStep.StepType.IntersectingLetters, 
-                intersectionScore, intersectionScore.ToString(), currentDelay)
+                intersectionScore, intersectionScore.ToString(), 0f) // No animation delay
             {
                 highlightColor = Color.cyan
             };
@@ -203,7 +204,7 @@ public class NumericalScoringData
             intersectionStep.gridPositions = GetSharedLetterPositions();
             steps.Add(intersectionStep);
             runningScore += intersectionScore;
-            currentDelay += 0.6f;
+            // currentDelay += 0.6f; // Removed delay increment
             
             Debug.Log($"✅ Added Intersection Step: {intersectionScore} points (Running total: {runningScore})");
         }
@@ -217,7 +218,7 @@ public class NumericalScoringData
         if (displayWordScore > 0)
         {
             var wordStep = new ScoreStep(ScoreStep.StepType.WordBase, 
-                displayWordScore, $"+{displayWordScore}", currentDelay)
+                displayWordScore, $"+{displayWordScore}", 0f) // No animation delay
             {
                 highlightColor = Color.yellow
             };
@@ -230,7 +231,7 @@ public class NumericalScoringData
             
             steps.Add(wordStep);
             runningScore += displayWordScore;
-            currentDelay += 0.6f;
+            // currentDelay += 0.6f; // Removed delay increment
             
             Debug.Log($"✅ Added Word Base Step: +{displayWordScore} points (Running total: {runningScore})");
         }
@@ -242,14 +243,14 @@ public class NumericalScoringData
         // Step 4: Final score
         finalScore = runningScore;
         var finalStep = new ScoreStep(ScoreStep.StepType.Final, 
-            finalScore, finalScore.ToString(), currentDelay)
+            finalScore, finalScore.ToString(), 0f) // No animation delay
         {
             highlightColor = Color.gold
         };
         steps.Add(finalStep);
         
         Debug.Log($"🏁 Added Final Step: {finalScore} points");
-        Debug.Log($"📊 Generated {steps.Count} scoring steps with total animation duration: {currentDelay + 1.5f:F1}s");
+        Debug.Log($"📊 Generated {steps.Count} scoring steps with instant display (no animations)");
         Debug.Log("");
     }
     
@@ -273,12 +274,12 @@ public class NumericalScoringData
                     runningScore = Mathf.RoundToInt(runningScore * multiplier);
                     
                     var multiplierStep = new ScoreStep(ScoreStep.StepType.Multiplier, 
-                        runningScore - oldScore, $"×{multiplier}", currentDelay)
+                        runningScore - oldScore, $"×{multiplier}", 0f) // No animation delay
                     {
                         highlightColor = Color.magenta
                     };
                     steps.Add(multiplierStep);
-                    currentDelay += 0.6f;
+                    // currentDelay += 0.6f; // Removed delay increment
                 }
             }
             
@@ -287,13 +288,13 @@ public class NumericalScoringData
             if (additiveBonus > 0)
             {
                 var bonusStep = new ScoreStep(ScoreStep.StepType.AdditiveBonus, 
-                    additiveBonus, $"+{additiveBonus}", currentDelay)
+                    additiveBonus, $"+{additiveBonus}", 0f) // No animation delay
                 {
                     highlightColor = Color.green
                 };
                 steps.Add(bonusStep);
                 runningScore += additiveBonus;
-                currentDelay += 0.6f;
+                // currentDelay += 0.6f; // Removed delay increment
             }
         }
     }
@@ -426,7 +427,7 @@ public class NumericalScoringData
                     Debug.Log($"   Grid Positions: {string.Join(", ", step.gridPositions.Select(p => $"({p.x},{p.y})"))}");
                 }
                 
-                Debug.Log($"   Animation Delay: {step.animationDelay}s");
+                Debug.Log($"   Display: Instant (no animation delay)");
             }
             else
             {
@@ -444,8 +445,8 @@ public class NumericalScoringData
         Debug.Log($"📈 Scoring Breakdown:");
         Debug.Log($"   • Intersection Score: {scoringData.intersectionScore}");
         Debug.Log($"   • Base Word Score: {scoringData.baseWordScore}");
-        Debug.Log($"   • Total Animation Steps: {scoringData.steps.Count}");
-        Debug.Log($"   • Total Animation Duration: {(scoringData.steps.LastOrDefault()?.animationDelay ?? 0) + 1.5f:F1}s");
+        Debug.Log($"   • Total Scoring Steps: {scoringData.steps.Count}");
+        Debug.Log($"   • Display Mode: Instant (animations disabled)");
         Debug.Log("");
     }
     

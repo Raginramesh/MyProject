@@ -18,13 +18,13 @@ public class NumericalScoreUI : MonoBehaviour
     
     [Header("Final Score Animation")]
     [SerializeField] private RectTransform finalScoreTransform;
-    [SerializeField] private RectTransform targetScoreTransform; // Main score counter position
+    // targetScoreTransform removed - no longer needed for flying score
     
     [Header("Animation Settings")]
     [SerializeField] private float scorePopScale = 1.3f;
     [SerializeField] private float scorePopDuration = 0.4f;
     [SerializeField] private float stepDelay = 0.6f;
-    [SerializeField] private float finalScoreFlyDuration = 1f;
+    // finalScoreFlyDuration removed - no longer using flying score animation
     
     [Header("Visual Effects")]
     [SerializeField] private ParticleSystem scoreParticles;
@@ -33,7 +33,7 @@ public class NumericalScoreUI : MonoBehaviour
     [Header("Audio")]
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private AudioClip numberPopSound;
-    [SerializeField] private AudioClip finalScoreSound;
+    // finalScoreSound removed - no longer using flying score animation
     
     [Header("Manager References")]
     [SerializeField] private WordGridManager wordGridManager;
@@ -90,8 +90,8 @@ public class NumericalScoreUI : MonoBehaviour
             yield return StartCoroutine(AnimateScoreStep(step));
         }
         
-        // Final score fly animation
-        yield return StartCoroutine(AnimateFinalScoreFly(scoringData.finalScore));
+        // Skip final score fly animation - using counting animation instead
+        // (Final scoring is now handled by GameManager's TransferScoreAnimation)
         
         // Hide panel
         yield return new WaitForSeconds(0.5f);
@@ -242,44 +242,6 @@ public class NumericalScoreUI : MonoBehaviour
         yield return new WaitForSeconds(0.8f);
     }
     
-    private IEnumerator AnimateFinalScoreFly(int finalScore)
-    {
-        if (targetScoreTransform == null) yield break;
-        
-        // Create flying score text
-        GameObject flyingScore = new GameObject("FlyingScore");
-        flyingScore.transform.SetParent(transform);
-        
-        TextMeshProUGUI flyingText = flyingScore.AddComponent<TextMeshProUGUI>();
-        flyingText.text = finalScore.ToString();
-        flyingText.font = currentScoreText.font;
-        flyingText.fontSize = currentScoreText.fontSize;
-        flyingText.color = Color.gold;
-        flyingText.alignment = TextAlignmentOptions.Center;
-        
-        RectTransform flyingRect = flyingScore.GetComponent<RectTransform>();
-        flyingRect.sizeDelta = currentScoreText.rectTransform.sizeDelta;
-        flyingRect.position = scoreTextTransform.position;
-        
-        // Play final score sound
-        if (finalScoreSound != null && audioSource != null)
-        {
-            audioSource.PlayOneShot(finalScoreSound);
-        }
-        
-        // Animate to target position
-        flyingRect.DOMove(targetScoreTransform.position, finalScoreFlyDuration)
-            .SetEase(Ease.InOutQuad);
-        flyingText.DOFade(0f, finalScoreFlyDuration * 0.8f).SetDelay(finalScoreFlyDuration * 0.2f);
-        flyingRect.DOScale(Vector3.zero, finalScoreFlyDuration * 0.3f).SetDelay(finalScoreFlyDuration * 0.7f);
-        
-        yield return new WaitForSeconds(finalScoreFlyDuration);
-        
-        // Clean up
-        if (flyingScore != null)
-            Destroy(flyingScore);
-    }
-    
     private Color GetColorForStepType(ScoreStep.StepType stepType)
     {
         return stepType switch
@@ -360,5 +322,167 @@ public class NumericalScoreUI : MonoBehaviour
         
         SetPanelVisible(false, false);
         isAnimating = false;
+    }
+    
+    /// <summary>
+    /// Shows the numerical score breakdown for found words (parallel version for simultaneous execution)
+    /// </summary>
+    public IEnumerator ShowNumericalScoreParallel(List<FoundWordData> foundWords)
+    {
+        if (isAnimating)
+        {
+            Debug.LogWarning("NumericalScoreUI: Already animating score");
+            yield break;
+        }
+        
+        var scoringData = NumericalScoringData.GenerateFromWords(foundWords, gameManager);
+        
+        if (currentScoreAnimation != null)
+            StopCoroutine(currentScoreAnimation);
+            
+        currentScoreAnimation = StartCoroutine(AnimateScoreSequenceParallel(scoringData));
+        yield return currentScoreAnimation;
+    }
+
+    private IEnumerator AnimateScoreSequenceParallel(NumericalScoringData scoringData)
+    {
+        isAnimating = true;
+        
+        // Show panel immediately
+        SetPanelVisible(true, true);
+        yield return new WaitForSeconds(0.3f);
+        
+        // Show scoring steps in rapid succession (parallel with cell animations)
+        foreach (var step in scoringData.steps)
+        {
+            // Don't wait for step completion, just trigger them quickly
+            StartCoroutine(AnimateScoreStepParallel(step));
+            yield return new WaitForSeconds(0.2f); // Short delay between steps
+        }
+        
+        // Wait a bit for all step animations to complete
+        yield return new WaitForSeconds(1.5f);
+        
+        // Hide panel
+        SetPanelVisible(false, true);
+        yield return new WaitForSeconds(0.3f);
+        
+        isAnimating = false;
+    }
+
+    private IEnumerator AnimateScoreStepParallel(ScoreStep step)
+    {
+        // Highlight grid cells if applicable (shorter duration for parallel mode)
+        if (step.gridPositions.Count > 0)
+        {
+            HighlightGridCells(step.gridPositions, step.highlightColor);
+        }
+        
+        // Set score text and color
+        currentScoreText.text = step.displayText;
+        currentScoreText.color = GetColorForStepType(step.stepType);
+        
+        // Faster animations for parallel mode
+        switch (step.stepType)
+        {
+            case ScoreStep.StepType.IntersectingLetters:
+                yield return StartCoroutine(AnimateIntersectionScoreFast());
+                break;
+                
+            case ScoreStep.StepType.WordBase:
+                yield return StartCoroutine(AnimateWordScoreFast());
+                break;
+                
+            case ScoreStep.StepType.Multiplier:
+                yield return StartCoroutine(AnimateMultiplierFast());
+                break;
+                
+            case ScoreStep.StepType.AdditiveBonus:
+                yield return StartCoroutine(AnimateBonusFast());
+                break;
+                
+            case ScoreStep.StepType.Final:
+                yield return StartCoroutine(AnimateFinalScoreFast());
+                break;
+        }
+        
+        // Play sound
+        PlayScoreSound();
+        
+        // Clear grid highlights after shorter time
+        if (step.gridPositions.Count > 0)
+        {
+            yield return new WaitForSeconds(0.15f);
+            ClearGridHighlights(step.gridPositions);
+        }
+    }
+
+    // Fast versions of animation methods for parallel execution
+    private IEnumerator AnimateIntersectionScoreFast()
+    {
+        scoreTextTransform.localScale = Vector3.zero;
+        currentScoreText.alpha = 0f;
+        
+        currentScoreText.DOFade(1f, 0.1f);
+        scoreTextTransform.DOScale(Vector3.one * scorePopScale, 0.2f)
+            .SetEase(Ease.OutBack)
+            .OnComplete(() => scoreTextTransform.DOScale(Vector3.one, 0.1f));
+            
+        yield return new WaitForSeconds(0.3f);
+    }
+
+    private IEnumerator AnimateWordScoreFast()
+    {
+        Vector3 startPos = scoreTextTransform.localPosition + Vector3.right * 50f;
+        scoreTextTransform.localPosition = startPos;
+        currentScoreText.alpha = 0f;
+        
+        currentScoreText.DOFade(1f, 0.15f);
+        scoreTextTransform.DOLocalMoveX(0f, 0.2f).SetEase(Ease.OutQuad);
+        
+        yield return new WaitForSeconds(0.25f);
+    }
+
+    private IEnumerator AnimateMultiplierFast()
+    {
+        scoreTextTransform.localScale = Vector3.zero;
+        scoreTextTransform.localRotation = Quaternion.Euler(0, 0, 90);
+        currentScoreText.alpha = 0f;
+        
+        currentScoreText.DOFade(1f, 0.1f);
+        scoreTextTransform.DOScale(Vector3.one * scorePopScale, 0.2f).SetEase(Ease.OutBack);
+        scoreTextTransform.DORotate(Vector3.zero, 0.2f).SetEase(Ease.OutBack);
+            
+        yield return new WaitForSeconds(0.3f);
+    }
+
+    private IEnumerator AnimateBonusFast()
+    {
+        scoreTextTransform.localScale = Vector3.zero;
+        currentScoreText.alpha = 0f;
+        
+        currentScoreText.DOFade(1f, 0.1f);
+        scoreTextTransform.DOScale(Vector3.one, 0.15f).SetEase(Ease.OutBounce);
+        
+        if (scoreParticles != null)
+        {
+            scoreParticles.Play();
+        }
+        
+        yield return new WaitForSeconds(0.25f);
+    }
+
+    private IEnumerator AnimateFinalScoreFast()
+    {
+        scoreTextTransform.localScale = Vector3.zero;
+        currentScoreText.alpha = 0f;
+        
+        currentScoreText.DOFade(1f, 0.15f);
+        scoreTextTransform.DOScale(Vector3.one * 1.2f, 0.25f).SetEase(Ease.OutBack)
+            .OnComplete(() => {
+                scoreTextTransform.DOPunchScale(Vector3.one * 0.1f, 0.3f, 2, 0.5f);
+            });
+            
+        yield return new WaitForSeconds(0.4f);
     }
 }

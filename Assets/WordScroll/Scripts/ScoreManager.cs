@@ -123,8 +123,13 @@ namespace WordScroll.Managers
         /// </summary>
         private int GetScoreForLetter(char letter)
         {
-            // Example: All letters worth 1 point.
-            // You could have a dictionary for letter values: {'A', 1}, {'B', 3}, etc.
+            // Use GameManager's scoring system to respect Scrabble values and scoring mode
+            if (GameManager.instance != null)
+            {
+                return GameManager.instance.GetPointsForActualScoring(letter);
+            }
+            
+            // Fallback if GameManager is not available
             return 1; 
         }
 

@@ -7,6 +7,7 @@ using DG.Tweening;
 using System.Linq;
 using System; // Required for System.Guid
 using UnityEngine.UI; // Required for Slider
+using WordScroll.Modifiers; // Required for ModifierManager and ModifierEffectType
 
 public class GameManager : MonoBehaviour
 {
@@ -26,8 +27,8 @@ public class GameManager : MonoBehaviour
         get
         {
             return isProcessingSequentialWords ||
-                   (effectsManager != null && effectsManager.IsAnimating) ||
                    (wordGridManager != null && wordGridManager.isAnimating) ||
+                   (animatedScoringSystem != null && animatedScoringSystem.IsAnimating) ||
                    IsNumericalScoreAnimating;
         }
     }
@@ -56,6 +57,7 @@ public class GameManager : MonoBehaviour
 
     [Header("UI References")]
     [SerializeField] private TextMeshProUGUI scoreText;
+    [SerializeField] private TextMeshProUGUI roundScoreText; // UI for current round score
     [SerializeField] private RectTransform scoreTextRectTransform;
     [SerializeField] private Slider scoreProgressBar;
     [SerializeField] private GameObject statusDisplayGroup;
@@ -68,8 +70,8 @@ public class GameManager : MonoBehaviour
     [SerializeField] private WordGridManager wordGridManager;
     [SerializeField] private WordValidator wordValidator;
     [SerializeField] private GridInputHandler gridInputHandler;
-    [SerializeField] private EffectsManager effectsManager;
     [SerializeField] private NumericalScoreUI numericalScoreUI;
+    [SerializeField] private AnimatedScoringSystem animatedScoringSystem;
 
     [Header("Timing & Combo Settings")]
     [SerializeField] private float replacementDelayAfterEffectStart = 0.4f;
@@ -79,11 +81,17 @@ public class GameManager : MonoBehaviour
     [SerializeField] private float scoreShakeDuration = 0.2f;
     [SerializeField] private float scoreShakeStrength = 3f;
     [SerializeField] private int scoreShakeVibrato = 15;
+    
+    [Header("Score Transfer Animation")]
+    [SerializeField] private float scoreTransferSpeed = 30f; // Points per second transfer rate
+    [SerializeField] private float scoreTransferMinDelay = 0.02f; // Minimum delay between increments
 
     private float currentTimeRemaining;
     private int currentMovesRemaining;
     private int currentScore = 0;
+    private int currentRoundScore = 0; // Score to be transferred to total
     public int CurrentScore => currentScore; // Public getter for currentScore
+    public int CurrentRoundScore => currentRoundScore; // Public getter for current round score
     public static GameManager instance;
 
     private List<FoundWordData> currentPotentialWords = new List<FoundWordData>();
@@ -106,10 +114,10 @@ public class GameManager : MonoBehaviour
         if (wordGridManager == null) wordGridManager = FindFirstObjectByType<WordGridManager>();
         if (wordValidator == null) wordValidator = FindFirstObjectByType<WordValidator>();
         if (gridInputHandler == null) gridInputHandler = FindFirstObjectByType<GridInputHandler>();
-        if (effectsManager == null) effectsManager = FindFirstObjectByType<EffectsManager>();
+        if (animatedScoringSystem == null) animatedScoringSystem = FindFirstObjectByType<AnimatedScoringSystem>();
         if (scoreTextRectTransform == null && scoreText != null) scoreTextRectTransform = scoreText.GetComponent<RectTransform>();
 
-        if (effectsManager == null) Debug.LogError("GM: EffectsManager is MISSING! Fly-to-score will not work.", this);
+        if (animatedScoringSystem == null) Debug.LogError("GM: AnimatedScoringSystem is MISSING! Scoring animations will not work.", this);
         if (wordGridManager == null) Debug.LogError("GM: WordGridManager missing!", this);
         if (wordValidator == null) Debug.LogError("GM: WordValidator missing!", this);
         if (gridInputHandler == null) Debug.LogError("GM: GridInputHandler missing! Tapping will not work.", this);
@@ -139,6 +147,15 @@ public class GameManager : MonoBehaviour
         {
             SetState(GameState.Initializing);
         }
+        
+        // DEBUG: Test scoring system
+        #if UNITY_EDITOR
+        if (Debug.isDebugBuild)
+        {
+            DebugTestScoring();
+        }
+        #endif
+        
         StartGame();
     }
 
@@ -159,9 +176,9 @@ public class GameManager : MonoBehaviour
 
         if (previousState == GameState.Playing && (newState == GameState.GameOver || newState == GameState.Paused))
         {
-            if (effectsManager != null)
+            if (animatedScoringSystem != null)
             {
-                effectsManager.ClearAllFloatingLetters(new Dictionary<Guid, List<GameObject>>());
+                animatedScoringSystem.ClearAllAnimations();
             }
         }
         isProcessingSequentialWords = false;
@@ -193,7 +210,14 @@ public class GameManager : MonoBehaviour
     {
         SetState(GameState.Initializing);
         currentScore = 0;
+        currentRoundScore = 0; // Initialize round score
         hasWon = false; // Reset win state
+
+        // Initialize animated scoring system
+        if (animatedScoringSystem != null)
+        {
+            animatedScoringSystem.SetTotalScore(currentScore);
+        }
 
         if (scoreProgressBar != null)
         {
@@ -201,6 +225,20 @@ public class GameManager : MonoBehaviour
             scoreProgressBar.value = 0;
         }
         UpdateScoreUI();
+        UpdateRoundScoreUI(); // Initialize round score UI
+        
+        // DEBUG: Ensure main score elements are visible
+        #if UNITY_EDITOR
+        if (Debug.isDebugBuild)
+        {
+            Debug.Log($"[GameManager] Score UI Initialization:");
+            Debug.Log($"  - scoreText: {(scoreText != null ? "✅ Found" : "❌ Missing")}");
+            Debug.Log($"  - scoreText.gameObject.activeInHierarchy: {(scoreText != null ? scoreText.gameObject.activeInHierarchy : "N/A")}");
+            Debug.Log($"  - roundScoreText: {(roundScoreText != null ? "✅ Found" : "❌ Missing")}");
+            Debug.Log($"  - currentScore: {currentScore}");
+            Debug.Log($"  - currentRoundScore: {currentRoundScore}");
+        }
+        #endif
 
         currentPotentialWords.Clear();
         currentAppliedHighlightColors.Clear();
@@ -604,38 +642,10 @@ public class GameManager : MonoBehaviour
                 }
             }
 
-            List<GameObject> floatingPrefabsForThisWord = new List<GameObject>();
-            if (effectsManager != null && currentWordData.Coordinates != null)
-            {
-                List<RectTransform> sourceCellRects = GetRectTransformsForCoords(currentWordData.Coordinates);
-                if (sourceCellRects != null && sourceCellRects.Count == currentWordData.Word.Length)
-                {
-                    floatingPrefabsForThisWord = effectsManager.SpawnAndFloatLetterPrefabs(sourceCellRects, currentWordData.Word);
-                }
-            }
+            // NOTE: Visual effects (cell floating, letter scoring) are now handled by AnimatedScoringSystem
+            // in ProcessScoringForWords, so we skip the old EffectsManager calls here
 
             currentPotentialWords.RemoveAll(pwd => pwd.ID == currentWordData.ID);
-
-            if (effectsManager != null && floatingPrefabsForThisWord.Count > 0)
-            {
-                yield return StartCoroutine(effectsManager.PerformGlobalLiftOff(floatingPrefabsForThisWord));
-            }
-
-            // NEW: Only handle visual effects, no scoring (scoring is handled at the beginning)
-            if (effectsManager != null && floatingPrefabsForThisWord.Count > 0)
-            {
-                // Just fly letters for visual effect, no score calculation
-                yield return StartCoroutine(effectsManager.PerformGlobalLiftOff(floatingPrefabsForThisWord));
-                
-                // Clean up visual effects (simplified - no scoring)
-                for (int i = floatingPrefabsForThisWord.Count - 1; i >= 0; i--)
-                {
-                    if (floatingPrefabsForThisWord[i] != null)
-                    {
-                        Destroy(floatingPrefabsForThisWord[i]);
-                    }
-                }
-            }
 
             // Word is already marked as found in ProcessScoringForWords
             // No need to mark again or check win condition here
@@ -685,6 +695,8 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// New integrated scoring system that calculates scores for multiple words with modifiers
     /// and displays them through the NumericalScoreUI
+    /// <summary>
+    /// Process scoring for the given words with complete animated sequence
     /// </summary>
     private IEnumerator ProcessScoringForWords(List<FoundWordData> words)
     {
@@ -693,20 +705,61 @@ public class GameManager : MonoBehaviour
         // Generate the complete scoring data
         var scoringData = NumericalScoringData.GenerateFromWords(words, this);
         
-        // Show the numerical score UI for interesting scenarios
-        var modifierManager = WordScroll.Modifiers.ModifierManager.Instance;
-        bool hasActiveModifiers = modifierManager != null && modifierManager.GetAllActiveModifiers().Count > 0;
-        bool hasIntersectingLetters = scoringData.intersectionScore > 0;
-        
-        if (words.Count > 1 || hasActiveModifiers || hasIntersectingLetters)
+        // Get cell transforms for animation
+        List<RectTransform> cellTransforms = new List<RectTransform>();
+        foreach (var word in words)
         {
-            // Show the animated scoring breakdown
-            ShowNumericalScore(words);
-            yield return new WaitUntil(() => !IsNumericalScoreAnimating);
+            foreach (var coord in word.Coordinates)
+            {
+                var cellController = wordGridManager?.GetCellController(coord);
+                if (cellController != null && cellController.RectTransform != null)
+                {
+                    cellTransforms.Add(cellController.RectTransform);
+                }
+            }
         }
         
-        // Apply the final score to the game
-        ApplyFinalScore(scoringData.finalScore);
+        // Start the complete animated scoring sequence
+        if (animatedScoringSystem != null)
+        {
+            // Start both systems simultaneously for parallel execution
+            Coroutine numericalUICoroutine = null;
+            if (numericalScoreUI != null)
+            {
+                numericalUICoroutine = StartCoroutine(numericalScoreUI.ShowNumericalScoreParallel(words));
+            }
+            
+            // Start cell animation system
+            animatedScoringSystem.StartScoringAnimation(scoringData, cellTransforms);
+            
+            // Wait for both to complete
+            if (numericalUICoroutine != null)
+            {
+                yield return numericalUICoroutine;
+            }
+            yield return new WaitUntil(() => !animatedScoringSystem.IsAnimating);
+            
+            // Handle cleanup after animation
+            animatedScoringSystem.OnScoringComplete(words);
+            
+            // Update game score from animated scoring system
+            int newTotalScore = animatedScoringSystem.GetTotalScore();
+            currentScore = newTotalScore;
+            UpdateScoreUI();
+        }
+        else
+        {
+            // Fallback to instant scoring if animated system not available
+            Debug.LogWarning("[GameManager] AnimatedScoringSystem not found. Using instant scoring.");
+            
+            // Still show numerical score breakdown even without animated system
+            if (numericalScoreUI != null)
+            {
+                yield return StartCoroutine(numericalScoreUI.ShowNumericalScoreParallel(words));
+            }
+            
+            ApplyFinalScore(scoringData.finalScore);
+        }
         
         // Handle move reduction from modifiers
         ApplyMoveReductionFromModifiers();
@@ -719,31 +772,80 @@ public class GameManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Applies the final calculated score to the game total
+    /// Applies the final calculated score to the game total with counting animation
     /// </summary>
     private void ApplyFinalScore(int finalScore)
     {
         if (finalScore <= 0 || currentState == GameState.GameOver) return;
         
-        int previousScore = currentScore;
-        currentScore += finalScore;
-        
         Debug.Log("╔══════════════════════════════════════════════════════════════════╗");
-        Debug.Log($"║ 🎯 SCORE APPLIED: +{finalScore.ToString().PadLeft(3)} points (Total: {currentScore.ToString().PadLeft(4)}) {new string(' ', 18)}║");
+        Debug.Log($"║ 🎯 STARTING SCORE TRANSFER: {finalScore} points                    ║");
         Debug.Log("╚══════════════════════════════════════════════════════════════════╝");
         
-        // Additional game state info
-        float progressToTarget = targetScoreForLevel > 0 ? (float)currentScore / targetScoreForLevel * 100f : 0f;
-        Debug.Log($"📊 Game Progress: {progressToTarget:F1}% to target ({currentScore}/{targetScoreForLevel})");
+        // Set the round score and start the transfer animation
+        currentRoundScore = finalScore;
+        StartCoroutine(TransferScoreAnimation());
+    }
+    
+    /// <summary>
+    /// Animates the transfer of points from round score to total score
+    /// </summary>
+    private IEnumerator TransferScoreAnimation()
+    {
+        // Calculate transfer rate
+        float pointsPerSecond = scoreTransferSpeed;
+        float delayBetweenPoints = Mathf.Max(1f / pointsPerSecond, scoreTransferMinDelay);
         
-        if (currentState == GameState.Playing)
+        int totalPointsToTransfer = currentRoundScore;
+        int pointsTransferred = 0;
+        
+        Debug.Log($"� Starting score transfer: {totalPointsToTransfer} points at {pointsPerSecond:F1} points/sec");
+        
+        while (currentRoundScore > 0 && currentState == GameState.Playing)
         {
-            Debug.Log($"⏱️  Game Status: Playing | Moves Remaining: {currentMovesRemaining}");
+            // Transfer one point
+            currentRoundScore--;
+            currentScore++;
+            pointsTransferred++;
+            
+            // Update UI
+            UpdateScoreUI();
+            UpdateRoundScoreUI();
+            
+            // Optional: Add shake effect every few points
+            if (pointsTransferred % 5 == 0 && scoreTextRectTransform != null)
+            {
+                scoreTextRectTransform.DOKill(true);
+                scoreTextRectTransform.DOPunchScale(Vector3.one * 0.1f, 0.1f, 1, 0f);
+            }
+            
+            yield return new WaitForSeconds(delayBetweenPoints);
         }
         
-        UpdateScoreUI();
+        // Ensure we're at the correct final values
+        int remainingPoints = currentRoundScore;
+        if (remainingPoints > 0)
+        {
+            currentScore += remainingPoints;
+            currentRoundScore = 0;
+            UpdateScoreUI();
+            UpdateRoundScoreUI();
+        }
         
-        // Update debug UI with current score via message
+        Debug.Log("╔══════════════════════════════════════════════════════════════════╗");
+        Debug.Log($"║ ✅ SCORE TRANSFER COMPLETE: +{totalPointsToTransfer} points (Total: {currentScore})   ║");
+        Debug.Log("╚══════════════════════════════════════════════════════════════════╝");
+        
+        // Final effects and checks
+        OnScoreTransferComplete();
+    }
+    
+    /// <summary>
+    /// Called when score transfer animation is complete
+    /// </summary>
+    private void OnScoreTransferComplete()
+    {
+        // Update debug system
         try
         {
             var debugSystem = GameObject.FindGameObjectWithTag("DebugSystem");
@@ -754,11 +856,19 @@ public class GameManager : MonoBehaviour
         }
         catch (UnityException ex)
         {
-            // Handle missing tag gracefully - no need to spam console since this is optional
             if (!ex.Message.Contains("Tag: DebugSystem is not defined"))
             {
                 Debug.LogWarning($"[GameManager] Debug system error: {ex.Message}");
             }
+        }
+        
+        // Game progress info
+        float progressToTarget = targetScoreForLevel > 0 ? (float)currentScore / targetScoreForLevel * 100f : 0f;
+        Debug.Log($"📊 Game Progress: {progressToTarget:F1}% to target ({currentScore}/{targetScoreForLevel})");
+        
+        if (currentState == GameState.Playing)
+        {
+            Debug.Log($"⏱️  Game Status: Playing | Moves Remaining: {currentMovesRemaining}");
         }
         
         // Check for win condition
@@ -767,11 +877,42 @@ public class GameManager : MonoBehaviour
             PlayerWins();
         }
         
-        // Score shake effect
+        // Final score shake effect
         if (scoreTextRectTransform != null && currentState == GameState.Playing)
         {
             scoreTextRectTransform.DOKill(true);
             scoreTextRectTransform.DOShakePosition(scoreShakeDuration, scoreShakeStrength, scoreShakeVibrato, 90, false, true).SetUpdate(true);
+        }
+    }
+    
+    /// <summary>
+    /// Sets the round score immediately (for visual feedback when words are found)
+    /// </summary>
+    public void SetRoundScore(int score)
+    {
+        currentRoundScore = score;
+        UpdateRoundScoreUI();
+        
+        Debug.Log($"📝 Round score set to: {score} points");
+    }
+    
+    /// <summary>
+    /// Skip the current score transfer animation and apply remaining points instantly
+    /// </summary>
+    public void SkipScoreTransferAnimation()
+    {
+        if (currentRoundScore > 0)
+        {
+            Debug.Log($"⏭️  Skipping score transfer animation. Applying {currentRoundScore} points instantly.");
+            
+            currentScore += currentRoundScore;
+            currentRoundScore = 0;
+            
+            UpdateScoreUI();
+            UpdateRoundScoreUI();
+            
+            StopCoroutine(TransferScoreAnimation());
+            OnScoreTransferComplete();
         }
     }
     
@@ -782,46 +923,44 @@ public class GameManager : MonoBehaviour
     {
         if (currentDisplayMode != DisplayMode.Moves) return;
         
-        var modifierManager = WordScroll.Modifiers.ModifierManager.Instance;
+        var modifierManager = ModifierManager.Instance;
         if (modifierManager == null) return;
         
         var activeModifiers = modifierManager.GetAllActiveModifiers();
+        int totalMoveReduction = 0;
         
         foreach (var modifier in activeModifiers)
         {
-            if (modifier.effectType == WordScroll.Modifiers.ModifierEffectType.GeneralScoreBonusAndMoveReduction)
+            // Check if this modifier has move reduction effects
+            if (modifier.effectType == ModifierEffectType.GeneralScoreBonusAndMoveReduction)
             {
                 int moveReduction = Mathf.RoundToInt(modifier.moveReductionPercentage * startingMoves / 100f);
-                currentMovesRemaining = Mathf.Max(0, currentMovesRemaining - moveReduction);
-                
-                Debug.Log("┌──────────────────────────────────────────────────────────────────┐");
-                Debug.Log($"│ 🎛️  MODIFIER APPLIED: {modifier.cardName.PadRight(40)} │");
-                Debug.Log("└──────────────────────────────────────────────────────────────────┘");
-                Debug.Log($"📉 Move Reduction: -{moveReduction} moves ({modifier.moveReductionPercentage:F1}% of {startingMoves} starting moves)");
-                Debug.Log($"⏱️  Remaining Moves: {currentMovesRemaining}");
-                
-                UpdateMovesUI();
-                
-                // Check if moves ran out
-                if (currentMovesRemaining <= 0)
+                if (moveReduction > 0)
                 {
-                    PlayerLoses();
-                    return;
+                    totalMoveReduction += moveReduction;
+                    Debug.Log($"⚡ Modifier '{modifier.cardName}' reduces moves by {moveReduction} ({modifier.moveReductionPercentage}%)");
                 }
             }
         }
-    }
-    
-    /// <summary>
-    /// Legacy method - used only for visual effects animation callbacks.
-    /// For actual scoring, use ProcessScoringForWords instead.
-    /// </summary>
-    private void HandleSingleLetterScore(int pointsToAdd)
-    {
-        // This is now just used for visual effect callbacks from the EffectsManager
-        // The actual scoring is handled by ProcessScoringForWords
-        // We can keep this empty or add just visual feedback if needed
-        Debug.Log($"HandleSingleLetterScore called with {pointsToAdd} (visual effect only)");
+        
+        if (totalMoveReduction > 0)
+        {
+            currentMovesRemaining = Mathf.Max(0, currentMovesRemaining - totalMoveReduction);
+            UpdateMovesUI();
+            
+            Debug.Log($"🎯 Total move reduction applied: -{totalMoveReduction} moves (Remaining: {currentMovesRemaining})");
+            
+            // Check if we've run out of moves
+            if (currentMovesRemaining <= 0)
+            {
+                currentMovesRemaining = 0;
+                PlayerLoses();
+            }
+        }
+        else
+        {
+            Debug.Log("ℹ️  No move reduction modifiers active");
+        }
     }
     
     /// <summary>
@@ -838,6 +977,30 @@ public class GameManager : MonoBehaviour
         {
             float progress = targetScoreForLevel > 0 ? (float)currentScore / targetScoreForLevel : 0f;
             scoreProgressBar.value = Mathf.Clamp01(progress);
+        }
+    }
+    
+    /// <summary>
+    /// Updates the current round score display UI
+    /// </summary>
+    private void UpdateRoundScoreUI()
+    {
+        if (roundScoreText != null)
+        {
+            if (currentRoundScore > 0)
+            {
+                roundScoreText.text = $"+{currentRoundScore}";
+                roundScoreText.gameObject.SetActive(true);
+            }
+            else
+            {
+                // OPTION 1: Always show, display "0" when no round score
+                roundScoreText.text = "+0";
+                roundScoreText.gameObject.SetActive(true);
+                
+                // OPTION 2: Keep original behavior (hide when 0)
+                // roundScoreText.gameObject.SetActive(false);
+            }
         }
     }
     
@@ -955,5 +1118,85 @@ public class GameManager : MonoBehaviour
         
         // Reload the current scene
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+    
+    /// <summary>
+    /// Skip the current animated scoring sequence
+    /// </summary>
+    public void SkipAnimatedScoring()
+    {
+        if (animatedScoringSystem != null && animatedScoringSystem.IsAnimating)
+        {
+            animatedScoringSystem.SkipAnimation();
+            
+            // Update game score
+            int newTotalScore = animatedScoringSystem.GetTotalScore();
+            currentScore = newTotalScore;
+            UpdateScoreUI();
+            
+            Debug.Log("[GameManager] Animated scoring skipped");
+        }
+    }
+    
+    /// <summary>
+    /// Gets the current game score
+    /// </summary>
+    public int GetCurrentScore()
+    {
+        return currentScore;
+    }
+    
+    /// <summary>
+    /// DEBUG: Test method to verify scoring system is working correctly
+    /// </summary>
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    public void DebugTestScoring()
+    {
+        Debug.Log("=== SCORING SYSTEM DEBUG TEST ===");
+        Debug.Log($"Current Scoring Mode: {currentScoringMode}");
+        Debug.Log($"Points Per Letter (fallback): {pointsPerLetter}");
+        
+        // Test some common letters
+        char[] testLetters = {'A', 'E', 'Q', 'Z', 'T', 'H'};
+        foreach (char letter in testLetters)
+        {
+            int score = GetPointsForActualScoring(letter);
+            Debug.Log($"Letter '{letter}': {score} points");
+        }
+        
+        // Test if scrabble values are initialized
+        if (scrabbleLetterValues != null)
+        {
+            Debug.Log($"Scrabble dictionary has {scrabbleLetterValues.Count} entries");
+            Debug.Log($"Sample: Q = {(scrabbleLetterValues.ContainsKey('Q') ? scrabbleLetterValues['Q'] : "NOT FOUND")}");
+        }
+        else
+        {
+            Debug.LogError("❌ Scrabble dictionary is NULL!");
+        }
+        
+        Debug.Log("=== END SCORING DEBUG TEST ===");
+    }
+    
+    /// <summary>
+    /// DEBUG: Switch scoring mode for testing
+    /// </summary>
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    public void DebugToggleScoringMode()
+    {
+        currentScoringMode = (currentScoringMode == ScoringMode.ScrabbleBased) 
+            ? ScoringMode.LengthBased 
+            : ScoringMode.ScrabbleBased;
+            
+        Debug.Log($"🔄 Scoring mode switched to: {currentScoringMode}");
+        
+        // Reconfigure systems that cache scoring settings
+        if (wordValidator != null)
+        {
+            wordValidator.SetGameManager(this); // This will trigger ConfigureScoring
+        }
+        
+        // Test the new mode
+        DebugTestScoring();
     }
 }
