@@ -26,9 +26,11 @@ public class WordGridManager : MonoBehaviour
     [SerializeField] private Color cellColorAlternate = Color.grey;
 
     [Header("Highlighting")]
-    [Tooltip("Colors to cycle through for highlighting different potential words. Define at least one.")]
-    [SerializeField]
-    private Color[] wordHighlightPalette = { Color.yellow, Color.cyan, Color.magenta, Color.green, Color.blue, Color.red };
+    [Tooltip("Color for all valid highlighted words - creates a unified visual appearance")]
+    [SerializeField] private Color validWordColor = Color.yellow;
+    
+    [Tooltip("Color for intersecting letters (letters shared between multiple words) - makes intersections clearly visible")]
+    [SerializeField] private Color intersectionLetterColor = Color.magenta;
 
     [Header("References")]
     [SerializeField] private WordValidator wordValidator;
@@ -516,16 +518,35 @@ public class WordGridManager : MonoBehaviour
     {
         ClearAllCellHighlights(false);
         Dictionary<System.Guid, Color> appliedColors = new Dictionary<System.Guid, Color>();
-        int colorIndex = 0;
-
+        
         if (potentialWords == null) return appliedColors;
 
+        // Step 1: Find all intersecting positions
+        Dictionary<Vector2Int, int> positionWordCount = new Dictionary<Vector2Int, int>();
+        
+        foreach (var wordData in potentialWords)
+        {
+            if (wordData.Coordinates == null || wordData.Coordinates.Count == 0) continue;
+            
+            foreach (var coord in wordData.Coordinates)
+            {
+                if (coord.x >= 0 && coord.x < gridSize && coord.y >= 0 && coord.y < gridSize)
+                {
+                    if (positionWordCount.ContainsKey(coord))
+                        positionWordCount[coord]++;
+                    else
+                        positionWordCount[coord] = 1;
+                }
+            }
+        }
+
+        // Step 2: Apply colors based on intersection status
         foreach (var wordData in potentialWords)
         {
             if (wordData.Coordinates == null || wordData.Coordinates.Count == 0) continue;
 
-            Color highlightColor = (wordHighlightPalette.Length > 0) ? wordHighlightPalette[colorIndex % wordHighlightPalette.Length] : Color.yellow;
-            appliedColors[wordData.ID] = highlightColor;
+            // All words use the same valid word color
+            appliedColors[wordData.ID] = validWordColor;
 
             foreach (var coord in wordData.Coordinates)
             {
@@ -534,12 +555,14 @@ public class WordGridManager : MonoBehaviour
                     CellController cell = gridCells[coord.x, coord.y];
                     if (cell != null)
                     {
-                        cell.SetHighlightState(true, highlightColor);
+                        // Use intersection color if this position is shared by multiple words
+                        Color cellColor = (positionWordCount[coord] > 1) ? intersectionLetterColor : validWordColor;
+                        cell.SetHighlightState(true, cellColor);
                     }
                 }
             }
-            colorIndex++;
         }
+        
         return appliedColors;
     }
 
@@ -801,4 +824,14 @@ public class WordGridManager : MonoBehaviour
             }
         }
     }   
+    
+    /// <summary>
+    /// Gets the color used for valid word highlighting
+    /// </summary>
+    public Color GetValidWordColor() => validWordColor;
+    
+    /// <summary>
+    /// Gets the color used for intersection letter highlighting
+    /// </summary>
+    public Color GetIntersectionLetterColor() => intersectionLetterColor;
 }

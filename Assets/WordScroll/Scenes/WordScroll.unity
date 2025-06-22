@@ -1887,12 +1887,10 @@ MonoBehaviour:
   cellFadeInDuration: 0.1
   cellColorPrimary: {r: 1, g: 1, b: 1, a: 1}
   cellColorAlternate: {r: 1, g: 1, b: 1, a: 1}
+  validWordColor: {r: 0.38039216, g: 0.6431373, b: 0.8, a: 1}
+  intersectionLetterColor: {r: 0.8396226, g: 0.2891153, b: 0.3296961, a: 1}
   wordHighlightPalette:
-  - {r: 1, g: 1, b: 0.6, a: 0.75}
-  - {r: 0.6, g: 1, b: 1, a: 0.75}
-  - {r: 1, g: 0.6, b: 1, a: 0.75}
   - {r: 0.6, g: 1, b: 0.6, a: 0.75}
-  - {r: 1, g: 0.8, b: 0.6, a: 0.75}
   wordValidator: {fileID: 593137152}
   gameManager: {fileID: 1480404336}
 --- !u!4 &593137151
@@ -1993,7 +1991,7 @@ MonoBehaviour:
   scoreTransferMinDelay: 0.05
   transferHighlightColor: {r: 0, g: 1, b: 1, a: 1}
   transferPulseInterval: 0.1
-  intersectionColor: {r: 1, g: 0, b: 1, a: 1}
+  intersectionColor: {r: 0.9384973, g: 1, b: 0, a: 1}
   intersectionPulseScale: 1.4
   intersectionDisplayDuration: 1
   audioSource: {fileID: 0}

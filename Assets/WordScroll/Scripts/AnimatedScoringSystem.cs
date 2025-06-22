@@ -48,6 +48,7 @@ public class AnimatedScoringSystem : MonoBehaviour
     [SerializeField] private float transferPulseInterval = 0.1f; // Pulse every X seconds during transfer
     
     [Header("Intersection Bonus")]
+    [Tooltip("Fallback color for intersection display - will use WordGridManager's intersection color if available")]
     [SerializeField] private Color intersectionColor = Color.magenta;
     [SerializeField] private float intersectionPulseScale = 1.4f;
     [SerializeField] private float intersectionDisplayDuration = 1f;
@@ -125,7 +126,7 @@ public class AnimatedScoringSystem : MonoBehaviour
         // Step 2: Intersection Score (if any) - add immediately to current score
         if (scoringData.intersectionScore > 0)
         {
-            yield return StartCoroutine(AddToCurrentScoreInstantly(scoringData.intersectionScore, intersectionColor));
+            yield return StartCoroutine(AddToCurrentScoreInstantly(scoringData.intersectionScore, GetIntersectionColor()));
         }
         
         // Step 3: Letter-by-letter scoring with real-time current score updates
@@ -153,7 +154,7 @@ public class AnimatedScoringSystem : MonoBehaviour
             audioSource.PlayOneShot(intersectionSound);
         
         // Add intersection score to current display
-        yield return StartCoroutine(IncrementCurrentScore(intersectionScore, intersectionColor, intersectionPulseScale));
+        yield return StartCoroutine(IncrementCurrentScore(intersectionScore, GetIntersectionColor(), intersectionPulseScale));
         
         // Hold for display
         yield return new WaitForSeconds(intersectionDisplayDuration);
@@ -228,114 +229,105 @@ public class AnimatedScoringSystem : MonoBehaviour
     {
         Debug.Log("🔤 Starting real-time letter-by-letter scoring");
         
-        // Calculate base word score (excluding intersection which was already added)
-        int baseWordScore = scoringData.baseWordScore - scoringData.intersectionScore;
-        
-        if (baseWordScore <= 0) yield break;
-        
-        // For each word, animate its letters with real-time score updates
+        // For each word, animate its letters with actual letter scores
         foreach (var word in scoringData.words)
         {
-            yield return StartCoroutine(AnimateWordLettersRealTime(word, baseWordScore / scoringData.words.Count));
+            yield return StartCoroutine(AnimateWordLettersRealTime(word, scoringData));
         }
     }
 
     /// <summary>
-    /// Animate individual word letters with immediate score updates
+    /// Animate individual word letters with immediate score updates using actual letter values
     /// </summary>
-    private IEnumerator AnimateWordLettersRealTime(FoundWordData wordData, int wordScore)
+    private IEnumerator AnimateWordLettersRealTime(FoundWordData wordData, NumericalScoringData scoringData)
     {
-        int lettersCount = wordData.Word.Length;
-        int scorePerLetter = Mathf.Max(1, wordScore / lettersCount);
+        // Get shared letter positions to avoid double-counting
+        var sharedLetterPositions = GetSharedLetterPositions(scoringData);
         
         for (int i = 0; i < wordData.Coordinates.Count; i++)
         {
             var coord = wordData.Coordinates[i];
             char letter = i < wordData.Word.Length ? wordData.Word[i] : '?';
             
-            // Get cell at coordinate
-            var cellController = wordGridManager?.GetCellController(coord);
+            // Get actual letter score from GameManager
+            int actualLetterScore = gameManager != null ? gameManager.GetPointsForActualScoring(letter) : 1;
             
-            if (cellController != null)
+            // Skip intersection letters to avoid double-counting
+            bool isIntersectionLetter = sharedLetterPositions.Contains(coord);
+            if (isIntersectionLetter)
             {
-                // Animate cell scaling down and fading
-                var rectTransform = cellController.RectTransform;
-                var canvasGroup = cellController.GetComponent<CanvasGroup>();
-                
-                if (canvasGroup == null)
-                    canvasGroup = cellController.gameObject.AddComponent<CanvasGroup>();
-                
-                // Scale down and fade out animation
-                rectTransform.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InBack);
-                canvasGroup.DOFade(0f, 0.3f);
-                
-                // Play sound
-                if (letterScoreSound != null && audioSource != null)
-                    audioSource.PlayOneShot(letterScoreSound);
+                Debug.Log($"  Letter '{letter}' at {coord}: Skipping (intersection already counted)");
+                // Still animate the cell but don't add to score
+                AnimateCellDisappear(coord);
+                yield return new WaitForSeconds(letterScoreDelay);
+                continue;
             }
             
-            // Add score to current score IMMEDIATELY (real-time update)
-            currentDisplayedScore += scorePerLetter;
+            // Get cell at coordinate and animate it
+            AnimateCellDisappear(coord);
+            
+            // Add actual score to current score IMMEDIATELY (real-time update)
+            currentDisplayedScore += actualLetterScore;
             UpdateCurrentScoreUI();
             
             // Visual feedback for score addition
             currentScoreTransform.DOPunchScale(Vector3.one * (letterScorePulseScale - 1f), letterScorePulseDuration, 1, 0f);
             
-            Debug.Log($"  Letter '{letter}': +{scorePerLetter} points (Current: {currentDisplayedScore})");
+            Debug.Log($"  Letter '{letter}' at {coord}: +{actualLetterScore} points (Current: {currentDisplayedScore})");
             
             yield return new WaitForSeconds(letterScoreDelay);
         }
     }
-
+    
     /// <summary>
-    /// Show and animate modifier bonuses
+    /// Get shared letter positions from scoring data
     /// </summary>
-    private IEnumerator ShowModifierBonuses(NumericalScoringData scoringData)
+    private List<Vector2Int> GetSharedLetterPositions(NumericalScoringData scoringData)
     {
-        var modifierManager = ModifierManager.Instance;
-        if (modifierManager == null) yield break;
+        Dictionary<Vector2Int, int> positionCount = new Dictionary<Vector2Int, int>();
         
-        var activeModifiers = modifierManager.GetAllActiveModifiers();
-        if (activeModifiers.Count == 0) yield break;
-        
-        Debug.Log("🎛️ Showing modifier bonuses");
-        
-        yield return new WaitForSeconds(modifierDisplayDelay);
-        
-        foreach (var modifier in activeModifiers)
+        foreach (var word in scoringData.words)
         {
-            // Calculate modifier bonus
-            int modifierBonus = CalculateModifierBonus(modifier, currentDisplayedScore);
-            
-            if (modifierBonus > 0)
+            foreach (var coord in word.Coordinates)
             {
-                // Show modifier text (e.g., "12 + 5")
-                string modifierText = $"{currentDisplayedScore} + {modifierBonus}";
-                currentScoreText.text = modifierText;
-                currentScoreText.color = modifierColor;
-                
-                // Pulse animation
-                currentScoreTransform.DOPunchScale(Vector3.one * (modifierPulseScale - 1f), modifierPulseDuration, 1, 0f);
-                
-                // Play sound
-                if (modifierSound != null && audioSource != null)
-                    audioSource.PlayOneShot(modifierSound);
-                
-                Debug.Log($"  Modifier '{modifier.cardName}': +{modifierBonus} points ({modifierText})");
-                
-                yield return new WaitForSeconds(modifierShowDuration);
-                
-                // Apply the bonus
-                yield return StartCoroutine(IncrementCurrentScore(modifierBonus, modifierColor, modifierPulseScale));
+                if (positionCount.ContainsKey(coord))
+                    positionCount[coord]++;
+                else
+                    positionCount[coord] = 1;
             }
         }
         
-        // Reset color
-        currentScoreText.color = letterScoreColor;
+        return positionCount.Where(kvp => kvp.Value > 1).Select(kvp => kvp.Key).ToList();
     }
     
     /// <summary>
-    /// Add modifier bonuses to current score
+    /// Helper method to animate a cell disappearing
+    /// </summary>
+    private void AnimateCellDisappear(Vector2Int coord)
+    {
+        var cellController = wordGridManager?.GetCellController(coord);
+        
+        if (cellController != null)
+        {
+            // Animate cell scaling down and fading
+            var rectTransform = cellController.RectTransform;
+            var canvasGroup = cellController.GetComponent<CanvasGroup>();
+            
+            if (canvasGroup == null)
+                canvasGroup = cellController.gameObject.AddComponent<CanvasGroup>();
+            
+            // Scale down and fade out animation
+            rectTransform.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InBack);
+            canvasGroup.DOFade(0f, 0.3f);
+            
+            // Play sound
+            if (letterScoreSound != null && audioSource != null)
+                audioSource.PlayOneShot(letterScoreSound);
+        }
+    }
+
+    /// <summary>
+    /// Add modifier bonuses to current score using the same logic as NumericalScoringData
     /// </summary>
     private IEnumerator AddModifierBonusesToCurrentScore(NumericalScoringData scoringData)
     {
@@ -346,38 +338,105 @@ public class AnimatedScoringSystem : MonoBehaviour
         
         Debug.Log($"🎛️  Applying {activeModifiers.Count} active modifiers to current score");
         
+        // Store the base score before modifiers
+        int baseScoreBeforeModifiers = currentDisplayedScore;
+        
         foreach (var modifier in activeModifiers)
         {
-            int modifierBonus = CalculateModifierBonus(modifier, currentDisplayedScore);
-            
-            if (modifierBonus > 0)
+            // Handle multipliers first (same logic as NumericalScoringData)
+            if (modifier.effectType == ModifierEffectType.GeneralScoreBonusAndMoveReduction ||
+                modifier.effectType == ModifierEffectType.SpecificWordLengthScoreBonus)
             {
-                string modifierText = $"+{modifierBonus}";
-                
-                // Show modifier text briefly
-                Color originalColor = currentScoreText.color;
-                currentScoreText.color = modifierColor;
-                
-                // Flash the modifier amount
-                var tempDisplay = currentScoreText.text;
-                currentScoreText.text = modifierText;
-                currentScoreTransform.DOPunchScale(Vector3.one * (modifierPulseScale - 1f), modifierPulseDuration, 1, 0f);
-                
-                if (modifierSound != null && audioSource != null)
-                    audioSource.PlayOneShot(modifierSound);
-                
-                yield return new WaitForSeconds(0.5f);
-                
-                // Add to current score
-                currentDisplayedScore += modifierBonus;
-                UpdateCurrentScoreUI();
-                currentScoreText.color = originalColor;
-                
-                Debug.Log($"  Modifier '{modifier.cardName}': +{modifierBonus} points (Current: {currentDisplayedScore})");
-                
-                yield return new WaitForSeconds(0.3f);
+                float multiplier = GetMultiplierForModifier(modifier, scoringData);
+                if (multiplier > 1f)
+                {
+                    int oldScore = currentDisplayedScore;
+                    currentDisplayedScore = Mathf.RoundToInt(currentDisplayedScore * multiplier);
+                    int multiplierBonus = currentDisplayedScore - oldScore;
+                    
+                    if (multiplierBonus > 0)
+                    {
+                        yield return StartCoroutine(ShowModifierEffect(modifier, multiplierBonus, $"×{multiplier}"));
+                    }
+                }
+            }
+            
+            // Handle additive bonuses (same logic as NumericalScoringData)
+            int additiveBonus = GetAdditiveBonusForModifier(modifier, scoringData);
+            if (additiveBonus > 0)
+            {
+                currentDisplayedScore += additiveBonus;
+                yield return StartCoroutine(ShowModifierEffect(modifier, additiveBonus, $"+{additiveBonus}"));
             }
         }
+    }
+    
+    /// <summary>
+    /// Show individual modifier effect
+    /// </summary>
+    private IEnumerator ShowModifierEffect(ModifierCardData modifier, int bonus, string displayText)
+    {
+        // Show modifier text briefly
+        Color originalColor = currentScoreText.color;
+        var originalText = currentScoreText.text;
+        
+        currentScoreText.color = modifierColor;
+        currentScoreText.text = displayText;
+        currentScoreTransform.DOPunchScale(Vector3.one * (modifierPulseScale - 1f), modifierPulseDuration, 1, 0f);
+        
+        if (modifierSound != null && audioSource != null)
+            audioSource.PlayOneShot(modifierSound);
+        
+        yield return new WaitForSeconds(0.5f);
+        
+        // Update display with new score
+        UpdateCurrentScoreUI();
+        currentScoreText.color = originalColor;
+        
+        Debug.Log($"  Modifier '{modifier.cardName}': {displayText} (Current: {currentDisplayedScore})");
+        
+        yield return new WaitForSeconds(0.3f);
+    }
+    
+    /// <summary>
+    /// Get multiplier for modifier (matches NumericalScoringData logic)
+    /// </summary>
+    private float GetMultiplierForModifier(ModifierCardData modifier, NumericalScoringData scoringData)
+    {
+        switch (modifier.effectType)
+        {
+            case ModifierEffectType.GeneralScoreBonusAndMoveReduction:
+                return modifier.generalScoreMultiplier;
+                
+            case ModifierEffectType.SpecificWordLengthScoreBonus:
+                // Check if any word matches the target length
+                if (scoringData.words.Any(w => w.Word.Length == modifier.targetWordLength))
+                    return modifier.wordLengthScoreMultiplier;
+                break;
+        }
+        return 1f;
+    }
+    
+    /// <summary>
+    /// Get additive bonus for modifier (matches NumericalScoringData logic)
+    /// </summary>
+    private int GetAdditiveBonusForModifier(ModifierCardData modifier, NumericalScoringData scoringData)
+    {
+        switch (modifier.effectType)
+        {
+            case ModifierEffectType.VowelCountBonus:
+                int totalBonus = 0;
+                foreach (var word in scoringData.words)
+                {
+                    int vowelCount = word.Word.Count(c => "AEIOUaeiou".Contains(c));
+                    if (vowelCount >= modifier.minVowelCount)
+                    {
+                        totalBonus += modifier.vowelBonusPoints;
+                    }
+                }
+                return totalBonus;
+        }
+        return 0;
     }
     
     /// <summary>
@@ -448,23 +507,6 @@ public class AnimatedScoringSystem : MonoBehaviour
     
     /// <summary>
     /// Calculate modifier bonus for current score
-    /// </summary>
-    private int CalculateModifierBonus(ModifierCardData modifier, int baseScore)
-    {
-        switch (modifier.effectType)
-        {
-            case ModifierEffectType.GeneralScoreBonusAndMoveReduction:
-                return Mathf.RoundToInt(baseScore * (modifier.generalScoreMultiplier - 1f));
-                
-            case ModifierEffectType.SpecificWordLengthScoreBonus:
-                // This would need more context about word length
-                return 5; // Placeholder
-                
-            default:
-                return 0;
-        }
-    }
-    
     /// <summary>
     /// Update current score UI
     /// </summary>
@@ -567,5 +609,17 @@ public class AnimatedScoringSystem : MonoBehaviour
         DOTween.KillAll();
         
         Debug.Log("🧹 AnimatedScoringSystem: All animations cleared");
+    }
+    
+    /// <summary>
+    /// Gets the intersection color from WordGridManager, with fallback to inspector value
+    /// </summary>
+    private Color GetIntersectionColor()
+    {
+        if (wordGridManager != null)
+        {
+            return wordGridManager.GetIntersectionLetterColor();
+        }
+        return intersectionColor; // Fallback to inspector value
     }
 }

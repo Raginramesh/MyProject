@@ -197,7 +197,7 @@ public class NumericalScoringData
             var intersectionStep = new ScoreStep(ScoreStep.StepType.IntersectingLetters, 
                 intersectionScore, intersectionScore.ToString(), 0f) // No animation delay
             {
-                highlightColor = Color.cyan
+                highlightColor = GetIntersectionColor()
             };
             
             // Add grid positions for shared letters
@@ -220,7 +220,7 @@ public class NumericalScoringData
             var wordStep = new ScoreStep(ScoreStep.StepType.WordBase, 
                 displayWordScore, $"+{displayWordScore}", 0f) // No animation delay
             {
-                highlightColor = Color.yellow
+                highlightColor = GetValidWordColor()
             };
             
             // Add all word positions
@@ -245,7 +245,7 @@ public class NumericalScoringData
         var finalStep = new ScoreStep(ScoreStep.StepType.Final, 
             finalScore, finalScore.ToString(), 0f) // No animation delay
         {
-            highlightColor = Color.gold
+            highlightColor = GetFinalScoreColor()
         };
         steps.Add(finalStep);
         
@@ -276,7 +276,7 @@ public class NumericalScoringData
                     var multiplierStep = new ScoreStep(ScoreStep.StepType.Multiplier, 
                         runningScore - oldScore, $"×{multiplier}", 0f) // No animation delay
                     {
-                        highlightColor = Color.magenta
+                        highlightColor = GetMultiplierColor()
                     };
                     steps.Add(multiplierStep);
                     // currentDelay += 0.6f; // Removed delay increment
@@ -290,7 +290,7 @@ public class NumericalScoringData
                 var bonusStep = new ScoreStep(ScoreStep.StepType.AdditiveBonus, 
                     additiveBonus, $"+{additiveBonus}", 0f) // No animation delay
                 {
-                    highlightColor = Color.green
+                    highlightColor = GetBonusColor()
                 };
                 steps.Add(bonusStep);
                 runningScore += additiveBonus;
@@ -490,5 +490,62 @@ public class NumericalScoringData
             }
             Debug.Log("");
         }
+    }
+    
+    // Cache for WordGridManager reference
+    private static WordGridManager cachedGridManager;
+    
+    /// <summary>
+    /// Gets the valid word color from WordGridManager
+    /// </summary>
+    private Color GetValidWordColor()
+    {
+        if (cachedGridManager == null)
+            cachedGridManager = Object.FindFirstObjectByType<WordGridManager>();
+            
+        if (cachedGridManager != null)
+        {
+            return cachedGridManager.GetValidWordColor();
+        }
+        return Color.yellow; // Fallback
+    }
+    
+    /// <summary>
+    /// Gets the intersection color from WordGridManager
+    /// </summary>
+    private Color GetIntersectionColor()
+    {
+        if (cachedGridManager == null)
+            cachedGridManager = Object.FindFirstObjectByType<WordGridManager>();
+            
+        if (cachedGridManager != null)
+        {
+            return cachedGridManager.GetIntersectionLetterColor();
+        }
+        return Color.magenta; // Fallback
+    }
+    
+    /// <summary>
+    /// Gets the color for final score display
+    /// </summary>
+    private Color GetFinalScoreColor()
+    {
+        return Color.gold; // Keep gold for final score - it's traditional and clear
+    }
+    
+    /// <summary>
+    /// Gets the color for multiplier effects
+    /// </summary>
+    private Color GetMultiplierColor()
+    {
+        return Color.magenta; // Keep magenta for multipliers - indicates special effect
+    }
+    
+    /// <summary>
+    /// Gets the color for bonus effects  
+    /// </summary>
+    private Color GetBonusColor()
+    {
+        return Color.green; // Keep green for bonuses - positive effect
     }
 }
