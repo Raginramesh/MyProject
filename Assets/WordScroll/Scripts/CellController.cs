@@ -19,6 +19,9 @@ public class CellController : MonoBehaviour
     [SerializeField] private float highlightScaleMultiplier = 1.05f; // Slight scale up for highlight
     private Vector3 originalScale;
 
+    // Unique ID for tracking specific cells
+    public int uniqueID { get; private set; } = -1;
+
 
     // Private cache for RectTransform
     private RectTransform _rectTransform;
@@ -182,5 +185,13 @@ public class CellController : MonoBehaviour
     public Color GetDefaultColor()
     {
         return defaultColor;
+    }
+
+    /// <summary>
+    /// Set the unique ID for this cell (used for tracking specific cells)
+    /// </summary>
+    public void SetUniqueID(int id)
+    {
+        uniqueID = id;
     }
 }

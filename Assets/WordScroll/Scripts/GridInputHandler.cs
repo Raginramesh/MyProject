@@ -51,6 +51,15 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
     private const int VELOCITY_TRACKING_SAMPLES = 5;
     private Coroutine activeSnapAnimationCoroutine = null;
 
+    // Cell tracking system - tracks specific cell by unique ID
+    private int trackedCellID = -1;                // Unique ID of the tracked cell
+    private Vector2Int trackedCellPosition;        // Current grid position of tracked cell
+    private bool isTrackingCell = false;          // Whether we're actively tracking a cell
+    
+    [Header("Cell Tracking Settings")]
+    [Tooltip("Enable cell-centric tracking that follows a specific cell by unique ID")]
+    [SerializeField] private bool enableCellTracking = true;
+
     private char[] initialDragLineData;
     private bool dragBeganOnValidLine = false;
 
@@ -78,6 +87,11 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         dataActuallyShiftedDuringDrag = false;
         pointerPositionsHistory.Clear();
         pointerTimesHistory.Clear();
+
+        // Reset cell tracking
+        trackedCellID = -1;
+        trackedCellPosition = Vector2Int.zero;
+        isTrackingCell = false;
 
         initialDragLineData = null;
         dragBeganOnValidLine = false;
@@ -121,6 +135,25 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         pointerPositionsHistory.Clear();
         pointerTimesHistory.Clear();
 
+        // Initialize cell tracking if enabled
+        if (enableCellTracking)
+        {
+            Vector2Int gridCoords = CalculateGridCoordsFromLocalPos(pointerInitialPanelPosition);
+            if (gridCoords.x >= 0 && gridCoords.y >= 0 && 
+                gridCoords.x < wordGridManager.gridSize && gridCoords.y < wordGridManager.gridSize)
+            {
+                CellController cellController = wordGridManager.GetCellController(gridCoords);
+                if (cellController != null)
+                {
+                    trackedCellID = cellController.uniqueID;
+                    trackedCellPosition = gridCoords;
+                    isTrackingCell = true;
+                    
+                    Debug.Log($"🎯 Started tracking cell ID {trackedCellID} at position ({gridCoords.x}, {gridCoords.y})");
+                }
+            }
+        }
+
         AddPointerSample(eventData.position);
     }
 
@@ -151,7 +184,14 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
             Vector2 initialTouchLocalPos;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 gridPanelRect, pointerDownScreenPosition, uiCamera, out initialTouchLocalPos);
+            
+            // Always use finger position to determine which row/column to start with
             Vector2Int gridCoords = CalculateGridCoordsFromLocalPos(initialTouchLocalPos);
+            
+            if (enableCellTracking && isTrackingCell)
+            {
+                Debug.Log($"🎯 Starting drag at finger position ({gridCoords.x}, {gridCoords.y}), tracking cell {trackedCellID} at ({trackedCellPosition.x}, {trackedCellPosition.y})");
+            }
 
             Vector2 dragVector = currentScreenPosition - pointerDownScreenPosition;
 
@@ -204,6 +244,51 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
             out currentPanelPosition
         );
 
+        // Handle cell tracking and direction switching if enabled
+        if (enableCellTracking && isTrackingCell)
+        {
+            HandleCellTrackingDrag(currentPanelPosition, eventData);
+        }
+        else
+        {
+            HandleOriginalDrag(currentPanelPosition);
+        }
+    }
+
+    /// <summary>
+    /// Handle cell tracking drag with direction switching - allows moving to any row/column
+    /// </summary>
+    private void HandleCellTrackingDrag(Vector2 currentPanelPosition, PointerEventData eventData)
+    {
+        // Update tracked cell position (in case data shifted from other operations)
+        UpdateTrackedCellPosition();
+        
+        // Calculate finger position in grid coordinates
+        Vector2Int fingerGridPos = CalculateGridCoordsFromLocalPos(currentPanelPosition);
+        
+        // Check if we need to switch direction based on finger movement
+        Vector2 movementVector = currentPanelPosition - pointerInitialPanelPosition;
+        bool wantsHorizontal = Mathf.Abs(movementVector.x) > Mathf.Abs(movementVector.y);
+        
+        // Handle direction switching based on movement and finger position
+        if (wantsHorizontal && isVerticalDragLocked)
+        {
+            SwitchToHorizontalDrag(fingerGridPos);
+        }
+        else if (!wantsHorizontal && isHorizontalDragLocked)
+        {
+            SwitchToVerticalDrag(fingerGridPos);
+        }
+        
+        // Perform the actual drag movement (this handles visual offsets and data shifts when thresholds are met)
+        HandleOriginalDrag(currentPanelPosition);
+    }
+
+    /// <summary>
+    /// Handle original drag behavior (horizontal OR vertical)
+    /// </summary>
+    private void HandleOriginalDrag(Vector2 currentPanelPosition)
+    {
         if (isHorizontalDragLocked && activeDragRow != -1)
         {
             currentFrameVisualRemainderOffsetX = currentPanelPosition.x - pointerInitialPanelPosition.x;
@@ -217,6 +302,12 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                     currentFrameVisualRemainderOffsetX -= cellsToShift * cellDimensionWithSpacing;
                     dataActuallyShiftedDuringDrag = true;
                     pointerInitialPanelPosition.x += cellsToShift * cellDimensionWithSpacing;
+                    
+                    // Update tracked cell position after shift
+                    if (enableCellTracking && isTrackingCell)
+                    {
+                        UpdateTrackedCellPosition();
+                    }
                 }
             }
             wordGridManager.SetRowVisualOffset(activeDragRow, currentFrameVisualRemainderOffsetX);
@@ -234,6 +325,12 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                     currentFrameVisualRemainderOffsetY -= cellsToShift * cellDimensionWithSpacing;
                     dataActuallyShiftedDuringDrag = true;
                     pointerInitialPanelPosition.y += cellsToShift * cellDimensionWithSpacing;
+                    
+                    // Update tracked cell position after shift
+                    if (enableCellTracking && isTrackingCell)
+                    {
+                        UpdateTrackedCellPosition();
+                    }
                 }
             }
             wordGridManager.SetColumnVisualOffset(activeDragCol, currentFrameVisualRemainderOffsetY);
@@ -417,6 +514,151 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
 
         isPointerCurrentlyDown = false;
         tapCandidate = false;
+    }
+
+    /// <summary>
+    /// Update the tracked cell's current position by finding it by unique ID
+    /// </summary>
+    private void UpdateTrackedCellPosition()
+    {
+        if (!isTrackingCell || trackedCellID == -1) return;
+        
+        Vector2Int currentPos = wordGridManager.FindCellByUniqueID(trackedCellID);
+        if (currentPos.x != -1 && currentPos.y != -1)
+        {
+            trackedCellPosition = currentPos;
+        }
+    }
+    
+    /// <summary>
+    /// Move the tracked cell towards the target position by shifting grid data
+    /// NOTE: This method is disabled to prevent unwanted text changes in all cells
+    /// The current approach uses visual-only tracking until snap thresholds are met
+    /// </summary>
+    private void MoveTrackedCellTowards(Vector2Int targetGridPos)
+    {
+        // DISABLED: This method was causing all cells in a column/row to change text
+        // when trying to follow the tracked cell. The new approach uses visual-only
+        // tracking and only shifts data when snap thresholds are actually met.
+        return;
+        
+        /*
+        if (!isTrackingCell || trackedCellID == -1) return;
+        
+        // Calculate the movement needed
+        Vector2Int movement = targetGridPos - trackedCellPosition;
+        
+        if (movement == Vector2Int.zero) return; // No movement needed
+        
+        // Prioritize the larger movement direction
+        if (Mathf.Abs(movement.x) >= Mathf.Abs(movement.y))
+        {
+            // Move horizontally (shift row)
+            if (movement.x != 0)
+            {
+                int shiftDirection = movement.x > 0 ? 1 : -1;
+                wordGridManager.ShiftRowDataAndRefresh(trackedCellPosition.x, shiftDirection);
+                dataActuallyShiftedDuringDrag = true;
+                
+                Debug.Log($"🔄 Shifted row {trackedCellPosition.x} by {shiftDirection} to follow tracked cell {trackedCellID}");
+            }
+        }
+        else
+        {
+            // Move vertically (shift column)
+            if (movement.y != 0)
+            {
+                int shiftDirection = movement.y > 0 ? -1 : 1; // Negative because of coordinate system
+                wordGridManager.ShiftColumnDataAndRefresh(trackedCellPosition.y, shiftDirection);
+                dataActuallyShiftedDuringDrag = true;
+                
+                Debug.Log($"🔄 Shifted column {trackedCellPosition.y} by {shiftDirection} to follow tracked cell {trackedCellID}");
+            }
+        }
+        
+        // Update tracked cell position after the shift
+        UpdateTrackedCellPosition();
+        */
+    }
+    
+    /// <summary>
+    /// Switch drag mode to horizontal, snapping the grid and updating drag state
+    /// </summary>
+    private void SwitchToHorizontalDrag(Vector2Int fingerGridPos = default)
+    {
+        if (isHorizontalDragLocked) return; // Already horizontal
+        
+        // Determine which row to use - finger position if valid, otherwise tracked cell position
+        Vector2Int targetPos = (fingerGridPos.x >= 0 && fingerGridPos.x < wordGridManager.gridSize) ? fingerGridPos : trackedCellPosition;
+        
+        Debug.Log($"🔄 Switching to horizontal drag, finger at ({fingerGridPos.x}, {fingerGridPos.y}), using row {targetPos.x}");
+        
+        // Snap the current vertical column to grid
+        if (isVerticalDragLocked && activeDragCol != -1)
+        {
+            wordGridManager.SetColumnVisualOffset(activeDragCol, 0f);
+            wordGridManager.SnapColumnToGrid(activeDragCol);
+        }
+        
+        // Switch to horizontal mode using the target row
+        isVerticalDragLocked = false;
+        isHorizontalDragLocked = true;
+        activeDragCol = -1;
+        activeDragRow = targetPos.x; // Use the target row (finger or tracked cell)
+        
+        // Reset visual offsets
+        currentFrameVisualRemainderOffsetX = 0f;
+        currentFrameVisualRemainderOffsetY = 0f;
+        
+        // Update initial drag line data for the new row
+        if (activeDragRow != -1)
+        {
+            cellDimensionWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
+            initialDragLineData = wordGridManager.GetRowData(activeDragRow);
+            dragBeganOnValidLine = initialDragLineData != null;
+        }
+        
+        Debug.Log($"✅ Switched to horizontal drag on row {activeDragRow}");
+    }
+    
+    /// <summary>
+    /// Switch drag mode to vertical, snapping the grid and updating drag state
+    /// </summary>
+    private void SwitchToVerticalDrag(Vector2Int fingerGridPos = default)
+    {
+        if (isVerticalDragLocked) return; // Already vertical
+        
+        // Determine which column to use - finger position if valid, otherwise tracked cell position
+        Vector2Int targetPos = (fingerGridPos.y >= 0 && fingerGridPos.y < wordGridManager.gridSize) ? fingerGridPos : trackedCellPosition;
+        
+        Debug.Log($"🔄 Switching to vertical drag, finger at ({fingerGridPos.x}, {fingerGridPos.y}), using column {targetPos.y}");
+        
+        // Snap the current horizontal row to grid
+        if (isHorizontalDragLocked && activeDragRow != -1)
+        {
+            wordGridManager.SetRowVisualOffset(activeDragRow, 0f);
+            wordGridManager.SnapRowToGrid(activeDragRow);
+        }
+        
+        // Switch to vertical mode using the target column
+        isHorizontalDragLocked = false;
+        isVerticalDragLocked = true;
+        activeDragRow = -1;
+        activeDragCol = targetPos.y; // Use the target column (finger or tracked cell)
+        
+        // Reset visual offsets
+        currentFrameVisualRemainderOffsetX = 0f;
+        currentFrameVisualRemainderOffsetY = 0f;
+        
+        // Update initial drag line data for the new column
+        if (activeDragCol != -1)
+        {
+            cellDimensionWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
+            initialDragLineData = wordGridManager.GetColumnData(activeDragCol);
+            dragBeganOnValidLine = initialDragLineData != null;
+        }
+        
+        Debug.Log($"✅ Switched to vertical drag on column {activeDragCol}");
     }
 
     private Vector2Int CalculateGridCoordsFromLocalPos(Vector2 localPosition)

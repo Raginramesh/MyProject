@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02504c691e2994c0e8df7e61f3f2bf74, type: 3}
   m_Name: FiveForMore
   m_EditorClassIdentifier: 
-  cardName: FiveForMore
+  cardName: Five For More
   cardType: 0
   rarity: 0
   icon: {fileID: 0}

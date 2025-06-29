@@ -1889,8 +1889,6 @@ MonoBehaviour:
   cellColorAlternate: {r: 1, g: 1, b: 1, a: 1}
   validWordColor: {r: 0.38039216, g: 0.6431373, b: 0.8, a: 1}
   intersectionLetterColor: {r: 0.8396226, g: 0.2891153, b: 0.3296961, a: 1}
-  wordHighlightPalette:
-  - {r: 0.6, g: 1, b: 0.6, a: 0.75}
   wordValidator: {fileID: 593137152}
   gameManager: {fileID: 1480404336}
 --- !u!4 &593137151
@@ -3249,8 +3247,8 @@ MonoBehaviour:
   gridInputHandler: {fileID: 450983252}
   numericalScoreUI: {fileID: 56872519}
   animatedScoringSystem: {fileID: 633469393}
-  replacementDelayAfterEffectStart: 0.01
-  visualPauseBetweenWordsInSequence: 0.1
+  replacementDelayAfterEffectStart: 0
+  visualPauseBetweenWordsInSequence: 0.05
   scoreShakeDuration: 0.1
   scoreShakeStrength: 0.5
   scoreShakeVibrato: 1

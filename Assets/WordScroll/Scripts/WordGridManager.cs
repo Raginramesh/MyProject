@@ -60,6 +60,9 @@ public class WordGridManager : MonoBehaviour
     // Track if cells are initialized for wraparound
     private bool wraparoundInitialized = false;
 
+    // Unique ID counter for cell tracking
+    private static int nextUniqueID = 1;
+
     void Awake()
     {
         if (letterCellPrefab == null) { Debug.LogError("WGM: Letter Cell Prefab not assigned!", this); enabled = false; return; }
@@ -137,6 +140,12 @@ public class WordGridManager : MonoBehaviour
 
                 CellController cell = gridCells[r, c];
                 cell.gameObject.name = $"Cell_{r}_{c}";
+                
+                // Assign unique ID for tracking
+                if (cell.uniqueID == -1)
+                {
+                    cell.SetUniqueID(nextUniqueID++);
+                }
 
                 RectTransform cellRectTransform = cellGO.GetComponent<RectTransform>();
                 if (cellRectTransform != null)
@@ -618,6 +627,28 @@ public class WordGridManager : MonoBehaviour
         return null;
     }
 
+    /// <summary>
+    /// Find a cell by its unique ID and return its current position
+    /// </summary>
+    public Vector2Int FindCellByUniqueID(int uniqueID)
+    {
+        if (uniqueID == -1) return new Vector2Int(-1, -1);
+        
+        // Search through all main grid cells
+        for (int r = 0; r < gridSize; r++)
+        {
+            for (int c = 0; c < gridSize; c++)
+            {
+                if (gridCells[r, c] != null && gridCells[r, c].uniqueID == uniqueID)
+                {
+                    return new Vector2Int(r, c);
+                }
+            }
+        }
+        
+        return new Vector2Int(-1, -1); // Not found
+    }
+
     public char[] GetRowData(int rowIndex)
     {
         if (rowIndex < 0 || rowIndex >= gridSize)
@@ -702,6 +733,9 @@ public class WordGridManager : MonoBehaviour
             }
             
             cell.gameObject.name = name;
+            
+            // Assign unique ID for tracking
+            cell.SetUniqueID(nextUniqueID++);
             
             RectTransform cellRT = cellGO.GetComponent<RectTransform>();
             if (cellRT != null) cellRT.sizeDelta = new Vector2(cellSize, cellSize);
