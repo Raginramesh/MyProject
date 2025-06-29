@@ -51,6 +51,10 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
     private const int VELOCITY_TRACKING_SAMPLES = 5;
     private Coroutine activeSnapAnimationCoroutine = null;
 
+    // Move counting for multi-directional drags
+    private bool hasDataChangedThisDragGesture = false;  // Track if any data changed during entire drag gesture
+    private bool moveAlreadyCountedThisGesture = false;  // Prevent counting move multiple times per gesture
+
     // Cell tracking system - tracks specific cell by unique ID
     private int trackedCellID = -1;                // Unique ID of the tracked cell
     private Vector2Int trackedCellPosition;        // Current grid position of tracked cell
@@ -87,6 +91,10 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         dataActuallyShiftedDuringDrag = false;
         pointerPositionsHistory.Clear();
         pointerTimesHistory.Clear();
+
+        // Reset move counting for multi-directional drags
+        hasDataChangedThisDragGesture = false;
+        moveAlreadyCountedThisGesture = false;
 
         // Reset cell tracking
         trackedCellID = -1;
@@ -301,6 +309,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                     wordGridManager.ShiftRowDataAndRefresh(activeDragRow, cellsToShift);
                     currentFrameVisualRemainderOffsetX -= cellsToShift * cellDimensionWithSpacing;
                     dataActuallyShiftedDuringDrag = true;
+                    hasDataChangedThisDragGesture = true; // Track data change for entire gesture
                     pointerInitialPanelPosition.x += cellsToShift * cellDimensionWithSpacing;
                     
                     // Update tracked cell position after shift
@@ -324,6 +333,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                     wordGridManager.ShiftColumnDataAndRefresh(activeDragCol, -cellsToShift);
                     currentFrameVisualRemainderOffsetY -= cellsToShift * cellDimensionWithSpacing;
                     dataActuallyShiftedDuringDrag = true;
+                    hasDataChangedThisDragGesture = true; // Track data change for entire gesture
                     pointerInitialPanelPosition.y += cellsToShift * cellDimensionWithSpacing;
                     
                     // Update tracked cell position after shift
@@ -433,6 +443,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                     if (horizontal) wordGridManager.ShiftRowDataAndRefresh(lineIndex, dataShiftSteps);
                     else wordGridManager.ShiftColumnDataAndRefresh(lineIndex, dataShiftSteps);
                     actualDataShiftOccurredThisSnap = true;
+                    hasDataChangedThisDragGesture = true; // Track data change for entire gesture
                 }
 
                 if (horizontal) wordGridManager.SetRowVisualOffset(lineIndex, 0f);
@@ -458,19 +469,63 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                     netDataChangedFromDragStart = true;
                 }
 
+                // Track if any data changed for validation purposes
                 if (netDataChangedFromDragStart)
                 {
-                    wordGridManager.ApplyPendingMoveReduction(lineIndex, horizontal ? -1 : lineIndex, 1);
+                    hasDataChangedThisDragGesture = true;
                 }
+
+                // Move counting is now handled when the final animation completes
+                // No move counting here to prevent counting multiple times during direction switches
 
                 if (dataActuallyShiftedDuringDrag || actualDataShiftOccurredThisSnap)
                 {
                     wordGridManager.TriggerValidationCheckAndHighlightUpdate();
                 }
+                
+                // Count the move for the completed gesture if this is the final animation
+                if (hasDataChangedThisDragGesture && !moveAlreadyCountedThisGesture)
+                {
+                    wordGridManager.ApplyPendingMoveReduction(lineIndex, horizontal ? -1 : lineIndex, 1);
+                    moveAlreadyCountedThisGesture = true;
+                    Debug.Log($"🎯 Counted move for completed gesture on {(horizontal ? "row" : "column")} {lineIndex}");
+                }
+                
                 ResetDragStateAfterAnimation();
             });
 
         yield return snapTween.WaitForCompletion();
+    }
+
+    /// <summary>
+    /// Handle move counting for completed drag gesture
+    /// </summary>
+    private void HandleMoveCountingForCompletedGesture()
+    {
+        if (hasDataChangedThisDragGesture && !moveAlreadyCountedThisGesture)
+        {
+            // Find which line was affected most recently for move counting
+            int lineIndex = -1;
+            bool horizontal = false;
+            
+            if (activeDragRow != -1)
+            {
+                lineIndex = activeDragRow;
+                horizontal = true;
+            }
+            else if (activeDragCol != -1)
+            {
+                lineIndex = activeDragCol;
+                horizontal = false;
+            }
+            
+            if (lineIndex != -1)
+            {
+                wordGridManager.ApplyPendingMoveReduction(lineIndex, horizontal ? -1 : lineIndex, 1);
+                moveAlreadyCountedThisGesture = true;
+                Debug.Log($"🎯 Counted move for completed multi-directional gesture on {(horizontal ? "row" : "column")} {lineIndex}");
+            }
+        }
     }
 
     private void ResetDragStateAfterAnimation()
@@ -559,6 +614,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                 int shiftDirection = movement.x > 0 ? 1 : -1;
                 wordGridManager.ShiftRowDataAndRefresh(trackedCellPosition.x, shiftDirection);
                 dataActuallyShiftedDuringDrag = true;
+                hasDataChangedThisDragGesture = true; // Track data change for entire gesture
                 
                 Debug.Log($"🔄 Shifted row {trackedCellPosition.x} by {shiftDirection} to follow tracked cell {trackedCellID}");
             }
@@ -571,6 +627,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                 int shiftDirection = movement.y > 0 ? -1 : 1; // Negative because of coordinate system
                 wordGridManager.ShiftColumnDataAndRefresh(trackedCellPosition.y, shiftDirection);
                 dataActuallyShiftedDuringDrag = true;
+                hasDataChangedThisDragGesture = true; // Track data change for entire gesture
                 
                 Debug.Log($"🔄 Shifted column {trackedCellPosition.y} by {shiftDirection} to follow tracked cell {trackedCellID}");
             }
