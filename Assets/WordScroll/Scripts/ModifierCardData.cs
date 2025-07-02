@@ -27,7 +27,7 @@ namespace WordScroll.Modifiers
         // Add more effect types here as you design them
     }
 
-    [CreateAssetMenu(fileName = "NewModifierCard", menuName = "WordScroll/Modifier Card Data")]
+    [CreateAssetMenu(fileName = "NewModifierCard", menuName = "Word Scroll/Modifier Card Data")]
     public class ModifierCardData : ScriptableObject
     {
         [Header("Card Identity")]

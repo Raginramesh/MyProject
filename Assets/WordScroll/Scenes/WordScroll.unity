@@ -1397,6 +1397,10 @@ MonoBehaviour:
   flickEaseType: 6
   releaseSnapDuration: 0.5
   releaseSnapEaseType: 6
+  centerDeadzoneRadius: 0.5
+  directionLockThreshold: 0.5
+  showDeadzoneDebug: 0
+  enableCellTracking: 1
 --- !u!1 &472207180
 GameObject:
   m_ObjectHideFlags: 0
@@ -1997,6 +2001,57 @@ MonoBehaviour:
   modifierSound: {fileID: 0}
   transferSound: {fileID: 0}
   intersectionSound: {fileID: 0}
+--- !u!1 &761749159
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 761749161}
+  - component: {fileID: 761749160}
+  m_Layer: 0
+  m_Name: LevelManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &761749160
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 761749159}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0fe0397cf4eb44a9481e1f43735c3d14, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  allLevels:
+  - {fileID: 11400000, guid: cc343bd36767d42119403029f026fee7, type: 2}
+  currentLevel: {fileID: 0}
+  debugMode: 0
+  currentLevelIndex: 0
+  currentMoves: 0
+  currentScore: 0
+--- !u!4 &761749161
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 761749159}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &773578373
 GameObject:
   m_ObjectHideFlags: 0
@@ -3254,6 +3309,7 @@ MonoBehaviour:
   scoreShakeVibrato: 1
   scoreTransferSpeed: 10
   scoreTransferMinDelay: 0.2
+  useLevelSystem: 1
 --- !u!4 &1480404337
 Transform:
   m_ObjectHideFlags: 0
@@ -3900,6 +3956,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   winLossMessageText: {fileID: 1289521930}
   finalScoreText: {fileID: 1870762387}
+  levelSystemPanel: {fileID: 0}
+  levelCompleteTitle: {fileID: 0}
+  targetScoreText: {fileID: 0}
+  movesUsedText: {fileID: 0}
+  starIcons: []
+  starEarnedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  starUnearnedColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  nextLevelButton: {fileID: 0}
+  retryButton: {fileID: 0}
+  homeButton: {fileID: 0}
+  autoAdvanceDelay: 3
 --- !u!1 &2028402605
 GameObject:
   m_ObjectHideFlags: 0
@@ -3963,6 +4030,10 @@ MonoBehaviour:
   flickEaseType: 6
   releaseSnapDuration: 0.2
   releaseSnapEaseType: 6
+  centerDeadzoneRadius: 20
+  directionLockThreshold: 15
+  showDeadzoneDebug: 0
+  enableCellTracking: 1
 --- !u!114 &2028402608
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4225,3 +4296,4 @@ SceneRoots:
   - {fileID: 633469391}
   - {fileID: 593137151}
   - {fileID: 472207182}
+  - {fileID: 761749161}

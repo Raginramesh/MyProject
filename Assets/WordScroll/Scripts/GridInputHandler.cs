@@ -6,6 +6,13 @@ using DG.Tweening;
 using System;
 using System.Linq;
 
+public enum DragDirection
+{
+    None,
+    Horizontal,
+    Vertical
+}
+
 public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerUpHandler
 {
     [Header("References")]
@@ -32,6 +39,14 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
     [SerializeField] private float releaseSnapDuration = 0.2f;
     [SerializeField] private Ease releaseSnapEaseType = Ease.OutQuad;
 
+    [Header("Deadzone Settings")]
+    [Tooltip("Radius around initial touch point where no direction is committed (in pixels)")]
+    [SerializeField] private float centerDeadzoneRadius = 20f;
+    [Tooltip("Minimum distance to travel outside deadzone before direction locks")]
+    [SerializeField] private float directionLockThreshold = 15f;
+    [Tooltip("Enable debug visualization of deadzone (editor only)")]
+    [SerializeField] private bool showDeadzoneDebug = false;
+
     private Vector2 pointerDownScreenPosition;
     private Vector2 pointerInitialPanelPosition;
     private float pointerDownTime;
@@ -48,6 +63,11 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
     private bool tapCandidate = false;
     private List<Vector2> pointerPositionsHistory = new List<Vector2>();
     private List<float> pointerTimesHistory = new List<float>();
+
+    // Deadzone state tracking
+    private bool isInDeadzone = true;
+    private Vector2 initialTouchScreenPosition;
+    private DragDirection currentDragDirection = DragDirection.None;
     private const int VELOCITY_TRACKING_SAMPLES = 5;
     private Coroutine activeSnapAnimationCoroutine = null;
 
@@ -92,6 +112,11 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         pointerPositionsHistory.Clear();
         pointerTimesHistory.Clear();
 
+        // Reset deadzone state
+        isInDeadzone = true;
+        currentDragDirection = DragDirection.None;
+        initialTouchScreenPosition = Vector2.zero;
+
         // Reset move counting for multi-directional drags
         hasDataChangedThisDragGesture = false;
         moveAlreadyCountedThisGesture = false;
@@ -124,6 +149,11 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         tapCandidate = true;
         pointerDownTime = Time.time;
         pointerDownScreenPosition = eventData.position;
+        
+        // Initialize deadzone tracking
+        initialTouchScreenPosition = eventData.position;
+        isInDeadzone = true;
+        currentDragDirection = DragDirection.None;
 
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             gridPanelRect,
@@ -189,47 +219,37 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
                 wordGridManager.ClearAllCellHighlights(false); // false to reset to stored default colors
             }
 
-            Vector2 initialTouchLocalPos;
+            // Initialize cell tracking if enabled
+            if (enableCellTracking)
+            {
+                Vector2 initialTouchLocalPos;
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    gridPanelRect, pointerDownScreenPosition, uiCamera, out initialTouchLocalPos);
+                    
+                Vector2Int gridCoords = CalculateGridCoordsFromLocalPos(initialTouchLocalPos);
+                if (gridCoords.x >= 0 && gridCoords.y >= 0 && 
+                    gridCoords.x < wordGridManager.gridSize && gridCoords.y < wordGridManager.gridSize)
+                {
+                    CellController cellController = wordGridManager.GetCellController(gridCoords);
+                    if (cellController != null)
+                    {
+                        trackedCellID = cellController.uniqueID;
+                        trackedCellPosition = gridCoords;
+                        isTrackingCell = true;
+                        
+                        Debug.Log($"🎯 Started tracking cell ID {trackedCellID} at position ({gridCoords.x}, {gridCoords.y})");
+                    }
+                }
+            }
+
+            // Use deadzone logic instead of immediate direction locking
+            Vector2 currentPanelPosition;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                gridPanelRect, pointerDownScreenPosition, uiCamera, out initialTouchLocalPos);
+                gridPanelRect, currentScreenPosition, uiCamera, out currentPanelPosition);
+                
+            // Handle deadzone and direction determination
+            HandleDeadzoneLogic(currentScreenPosition, currentPanelPosition);
             
-            // Always use finger position to determine which row/column to start with
-            Vector2Int gridCoords = CalculateGridCoordsFromLocalPos(initialTouchLocalPos);
-            
-            if (enableCellTracking && isTrackingCell)
-            {
-                Debug.Log($"🎯 Starting drag at finger position ({gridCoords.x}, {gridCoords.y}), tracking cell {trackedCellID} at ({trackedCellPosition.x}, {trackedCellPosition.y})");
-            }
-
-            Vector2 dragVector = currentScreenPosition - pointerDownScreenPosition;
-
-            if (Mathf.Abs(dragVector.x) > Mathf.Abs(dragVector.y))
-            {
-                isHorizontalDragLocked = true;
-                activeDragRow = gridCoords.x;
-                activeDragCol = -1;
-                if (activeDragRow != -1)
-                {
-                    cellDimensionWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
-                    initialDragLineData = wordGridManager.GetRowData(activeDragRow);
-                    dragBeganOnValidLine = initialDragLineData != null;
-                }
-                else { isDragging = false; isHorizontalDragLocked = false; return; }
-            }
-            else
-            {
-                isVerticalDragLocked = true;
-                activeDragCol = gridCoords.y;
-                activeDragRow = -1;
-                if (activeDragCol != -1)
-                {
-                    cellDimensionWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
-                    initialDragLineData = wordGridManager.GetColumnData(activeDragCol);
-                    dragBeganOnValidLine = initialDragLineData != null;
-                }
-                else { isDragging = false; isVerticalDragLocked = false; return; }
-            }
-
             RectTransformUtility.ScreenPointToLocalPointInRectangle(gridPanelRect, eventData.position, uiCamera, out pointerInitialPanelPosition);
             currentFrameVisualRemainderOffsetX = 0;
             currentFrameVisualRemainderOffsetY = 0;
@@ -238,7 +258,7 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (!isDragging || (!isHorizontalDragLocked && !isVerticalDragLocked) || gameManager.IsAnyAnimationPlaying || gameManager.CurrentStatePublic != GameManager.GameState.Playing || activeSnapAnimationCoroutine != null)
+        if (!isDragging || gameManager.IsAnyAnimationPlaying || gameManager.CurrentStatePublic != GameManager.GameState.Playing || activeSnapAnimationCoroutine != null)
         {
             return;
         }
@@ -251,6 +271,15 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
             uiCamera,
             out currentPanelPosition
         );
+
+        // Handle deadzone logic first - this may change direction or keep us unlocked
+        bool directionChanged = HandleDeadzoneLogic(eventData.position, currentPanelPosition);
+        
+        // Only proceed with scrolling if we have a locked direction
+        if (currentDragDirection == DragDirection.None || (!isHorizontalDragLocked && !isVerticalDragLocked))
+        {
+            return; // Still in deadzone or no direction established
+        }
 
         // Handle cell tracking and direction switching if enabled
         if (enableCellTracking && isTrackingCell)
@@ -769,4 +798,162 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
 
         return deltaPosition / deltaTime;
     }
+
+    /// <summary>
+    /// Check if the current pointer position is within the deadzone
+    /// </summary>
+    private bool IsWithinDeadzone(Vector2 currentScreenPosition)
+    {
+        float distance = Vector2.Distance(currentScreenPosition, initialTouchScreenPosition);
+        return distance <= centerDeadzoneRadius;
+    }
+    
+    /// <summary>
+    /// Determine drag direction based on the vector from initial touch to current position
+    /// Only called when exiting deadzone
+    /// </summary>
+    private DragDirection DetermineDragDirection(Vector2 currentScreenPosition)
+    {
+        Vector2 dragVector = currentScreenPosition - initialTouchScreenPosition;
+        float distance = dragVector.magnitude;
+        
+        // Must be outside deadzone and past direction lock threshold
+        if (distance < centerDeadzoneRadius + directionLockThreshold)
+            return DragDirection.None;
+        
+        // Determine primary direction based on the larger component
+        if (Mathf.Abs(dragVector.x) > Mathf.Abs(dragVector.y))
+            return DragDirection.Horizontal;
+        else
+            return DragDirection.Vertical;
+    }
+    
+    /// <summary>
+    /// Handle deadzone logic and direction switching
+    /// Returns true if direction was established/changed
+    /// </summary>
+    private bool HandleDeadzoneLogic(Vector2 currentScreenPosition, Vector2 currentPanelPosition)
+    {
+        bool wasInDeadzone = isInDeadzone;
+        isInDeadzone = IsWithinDeadzone(currentScreenPosition);
+        
+        // If we're in the deadzone, unlock direction if previously locked
+        if (isInDeadzone)
+        {
+            if (currentDragDirection != DragDirection.None)
+            {
+                Debug.Log($"🎯 Returned to deadzone - unlocking direction (was {currentDragDirection})");
+                
+                // Snap current line to grid before unlocking
+                if (currentDragDirection == DragDirection.Horizontal && activeDragRow != -1)
+                {
+                    wordGridManager.SetRowVisualOffset(activeDragRow, 0f);
+                    wordGridManager.SnapRowToGrid(activeDragRow);
+                }
+                else if (currentDragDirection == DragDirection.Vertical && activeDragCol != -1)
+                {
+                    wordGridManager.SetColumnVisualOffset(activeDragCol, 0f);
+                    wordGridManager.SnapColumnToGrid(activeDragCol);
+                }
+                
+                // Reset direction state
+                currentDragDirection = DragDirection.None;
+                isHorizontalDragLocked = false;
+                isVerticalDragLocked = false;
+                activeDragRow = -1;
+                activeDragCol = -1;
+                currentFrameVisualRemainderOffsetX = 0f;
+                currentFrameVisualRemainderOffsetY = 0f;
+            }
+            return false; // No direction established
+        }
+        
+        // We're outside deadzone - determine/maintain direction
+        DragDirection newDirection = DetermineDragDirection(currentScreenPosition);
+        
+        if (newDirection == DragDirection.None)
+            return false; // Still too close to deadzone
+        
+        // Check if direction changed
+        if (currentDragDirection != newDirection)
+        {
+            Debug.Log($"🔄 Direction changed from {currentDragDirection} to {newDirection}");
+            
+            // Set new direction
+            currentDragDirection = newDirection;
+            
+            // Establish new drag line
+            Vector2Int gridCoords = CalculateGridCoordsFromLocalPos(currentPanelPosition);
+            
+            if (newDirection == DragDirection.Horizontal)
+            {
+                isHorizontalDragLocked = true;
+                isVerticalDragLocked = false;
+                activeDragRow = gridCoords.x;
+                activeDragCol = -1;
+                
+                if (activeDragRow >= 0 && activeDragRow < wordGridManager.gridSize)
+                {
+                    cellDimensionWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
+                    initialDragLineData = wordGridManager.GetRowData(activeDragRow);
+                    dragBeganOnValidLine = initialDragLineData != null;
+                }
+            }
+            else // Vertical
+            {
+                isVerticalDragLocked = true;
+                isHorizontalDragLocked = false;
+                activeDragCol = gridCoords.y;
+                activeDragRow = -1;
+                
+                if (activeDragCol >= 0 && activeDragCol < wordGridManager.gridSize)
+                {
+                    cellDimensionWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
+                    initialDragLineData = wordGridManager.GetColumnData(activeDragCol);
+                    dragBeganOnValidLine = initialDragLineData != null;
+                }
+            }
+            
+            return true; // Direction established/changed
+        }
+        
+        return false; // Direction unchanged
+    }
+
+#if UNITY_EDITOR
+    /// <summary>
+    /// Debug visualization of the deadzone (Editor only)
+    /// </summary>
+    void OnDrawGizmos()
+    {
+        if (!showDeadzoneDebug || !isPointerCurrentlyDown) return;
+        
+        // Convert screen position to world position for gizmo drawing
+        if (Camera.main != null)
+        {
+            Vector3 worldPos = Camera.main.ScreenToWorldPoint(new Vector3(initialTouchScreenPosition.x, initialTouchScreenPosition.y, 10f));
+            
+            // Draw deadzone circle (using sphere wireframe)
+            Gizmos.color = isInDeadzone ? Color.green : Color.red;
+            Gizmos.DrawWireSphere(worldPos, centerDeadzoneRadius * 0.01f); // Scale for world space
+            
+            // Draw direction lock threshold
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(worldPos, (centerDeadzoneRadius + directionLockThreshold) * 0.01f);
+            
+            // Draw current position
+            if (isPointerCurrentlyDown)
+            {
+                Vector3 currentWorldPos = Camera.main.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, 10f));
+                Gizmos.color = Color.blue;
+                Gizmos.DrawSphere(currentWorldPos, 2f * 0.01f);
+                
+                // Draw line from center to current position
+                Gizmos.color = currentDragDirection == DragDirection.None ? Color.white : 
+                              currentDragDirection == DragDirection.Horizontal ? Color.red : Color.blue;
+                Gizmos.DrawLine(worldPos, currentWorldPos);
+            }
+        }
+    }
+#endif
 }

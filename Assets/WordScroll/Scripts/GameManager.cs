@@ -37,7 +37,12 @@ public class GameManager : MonoBehaviour
     [SerializeField] private DisplayMode currentDisplayMode = DisplayMode.Timer;
     public DisplayMode CurrentGameDisplayMode => currentDisplayMode;
     [SerializeField] private float gameTimeLimit = 120f;
-    [SerializeField] private int startingMoves = 50;
+    
+    [Header("Traditional Mode Settings (when not using Level System)")]
+    [Tooltip("Starting moves for traditional mode (ignored when using Level System)")]
+    [SerializeField] private int traditionalStartingMoves = 50;
+    [Tooltip("Target score for traditional mode (ignored when using Level System)")]
+    [SerializeField] private int traditionalTargetScore = 1000;
 
     [Header("Scene Navigation")]
     [SerializeField] private string homeSceneName = "HomeScreen";
@@ -49,7 +54,6 @@ public class GameManager : MonoBehaviour
     [Tooltip("Points per letter, used if Scoring Mode is LengthBased for actual scoring, and for ScrabbleBased if a letter has no defined Scrabble value (as a fallback, typically 1).")]
     [SerializeField] private int pointsPerLetter = 10;
     public int GetPointsPerLetterSetting() => pointsPerLetter;
-    [SerializeField] private int targetScoreForLevel = 1000;
 
     private Dictionary<char, int> scrabbleLetterValues;
     public IReadOnlyDictionary<char, int> GetScrabbleLetterValues() => scrabbleLetterValues;
@@ -85,6 +89,12 @@ public class GameManager : MonoBehaviour
     [Header("Score Transfer Animation")]
     [SerializeField] private float scoreTransferSpeed = 30f; // Points per second transfer rate
     [SerializeField] private float scoreTransferMinDelay = 0.02f; // Minimum delay between increments
+
+    [Header("Level System Integration")]
+    [SerializeField] private bool useLevelSystem = true;
+
+    // Properties for level integration
+    public bool IsUsingLevelSystem => useLevelSystem && LevelManager.Instance != null;
 
     private float currentTimeRemaining;
     private int currentMovesRemaining;
@@ -146,6 +156,13 @@ public class GameManager : MonoBehaviour
         if (currentState != GameState.Initializing && currentState != GameState.Playing)
         {
             SetState(GameState.Initializing);
+        }
+        
+        // Setup level system event listeners if using level system
+        if (IsUsingLevelSystem)
+        {
+            LevelManager.OnLevelCompleted += OnLevelSystemCompleted;
+            LevelManager.OnLevelFailed += OnLevelSystemFailed;
         }
         
         // DEBUG: Test scoring system
@@ -808,6 +825,12 @@ public class GameManager : MonoBehaviour
             currentScore++;
             pointsTransferred++;
             
+            // Notify level system of score increase
+            if (IsUsingLevelSystem)
+            {
+                LevelManager.Instance.AddScore(1);
+            }
+            
             // Update UI
             UpdateScoreUI();
             UpdateRoundScoreUI();
@@ -828,6 +851,13 @@ public class GameManager : MonoBehaviour
         {
             currentScore += remainingPoints;
             currentRoundScore = 0;
+            
+            // Notify level system of bulk score increase
+            if (IsUsingLevelSystem)
+            {
+                LevelManager.Instance.AddScore(remainingPoints);
+            }
+            
             UpdateScoreUI();
             UpdateRoundScoreUI();
         }
@@ -905,8 +935,15 @@ public class GameManager : MonoBehaviour
         {
             Debug.Log($"⏭️  Skipping score transfer animation. Applying {currentRoundScore} points instantly.");
             
-            currentScore += currentRoundScore;
+            int pointsToAdd = currentRoundScore;
+            currentScore += pointsToAdd;
             currentRoundScore = 0;
+            
+            // Notify level system of score increase
+            if (IsUsingLevelSystem)
+            {
+                LevelManager.Instance.AddScore(pointsToAdd);
+            }
             
             UpdateScoreUI();
             UpdateRoundScoreUI();
@@ -1080,6 +1117,15 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void DecrementMoves()
     {
+        // Handle level system integration
+        if (IsUsingLevelSystem)
+        {
+            // Let LevelManager handle move counting and game end logic
+            LevelManager.Instance.AddMove();
+            return;
+        }
+        
+        // Original move counting logic for non-level gameplay
         if (currentDisplayMode != DisplayMode.Moves) return;
         
         currentMovesRemaining--;
@@ -1198,5 +1244,47 @@ public class GameManager : MonoBehaviour
         
         // Test the new mode
         DebugTestScoring();
+    }
+
+    /// <summary>
+    /// Handle level completion in level system
+    /// </summary>
+    private void OnLevelSystemCompleted(LevelData level, int finalScore, int stars)
+    {
+        hasWon = true;
+        SetState(GameState.GameOver);
+        
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+        }
+        
+        Debug.Log($"🌟 Level System: {level.LevelName} completed with {stars} stars!");
+    }
+    
+    /// <summary>
+    /// Handle level failure in level system
+    /// </summary>
+    private void OnLevelSystemFailed(LevelData level)
+    {
+        hasWon = false;
+        SetState(GameState.GameOver);
+        
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+        }
+        
+        Debug.Log($"❌ Level System: {level.LevelName} failed!");
+    }
+
+    void OnDestroy()
+    {
+        // Clean up level system event listeners
+        if (IsUsingLevelSystem)
+        {
+            LevelManager.OnLevelCompleted -= OnLevelSystemCompleted;
+            LevelManager.OnLevelFailed -= OnLevelSystemFailed;
+        }
     }
 }
