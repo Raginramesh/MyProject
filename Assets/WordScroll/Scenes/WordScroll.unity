@@ -3283,11 +3283,11 @@ MonoBehaviour:
   currentState: 0
   currentDisplayMode: 1
   gameTimeLimit: 180
-  startingMoves: 20
+  traditionalStartingMoves: 20
+  traditionalTargetScore: 50
   homeSceneName: HomeScene
   currentScoringMode: 1
   pointsPerLetter: 10
-  targetScoreForLevel: 50
   scoreText: {fileID: 1345162615}
   roundScoreText: {fileID: 1365114201}
   scoreTextRectTransform: {fileID: 1345162614}

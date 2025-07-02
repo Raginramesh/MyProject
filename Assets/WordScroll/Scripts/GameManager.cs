@@ -95,12 +95,63 @@ public class GameManager : MonoBehaviour
 
     // Properties for level integration
     public bool IsUsingLevelSystem => useLevelSystem && LevelManager.Instance != null;
+    
+    // Get the target score based on current system
+    private int targetScoreForLevel
+    {
+        get
+        {
+            if (IsUsingLevelSystem && LevelManager.Instance?.CurrentLevel != null)
+            {
+                return LevelManager.Instance.CurrentLevel.TargetScore;
+            }
+            return traditionalTargetScore;
+        }
+    }
+    
+    // Get the starting moves based on current system
+    private int startingMoves
+    {
+        get
+        {
+            if (IsUsingLevelSystem && LevelManager.Instance?.CurrentLevel != null)
+            {
+                return LevelManager.Instance.CurrentLevel.MaxMoves;
+            }
+            return traditionalStartingMoves;
+        }
+    }
 
     private float currentTimeRemaining;
     private int currentMovesRemaining;
     private int currentScore = 0;
     private int currentRoundScore = 0; // Score to be transferred to total
-    public int CurrentScore => currentScore; // Public getter for currentScore
+    
+    // Public getters that sync with LevelManager when appropriate
+    public int CurrentScore 
+    {
+        get 
+        { 
+            if (IsUsingLevelSystem && LevelManager.Instance != null)
+            {
+                return LevelManager.Instance.CurrentScore;
+            }
+            return currentScore; 
+        }
+    }
+    
+    public int CurrentMovesRemaining
+    {
+        get
+        {
+            if (IsUsingLevelSystem && LevelManager.Instance != null && LevelManager.Instance.CurrentLevel != null)
+            {
+                return LevelManager.Instance.CurrentLevel.GetRemainingMoves(LevelManager.Instance.CurrentMoves);
+            }
+            return currentMovesRemaining;
+        }
+    }
+    
     public int CurrentRoundScore => currentRoundScore; // Public getter for current round score
     public static GameManager instance;
 
@@ -158,11 +209,22 @@ public class GameManager : MonoBehaviour
             SetState(GameState.Initializing);
         }
         
+        // Debug level system status
+        Debug.Log($"🎮 GameManager Start: useLevelSystem={useLevelSystem}, LevelManager.Instance={(LevelManager.Instance != null ? "Found" : "NULL")}");
+        Debug.Log($"🎮 IsUsingLevelSystem={IsUsingLevelSystem}");
+        
         // Setup level system event listeners if using level system
         if (IsUsingLevelSystem)
         {
             LevelManager.OnLevelCompleted += OnLevelSystemCompleted;
             LevelManager.OnLevelFailed += OnLevelSystemFailed;
+            LevelManager.OnMovesChanged += OnLevelSystemMovesChanged;
+            LevelManager.OnScoreChanged += OnLevelSystemScoreChanged;
+            Debug.Log($"🎮 Level System Events: Subscribed to LevelManager events");
+        }
+        else
+        {
+            Debug.Log($"🎮 Level System: Using traditional mode");
         }
         
         // DEBUG: Test scoring system
@@ -226,8 +288,32 @@ public class GameManager : MonoBehaviour
     private void StartGame()
     {
         SetState(GameState.Initializing);
-        currentScore = 0;
-        currentRoundScore = 0; // Initialize round score
+        
+        // Initialize score and moves based on current system
+        if (IsUsingLevelSystem)
+        {
+            // Let LevelManager handle score tracking - don't reset its score here
+            currentScore = 0; // GameManager's internal tracking (not used for display)
+            currentRoundScore = 0;
+            Debug.Log($"🎮 Level System: Current level is {LevelManager.Instance?.CurrentLevel?.LevelName ?? "Unknown Level"}");
+            Debug.Log($"🎮 Level System: LevelManager score is {LevelManager.Instance?.CurrentScore ?? 0}");
+            
+            // Ensure we have a current level - if not, start the first level
+            if (LevelManager.Instance != null && LevelManager.Instance.CurrentLevel == null)
+            {
+                Debug.Log($"🎮 No current level found, starting level 0");
+                bool levelStarted = LevelManager.Instance.StartLevel(0);
+                Debug.Log($"🎮 Level start result: {levelStarted}");
+            }
+        }
+        else
+        {
+            // Traditional mode initialization - reset everything
+            currentScore = 0;
+            currentRoundScore = 0;
+            Debug.Log($"🎮 Traditional Mode: Reset score to 0");
+        }
+        
         hasWon = false; // Reset win state
 
         // Initialize animated scoring system
@@ -264,12 +350,44 @@ public class GameManager : MonoBehaviour
         {
             bool isGroupActive = currentDisplayMode != DisplayMode.None;
             statusDisplayGroup.SetActive(isGroupActive);
+            Debug.Log($"🎮 Status Display Group: Active={isGroupActive}, CurrentDisplayMode={currentDisplayMode}");
+            
             if (isGroupActive)
             {
                 if (timerText != null) timerText.gameObject.SetActive(currentDisplayMode == DisplayMode.Timer);
-                if (movesText != null) movesText.gameObject.SetActive(currentDisplayMode == DisplayMode.Moves);
-                if (currentDisplayMode == DisplayMode.Timer) { currentTimeRemaining = gameTimeLimit; UpdateTimerUI(); }
-                else if (currentDisplayMode == DisplayMode.Moves) { currentMovesRemaining = startingMoves; UpdateMovesUI(); }
+                if (movesText != null) 
+                {
+                    movesText.gameObject.SetActive(currentDisplayMode == DisplayMode.Moves);
+                    Debug.Log($"📱 Moves Text GameObject: Active={movesText.gameObject.activeSelf}, DisplayMode={currentDisplayMode}");
+                }
+                
+                if (currentDisplayMode == DisplayMode.Timer) 
+                { 
+                    currentTimeRemaining = gameTimeLimit; 
+                    UpdateTimerUI(); 
+                    Debug.Log($"⏰ Timer Mode: Time={currentTimeRemaining}");
+                }
+                else if (currentDisplayMode == DisplayMode.Moves) 
+                { 
+                    Debug.Log($"🎯 Moves Mode: IsUsingLevelSystem={IsUsingLevelSystem}");
+                    
+                    // Initialize moves - use traditional moves only if not using level system
+                    if (!IsUsingLevelSystem)
+                    {
+                        currentMovesRemaining = startingMoves;
+                        Debug.Log($"🎯 Traditional Moves: Set currentMovesRemaining={currentMovesRemaining} from startingMoves={startingMoves}");
+                    }
+                    else
+                    {
+                        Debug.Log($"🎯 Level System Moves: LevelManager.Instance={(LevelManager.Instance != null ? "Found" : "NULL")}, CurrentLevel={(LevelManager.Instance?.CurrentLevel != null ? LevelManager.Instance.CurrentLevel.LevelName : "NULL")}");
+                        if (LevelManager.Instance?.CurrentLevel != null)
+                        {
+                            Debug.Log($"🎯 Level Data: MaxMoves={LevelManager.Instance.CurrentLevel.MaxMoves}, CurrentMoves={LevelManager.Instance.CurrentMoves}");
+                        }
+                    }
+                    
+                    UpdateMovesUI(); 
+                }
             }
         }
         if (wordGridManager != null)
@@ -291,6 +409,14 @@ public class GameManager : MonoBehaviour
         }
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
+        
+        // Force UI refresh when using level system to ensure everything displays correctly
+        if (IsUsingLevelSystem)
+        {
+            // Use a small delay to ensure LevelManager has fully initialized
+            Invoke(nameof(RefreshGameUI), 0.1f);
+        }
+        
         SetState(GameState.Playing);
     }
 
@@ -578,14 +704,18 @@ public class GameManager : MonoBehaviour
         // NEW: Use the integrated scoring system at the beginning
         yield return StartCoroutine(ProcessScoringForWords(wordsToAnimateInOrder));
         
-        // Check for win condition after scoring
-        if (currentScore >= targetScoreForLevel && currentState == GameState.Playing && !hasWon)
+        // Check for win condition after scoring - LevelManager handles this for level system
+        if (!IsUsingLevelSystem)
         {
-            PlayerWins();
-            if(currentState == GameState.GameOver) 
+            int currentGameScore = IsUsingLevelSystem && LevelManager.Instance != null ? LevelManager.Instance.CurrentScore : currentScore;
+            if (currentGameScore >= targetScoreForLevel && currentState == GameState.Playing && !hasWon)
             {
-                isProcessingSequentialWords = false;
-                yield break;
+                PlayerWins();
+                if(currentState == GameState.GameOver) 
+                {
+                    isProcessingSequentialWords = false;
+                    yield break;
+                }
             }
         }
         List<Vector2Int> allUniqueAffectedCoordinatesFromThisSequence = new List<Vector2Int>();
@@ -759,9 +889,43 @@ public class GameManager : MonoBehaviour
             // Handle cleanup after animation
             animatedScoringSystem.OnScoringComplete(words);
             
-            // Update game score from animated scoring system
-            int newTotalScore = animatedScoringSystem.GetTotalScore();
-            currentScore = newTotalScore;
+            // Update game score from animated scoring system (only in traditional mode)
+            if (!IsUsingLevelSystem)
+            {
+                int newTotalScore = animatedScoringSystem.GetTotalScore();
+                currentScore = newTotalScore;
+                Debug.Log($"[GameManager] Traditional mode: Updated currentScore to {currentScore} from animated scoring system.");
+            }
+            else
+            {
+                Debug.Log($"[GameManager] Level system mode: Skipping currentScore update from animated scoring system.");
+                Debug.Log($"[GameManager] ↳ LevelManager.Instance exists: {LevelManager.Instance != null}");
+                if (LevelManager.Instance != null)
+                {
+                    Debug.Log($"[GameManager] ↳ LevelManager.CurrentScore: {LevelManager.Instance.CurrentScore}");
+                }
+                Debug.Log($"[GameManager] ↳ GameManager.CurrentScore property: {CurrentScore}");
+                Debug.Log($"[GameManager] ↳ animatedScoringSystem.GetTotalScore(): {animatedScoringSystem.GetTotalScore()}");
+                
+                // CRITICAL FIX: Add score to LevelManager immediately so UpdateScoreUI shows correct value
+                if (LevelManager.Instance != null && scoringData.finalScore > 0)
+                {
+                    int scoreBeforeAdd = LevelManager.Instance.CurrentScore;
+                    Debug.Log($"[GameManager] ↳ BEFORE AddScore: LevelManager.CurrentScore = {scoreBeforeAdd}");
+                    Debug.Log($"[GameManager] ↳ Adding {scoringData.finalScore} points to LevelManager immediately");
+                    LevelManager.Instance.AddScore(scoringData.finalScore);
+                    int scoreAfterAdd = LevelManager.Instance.CurrentScore;
+                    Debug.Log($"[GameManager] ↳ AFTER AddScore: LevelManager.CurrentScore = {scoreAfterAdd}");
+                    Debug.Log($"[GameManager] ↳ Expected total: {scoreBeforeAdd} + {scoringData.finalScore} = {scoreBeforeAdd + scoringData.finalScore}");
+                    
+                    if (scoreAfterAdd != scoreBeforeAdd + scoringData.finalScore)
+                    {
+                        Debug.LogError($"🚨 LEVELMANAGER SCORE MISMATCH! Expected {scoreBeforeAdd + scoringData.finalScore}, got {scoreAfterAdd}");
+                    }
+                }
+            }
+            
+            // Update UI - the safeguards in UpdateScoreUI will prevent score resets
             UpdateScoreUI();
         }
         else
@@ -816,46 +980,76 @@ public class GameManager : MonoBehaviour
         int totalPointsToTransfer = currentRoundScore;
         int pointsTransferred = 0;
         
-        Debug.Log($"� Starting score transfer: {totalPointsToTransfer} points at {pointsPerSecond:F1} points/sec");
+        Debug.Log($"🔄 Starting score transfer: {totalPointsToTransfer} points at {pointsPerSecond:F1} points/sec");
         
-        while (currentRoundScore > 0 && currentState == GameState.Playing)
+        if (IsUsingLevelSystem)
         {
-            // Transfer one point
-            currentRoundScore--;
-            currentScore++;
-            pointsTransferred++;
+            // For level system: Score already added to LevelManager in ProcessScoringForWords
+            // Just animate the visual transfer without affecting actual scores
+            Debug.Log($"🔄 Level system: Score already added to LevelManager, animating visual transfer only");
             
-            // Notify level system of score increase
-            if (IsUsingLevelSystem)
+            // Animate the visual transfer without affecting actual scores
+            while (currentRoundScore > 0 && currentState == GameState.Playing)
             {
-                LevelManager.Instance.AddScore(1);
+                currentRoundScore--;
+                pointsTransferred++;
+                
+                // Update UI every few points instead of every single point to reduce conflicts
+                if (pointsTransferred % 3 == 0 || currentRoundScore == 0)
+                {
+                    UpdateScoreUI();
+                    UpdateRoundScoreUI();
+                }
+                
+                // Optional: Add shake effect every few points
+                if (pointsTransferred % 5 == 0 && scoreTextRectTransform != null)
+                {
+                    scoreTextRectTransform.DOKill(true);
+                    scoreTextRectTransform.DOPunchScale(Vector3.one * 0.1f, 0.1f, 1, 0f);
+                }
+                
+                yield return new WaitForSeconds(delayBetweenPoints);
             }
-            
-            // Update UI
-            UpdateScoreUI();
-            UpdateRoundScoreUI();
-            
-            // Optional: Add shake effect every few points
-            if (pointsTransferred % 5 == 0 && scoreTextRectTransform != null)
+        }
+        else
+        {
+            // For traditional system: Transfer points one by one to currentScore
+            while (currentRoundScore > 0 && currentState == GameState.Playing)
             {
-                scoreTextRectTransform.DOKill(true);
-                scoreTextRectTransform.DOPunchScale(Vector3.one * 0.1f, 0.1f, 1, 0f);
+                // Transfer one point
+                currentRoundScore--;
+                currentScore++;
+                pointsTransferred++;
+                
+                // Update UI
+                UpdateScoreUI();
+                UpdateRoundScoreUI();
+                
+                // Optional: Add shake effect every few points
+                if (pointsTransferred % 5 == 0 && scoreTextRectTransform != null)
+                {
+                    scoreTextRectTransform.DOKill(true);
+                    scoreTextRectTransform.DOPunchScale(Vector3.one * 0.1f, 0.1f, 1, 0f);
+                }
+                
+                yield return new WaitForSeconds(delayBetweenPoints);
             }
-            
-            yield return new WaitForSeconds(delayBetweenPoints);
         }
         
         // Ensure we're at the correct final values
         int remainingPoints = currentRoundScore;
         if (remainingPoints > 0)
         {
-            currentScore += remainingPoints;
-            currentRoundScore = 0;
-            
-            // Notify level system of bulk score increase
             if (IsUsingLevelSystem)
             {
-                LevelManager.Instance.AddScore(remainingPoints);
+                // Points already added to LevelManager, just clear round score
+                currentRoundScore = 0;
+            }
+            else
+            {
+                // Add remaining points to traditional score
+                currentScore += remainingPoints;
+                currentRoundScore = 0;
             }
             
             UpdateScoreUI();
@@ -863,7 +1057,7 @@ public class GameManager : MonoBehaviour
         }
         
         Debug.Log("╔══════════════════════════════════════════════════════════════════╗");
-        Debug.Log($"║ ✅ SCORE TRANSFER COMPLETE: +{totalPointsToTransfer} points (Total: {currentScore})   ║");
+        Debug.Log($"║ ✅ SCORE TRANSFER COMPLETE: +{totalPointsToTransfer} points (Total: {(IsUsingLevelSystem ? LevelManager.Instance?.CurrentScore ?? 0 : currentScore)})   ║");
         Debug.Log("╚══════════════════════════════════════════════════════════════════╝");
         
         // Final effects and checks
@@ -893,16 +1087,25 @@ public class GameManager : MonoBehaviour
         }
         
         // Game progress info
-        float progressToTarget = targetScoreForLevel > 0 ? (float)currentScore / targetScoreForLevel * 100f : 0f;
-        Debug.Log($"📊 Game Progress: {progressToTarget:F1}% to target ({currentScore}/{targetScoreForLevel})");
+        int currentGameScore = IsUsingLevelSystem && LevelManager.Instance != null ? LevelManager.Instance.CurrentScore : currentScore;
+        float progressToTarget = targetScoreForLevel > 0 ? (float)currentGameScore / targetScoreForLevel * 100f : 0f;
+        Debug.Log($"📊 Game Progress: {progressToTarget:F1}% to target ({currentGameScore}/{targetScoreForLevel})");
         
         if (currentState == GameState.Playing)
         {
-            Debug.Log($"⏱️  Game Status: Playing | Moves Remaining: {currentMovesRemaining}");
+            if (IsUsingLevelSystem && LevelManager.Instance != null && LevelManager.Instance.CurrentLevel != null)
+            {
+                int movesRemaining = LevelManager.Instance.CurrentLevel.GetRemainingMoves(LevelManager.Instance.CurrentMoves);
+                Debug.Log($"⏱️  Game Status: Playing | Moves Remaining: {(movesRemaining == -1 ? "∞" : movesRemaining.ToString())}");
+            }
+            else
+            {
+                Debug.Log($"⏱️  Game Status: Playing | Moves Remaining: {currentMovesRemaining}");
+            }
         }
         
-        // Check for win condition
-        if (currentScore >= targetScoreForLevel && currentState == GameState.Playing && !hasWon)
+        // Check for win condition - LevelManager handles this for level system
+        if (!IsUsingLevelSystem && currentGameScore >= targetScoreForLevel && currentState == GameState.Playing && !hasWon)
         {
             PlayerWins();
         }
@@ -936,13 +1139,17 @@ public class GameManager : MonoBehaviour
             Debug.Log($"⏭️  Skipping score transfer animation. Applying {currentRoundScore} points instantly.");
             
             int pointsToAdd = currentRoundScore;
-            currentScore += pointsToAdd;
             currentRoundScore = 0;
             
-            // Notify level system of score increase
             if (IsUsingLevelSystem)
             {
-                LevelManager.Instance.AddScore(pointsToAdd);
+                // Points already added to LevelManager in TransferScoreAnimation, just clear round score
+                Debug.Log($"🎮 Level System: Score already added to LevelManager");
+            }
+            else
+            {
+                // Add points to traditional score
+                currentScore += pointsToAdd;
             }
             
             UpdateScoreUI();
@@ -1005,14 +1212,71 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void UpdateScoreUI()
     {
+        int displayScore;
+        
+        Debug.Log($"🔍 UpdateScoreUI ENTRY: IsUsingLevelSystem={IsUsingLevelSystem}, LevelManager.Instance={LevelManager.Instance != null}");
+        
+         // Use appropriate score source based on system
+        if (IsUsingLevelSystem && LevelManager.Instance != null)
+        {
+            displayScore = LevelManager.Instance.CurrentScore;
+            Debug.Log($"🎯 UpdateScoreUI (Level System): LevelManager.CurrentScore={displayScore}, currentRoundScore={currentRoundScore}");
+            Debug.Log($"🎯 ↳ IsUsingLevelSystem: {IsUsingLevelSystem}");
+            Debug.Log($"🎯 ↳ LevelManager.Instance != null: {LevelManager.Instance != null}");
+            Debug.Log($"🎯 ↳ LevelManager.Instance.CurrentScore (direct): {LevelManager.Instance.CurrentScore}");
+            Debug.Log($"🎯 ↳ GameManager.currentScore (internal): {currentScore}");
+            
+            // CRITICAL: Check if LevelManager score is 0 when it shouldn't be
+            if (displayScore == 0 && currentRoundScore > 0)
+            {
+                Debug.LogError($"🚨 CRITICAL: LevelManager.CurrentScore is 0 but currentRoundScore is {currentRoundScore}! This suggests LevelManager was reset!");
+            }
+        }
+        else
+        {
+            displayScore = currentScore;
+            Debug.Log($"🎯 UpdateScoreUI (Traditional): currentScore={displayScore}, currentRoundScore={currentRoundScore}");
+            Debug.Log($"🎯 ↳ IsUsingLevelSystem: {IsUsingLevelSystem}");
+            Debug.Log($"🎯 ↳ LevelManager.Instance != null: {LevelManager.Instance != null}");
+        }
+
+        // CRITICAL: Debug what LevelManager actually contains before safeguard
+        if (IsUsingLevelSystem && LevelManager.Instance != null)
+        {
+            int levelManagerScore = LevelManager.Instance.CurrentScore;
+            Debug.Log($"🔍 PRE-SAFEGUARD: displayScore={displayScore}, levelManagerScore={levelManagerScore}");
+            
+            if (displayScore < levelManagerScore)
+            {
+                Debug.LogError($"🚨 SCORE RESET DETECTED! Preventing UI from showing {displayScore}, forcing to {levelManagerScore}");
+                displayScore = levelManagerScore;
+            }
+            else
+            {
+                Debug.Log($"✅ Score safeguard: displayScore ({displayScore}) >= levelManagerScore ({levelManagerScore})");
+            }
+        }
+        
         if (scoreText != null)
         {
-            scoreText.text = currentScore.ToString();
+            string previousText = scoreText.text;
+            scoreText.text = displayScore.ToString();
+            Debug.Log($"📱 Score Text: \"{previousText}\" → \"{scoreText.text}\"");
+            
+            // CRITICAL: Detect if total score is going backwards
+            if (int.TryParse(previousText, out int previousScore) && displayScore < previousScore && displayScore >= 0)
+            {
+                Debug.LogError($"🚨 TOTAL SCORE REGRESSION! Score went from {previousScore} to {displayScore} - this should NEVER happen!");
+            }
+        }
+        else
+        {
+            Debug.LogError("❌ scoreText is NULL in UpdateScoreUI!");
         }
         
         if (scoreProgressBar != null)
         {
-            float progress = targetScoreForLevel > 0 ? (float)currentScore / targetScoreForLevel : 0f;
+            float progress = targetScoreForLevel > 0 ? (float)displayScore / targetScoreForLevel : 0f;
             scoreProgressBar.value = Mathf.Clamp01(progress);
         }
     }
@@ -1061,7 +1325,34 @@ public class GameManager : MonoBehaviour
     {
         if (movesText != null)
         {
-            movesText.text = $"Moves: {currentMovesRemaining}";
+            if (IsUsingLevelSystem && LevelManager.Instance != null && LevelManager.Instance.CurrentLevel != null)
+            {
+                int currentMoves = LevelManager.Instance.CurrentMoves;
+                int movesRemaining = LevelManager.Instance.CurrentLevel.GetRemainingMoves(currentMoves);
+                
+                // Debug logging to see what's happening
+                Debug.Log($"🎯 UpdateMovesUI (Level System): CurrentMoves={currentMoves}, MovesRemaining={movesRemaining}, MaxMoves={LevelManager.Instance.CurrentLevel.MaxMoves}");
+                
+                if (movesRemaining == -1)
+                {
+                    movesText.text = "Moves: ∞";
+                }
+                else
+                {
+                    movesText.text = $"Moves: {movesRemaining}";
+                }
+            }
+            else
+            {
+                Debug.Log($"🎯 UpdateMovesUI (Traditional): CurrentMovesRemaining={currentMovesRemaining}, IsUsingLevelSystem={IsUsingLevelSystem}");
+                movesText.text = $"Moves: {currentMovesRemaining}";
+            }
+            
+            Debug.Log($"📱 Moves Text Updated: \"{movesText.text}\"");
+        }
+        else
+        {
+            Debug.LogError("❌ UpdateMovesUI: movesText is NULL!");
         }
     }
     
@@ -1193,6 +1484,44 @@ public class GameManager : MonoBehaviour
     }
     
     /// <summary>
+    /// Manually refresh the moves UI - useful for ensuring UI is updated after level initialization
+    /// </summary>
+    public void RefreshMovesUI()
+    {
+        Debug.Log($"🔄 RefreshMovesUI called manually");
+        if (currentDisplayMode == DisplayMode.Moves)
+        {
+            UpdateMovesUI();
+        }
+    }
+    
+    /// <summary>
+    /// Manually refresh both score and moves UI
+    /// </summary>
+    public void RefreshGameUI()
+    {
+        Debug.Log($"🔄 RefreshGameUI called manually");
+        UpdateScoreUI();
+        if (currentDisplayMode == DisplayMode.Moves)
+        {
+            UpdateMovesUI();
+        }
+    }
+    
+    /// <summary>
+    /// Force score UI to show the correct LevelManager score (for debugging)
+    /// </summary>
+    public void ForceCorrectScoreDisplay()
+    {
+        if (IsUsingLevelSystem && LevelManager.Instance != null && scoreText != null)
+        {
+            int correctScore = LevelManager.Instance.CurrentScore;
+            scoreText.text = correctScore.ToString();
+            Debug.Log($"🔧 Forced score display to correct value: {correctScore}");
+        }
+    }
+
+    /// <summary>
     /// DEBUG: Test method to verify scoring system is working correctly
     /// </summary>
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
@@ -1277,6 +1606,39 @@ public class GameManager : MonoBehaviour
         
         Debug.Log($"❌ Level System: {level.LevelName} failed!");
     }
+    
+    /// <summary>
+    /// Handle moves change in level system - update UI
+    /// </summary>
+    private void OnLevelSystemMovesChanged(int newMoveCount)
+    {
+        Debug.Log($"🎯 OnLevelSystemMovesChanged: newMoveCount={newMoveCount}, currentDisplayMode={currentDisplayMode}");
+        
+        // Update the moves UI when LevelManager changes moves
+        if (currentDisplayMode == DisplayMode.Moves)
+        {
+            UpdateMovesUI();
+        }
+    }
+    
+    /// <summary>
+    /// Handle score change in level system - update UI
+    /// </summary>
+    private void OnLevelSystemScoreChanged(int newScore)
+    {
+        Debug.Log($"📊 OnLevelSystemScoreChanged: newScore={newScore}");
+        
+        // Only update UI if we're not in the middle of a score transfer animation
+        // to avoid conflicts with the animation's own UI updates
+        if (currentRoundScore == 0)
+        {
+            UpdateScoreUI();
+        }
+        else
+        {
+            Debug.Log($"📊 Skipping UI update during score transfer animation");
+        }
+    }
 
     void OnDestroy()
     {
@@ -1285,6 +1647,8 @@ public class GameManager : MonoBehaviour
         {
             LevelManager.OnLevelCompleted -= OnLevelSystemCompleted;
             LevelManager.OnLevelFailed -= OnLevelSystemFailed;
+            LevelManager.OnMovesChanged -= OnLevelSystemMovesChanged;
+            LevelManager.OnScoreChanged -= OnLevelSystemScoreChanged;
         }
     }
 }
