@@ -10,23 +10,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1784eb126c7ba462796d654ccd0fc98b, type: 3}
-  m_Name: Level 3
+  m_Name: Level 5
   m_EditorClassIdentifier: 
-  levelNumber: 3
-  levelName: Level 3
+  levelNumber: 5
+  levelName: Level 5
   levelDescription: Complete the level by reaching the target score within the move
     limit.
   targetScore: 75
   oneStarPercentage: 50
   twoStarPercentage: 75
   threeStarPercentage: 100
-  maxMoves: 25
+  maxMoves: 50
   unlimitedMoves: 0
   gridSize: 5
   customLetterSet: 
   timeBonus: 1
   scoreMultiplier: 1
   enableSpecialTiles: 0
-  nextLevel: {fileID: 11400000, guid: 38a240233fad54b4c8d959a16fb03184, type: 2}
+  nextLevel: {fileID: 11400000}
   isUnlocked: 1
   isTutorialLevel: 0

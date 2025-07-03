@@ -17,9 +17,9 @@ MonoBehaviour:
   levelDescription: Complete the level by reaching the target score within the move
     limit.
   targetScore: 50
-  oneStarScore: 50
-  twoStarScore: 75
-  threeStarScore: 100
+  oneStarPercentage: 30
+  twoStarPercentage: 50
+  threeStarPercentage: 75
   maxMoves: 10
   unlimitedMoves: 0
   gridSize: 5

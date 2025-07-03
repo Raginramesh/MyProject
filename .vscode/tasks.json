@@ -1,0 +1,23 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build Unity Project",
+			"type": "shell",
+			"command": "/Applications/Unity/Hub/Editor/2022.3.25f1/Unity.app/Contents/MacOS/Unity",
+			"args": [
+				"-projectPath",
+				"/Users/parvathy/Documents/Ragin/UnityProjects/MyProject",
+				"-buildTarget",
+				"StandaloneOSX",
+				"-quit",
+				"-batchmode",
+				"-logFile",
+				"-"
+			],
+			"group": "build",
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

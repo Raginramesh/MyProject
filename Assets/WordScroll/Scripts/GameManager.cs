@@ -19,6 +19,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameState currentState = GameState.Initializing;
     public GameState CurrentStatePublic => currentState;
     private bool hasWon = false; // Flag to indicate if the player has won
+    private bool isLevelRestarting = false; // Flag to indicate when a level is being restarted
     public bool HasWon => hasWon; // Public getter for UI scripts
 
     private bool isProcessingSequentialWords = false;
@@ -216,6 +217,7 @@ public class GameManager : MonoBehaviour
         // Setup level system event listeners if using level system
         if (IsUsingLevelSystem)
         {
+            LevelManager.OnLevelStarted += OnLevelSystemStarted;
             LevelManager.OnLevelCompleted += OnLevelSystemCompleted;
             LevelManager.OnLevelFailed += OnLevelSystemFailed;
             LevelManager.OnMovesChanged += OnLevelSystemMovesChanged;
@@ -1263,10 +1265,14 @@ public class GameManager : MonoBehaviour
             scoreText.text = displayScore.ToString();
             Debug.Log($"📱 Score Text: \"{previousText}\" → \"{scoreText.text}\"");
             
-            // CRITICAL: Detect if total score is going backwards
-            if (int.TryParse(previousText, out int previousScore) && displayScore < previousScore && displayScore >= 0)
+            // CRITICAL: Detect if total score is going backwards (but ignore during level restart)
+            if (int.TryParse(previousText, out int previousScore) && displayScore < previousScore && displayScore >= 0 && !isLevelRestarting)
             {
                 Debug.LogError($"🚨 TOTAL SCORE REGRESSION! Score went from {previousScore} to {displayScore} - this should NEVER happen!");
+            }
+            else if (isLevelRestarting && displayScore == 0)
+            {
+                Debug.Log($"✅ Level restart: Score legitimately reset from {previousScore} to 0");
             }
         }
         else
@@ -1639,12 +1645,35 @@ public class GameManager : MonoBehaviour
             Debug.Log($"📊 Skipping UI update during score transfer animation");
         }
     }
+    
+    /// <summary>
+    /// Handle level start in level system - set restart flag to allow score reset
+    /// </summary>
+    private void OnLevelSystemStarted(LevelData level)
+    {
+        isLevelRestarting = true;
+        Debug.Log($"🎮 Level System: {level.LevelName} started - allowing score reset");
+        
+        // Clear the flag after a short delay to allow for initial score reset
+        StartCoroutine(ClearRestartFlag());
+    }
+    
+    /// <summary>
+    /// Clear the level restarting flag after initial setup
+    /// </summary>
+    private System.Collections.IEnumerator ClearRestartFlag()
+    {
+        yield return new WaitForEndOfFrame();
+        isLevelRestarting = false;
+        Debug.Log($"🎮 Level restart flag cleared");
+    }
 
     void OnDestroy()
     {
         // Clean up level system event listeners
         if (IsUsingLevelSystem)
         {
+            LevelManager.OnLevelStarted -= OnLevelSystemStarted;
             LevelManager.OnLevelCompleted -= OnLevelSystemCompleted;
             LevelManager.OnLevelFailed -= OnLevelSystemFailed;
             LevelManager.OnMovesChanged -= OnLevelSystemMovesChanged;
