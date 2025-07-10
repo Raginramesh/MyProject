@@ -109,8 +109,8 @@ public class AnimatedScoringSystem : MonoBehaviour
         
         Debug.Log("🎬 Starting Animated Scoring Sequence (Parallel Mode)");
         
-        // Initialize total score with current game score if gameManager is available
-        if (gameManager != null)
+        // Only initialize total score from gameManager if this is the first time (i.e., totalScore is zero)
+        if (totalScore == 0 && gameManager != null)
         {
             totalScore = gameManager.GetCurrentScore();
             UpdateTotalScoreUI();
