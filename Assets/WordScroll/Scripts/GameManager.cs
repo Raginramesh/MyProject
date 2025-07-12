@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using DG.Tweening;
 using System.Linq;
 using System; // Required for System.Guid
-using UnityEngine.UI; // Required for Slider
 using WordScroll.Modifiers; // Required for ModifierManager and ModifierEffectType
 
 public class GameManager : MonoBehaviour
@@ -64,7 +63,6 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI scoreText;
     [SerializeField] private TextMeshProUGUI roundScoreText; // UI for current round score
     [SerializeField] private RectTransform scoreTextRectTransform;
-    [SerializeField] private Slider scoreProgressBar;
     [SerializeField] private GameObject statusDisplayGroup;
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI movesText;
@@ -77,6 +75,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GridInputHandler gridInputHandler;
     [SerializeField] private NumericalScoreUI numericalScoreUI;
     [SerializeField] private AnimatedScoringSystem animatedScoringSystem;
+    [SerializeField] private AudioAndHapticsManager audioManager; // Reference to audio manager
 
     [Header("Timing & Combo Settings")]
     [SerializeField] private float replacementDelayAfterEffectStart = 0.4f;
@@ -183,8 +182,7 @@ public class GameManager : MonoBehaviour
         if (wordGridManager == null) Debug.LogError("GM: WordGridManager missing!", this);
         if (wordValidator == null) Debug.LogError("GM: WordValidator missing!", this);
         if (gridInputHandler == null) Debug.LogError("GM: GridInputHandler missing! Tapping will not work.", this);
-        if (scoreText == null) Debug.LogError("GM: Score Text (TMP) for progress bar missing!", this);
-        if (scoreProgressBar == null) Debug.LogError("GM: Score Progress Bar (Slider) missing!", this);
+        if (scoreText == null) Debug.LogError("GM: Score Text (TMP) missing!", this);
 
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (pausePanel != null) pausePanel.SetActive(false);
@@ -227,6 +225,12 @@ public class GameManager : MonoBehaviour
         else
         {
             Debug.Log($"🎮 Level System: Using traditional mode");
+        }
+        
+        // Initialize audio for game scene
+        if (AudioAndHapticsManager.Instance != null)
+        {
+            AudioAndHapticsManager.Instance.PlayGameSceneMusic();
         }
         
         // DEBUG: Test scoring system
@@ -324,11 +328,6 @@ public class GameManager : MonoBehaviour
             animatedScoringSystem.SetTotalScore(currentScore);
         }
 
-        if (scoreProgressBar != null)
-        {
-            scoreProgressBar.maxValue = targetScoreForLevel;
-            scoreProgressBar.value = 0;
-        }
         UpdateScoreUI();
         UpdateRoundScoreUI(); // Initialize round score UI
         
@@ -1071,6 +1070,12 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void OnScoreTransferComplete()
     {
+        // Play word score sound effect
+        if (AudioAndHapticsManager.Instance != null)
+        {
+            AudioAndHapticsManager.Instance.PlayWordScoreSound();
+        }
+        
         // Update debug system
         try
         {
@@ -1278,12 +1283,6 @@ public class GameManager : MonoBehaviour
         else
         {
             Debug.LogError("❌ scoreText is NULL in UpdateScoreUI!");
-        }
-        
-        if (scoreProgressBar != null)
-        {
-            float progress = targetScoreForLevel > 0 ? (float)displayScore / targetScoreForLevel : 0f;
-            scoreProgressBar.value = Mathf.Clamp01(progress);
         }
     }
     

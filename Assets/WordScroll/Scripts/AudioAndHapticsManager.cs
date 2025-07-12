@@ -139,4 +139,39 @@ public class AudioAndHapticsManager : MonoBehaviour
 
         MMSoundManager.Instance.PlaySound(clip, options);
     }
+
+    // --- Volume Control Methods ---
+    
+    public void SetMasterVolume(float volume)
+    {
+        if (MMSoundManager.Instance != null)
+        {
+            MMSoundManager.Instance.SetTrackVolume(MMSoundManager.MMSoundManagerTracks.Master, volume);
+        }
+    }
+    
+    public void SetMusicVolume(float volume)
+    {
+        if (MMSoundManager.Instance != null)
+        {
+            MMSoundManager.Instance.SetTrackVolume(MMSoundManager.MMSoundManagerTracks.Music, volume);
+        }
+    }
+    
+    public void SetSFXVolume(float volume)
+    {
+        if (MMSoundManager.Instance != null)
+        {
+            MMSoundManager.Instance.SetTrackVolume(MMSoundManager.MMSoundManagerTracks.Sfx, volume);
+        }
+    }
+    
+    public void ToggleMute()
+    {
+        if (MMSoundManager.Instance != null)
+        {
+            // Check current mute state and toggle
+            MMSoundManager.Instance.MuteAllSounds();
+        }
+    }
 }
