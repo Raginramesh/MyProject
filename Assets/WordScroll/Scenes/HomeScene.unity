@@ -521,7 +521,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   AutomaticallyUnparentOnAwake: 1
-  settingsSo: {fileID: 11400000, guid: 07ea3ff88e1ecb84d91f58aa804badc6, type: 2}
+  settingsSo: {fileID: 11400000, guid: f9b3a1709a0f22e42998adf9d729eeaf, type: 2}
   AudioSourcePoolSize: 10
   PoolCanExpand: 1
 --- !u!4 &240951766
@@ -549,6 +549,7 @@ GameObject:
   m_Component:
   - component: {fileID: 264751872}
   - component: {fileID: 264751870}
+  - component: {fileID: 264751873}
   m_Layer: 0
   m_Name: AudioAndHapticsManager
   m_TagString: Untagged
@@ -592,6 +593,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &264751873
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 264751868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2aab57f80e1bf407085c21e8d57d8fd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hapticsEnabled: 1
 --- !u!114 &385531913 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 2750732671723009476, guid: dab18ca581c8d4c00ac3032c7260c224, type: 3}

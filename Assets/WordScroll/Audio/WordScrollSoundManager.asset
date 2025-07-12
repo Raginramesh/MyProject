@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa48f53704ecf834c9f5e203a06874d3, type: 3}
   m_Name: WordScrollSoundManager
   m_EditorClassIdentifier: 
-  TargetAudioMixer: {fileID: 0}
-  MasterAudioMixerGroup: {fileID: 0}
-  MusicAudioMixerGroup: {fileID: 0}
-  SfxAudioMixerGroup: {fileID: 0}
-  UIAudioMixerGroup: {fileID: 0}
+  TargetAudioMixer: {fileID: 24100000, guid: 7c6a09a8787724cedb9f9ba43a8c9cc5, type: 2}
+  MasterAudioMixerGroup: {fileID: 6444664794137601097, guid: 7c6a09a8787724cedb9f9ba43a8c9cc5, type: 2}
+  MusicAudioMixerGroup: {fileID: 6444664794137601097, guid: 7c6a09a8787724cedb9f9ba43a8c9cc5, type: 2}
+  SfxAudioMixerGroup: {fileID: 7902339065469807261, guid: 7c6a09a8787724cedb9f9ba43a8c9cc5, type: 2}
+  UIAudioMixerGroup: {fileID: 2811811044000531698, guid: 7c6a09a8787724cedb9f9ba43a8c9cc5, type: 2}
   MixerValuesMultiplier: 20
   Settings:
     OverrideMixerSettings: 1
@@ -27,13 +27,13 @@ MonoBehaviour:
     MasterVolume: 1
     MasterOn: 1
     MutedMasterVolume: 0
-    MusicVolume: 1
+    MusicVolume: 0.7
     MusicOn: 1
     MutedMusicVolume: 0
-    SfxVolume: 1
+    SfxVolume: 0.8
     SfxOn: 1
     MutedSfxVolume: 0
-    UIVolume: 1
+    UIVolume: 0.9
     UIOn: 1
     MutedUIVolume: 0
     AutoLoad: 1
