@@ -328,6 +328,18 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+      - m_Target: {fileID: 264751870}
+        m_TargetAssemblyTypeName: AudioAndHapticsManager, Assembly-CSharp
+        m_MethodName: PlayButtonClick
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &143493812
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -348,8 +360,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
-  m_Type: 1
+  m_Sprite: {fileID: 21300000, guid: 4922c7831ef7844439d3a3811d2de24e, type: 3}
+  m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -507,7 +519,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &240951765
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -521,7 +533,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   AutomaticallyUnparentOnAwake: 1
-  settingsSo: {fileID: 11400000, guid: f9b3a1709a0f22e42998adf9d729eeaf, type: 2}
+  settingsSo: {fileID: 11400000, guid: 07ea3ff88e1ecb84d91f58aa804badc6, type: 2}
   AudioSourcePoolSize: 10
   PoolCanExpand: 1
 --- !u!4 &240951766
@@ -548,6 +560,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 264751872}
+  - component: {fileID: 264751874}
   - component: {fileID: 264751870}
   - component: {fileID: 264751873}
   m_Layer: 0
@@ -606,6 +619,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hapticsEnabled: 1
+--- !u!114 &264751874
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 264751868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 614edb33c38bcf949846d5675f29f9fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  AutomaticallyUnparentOnAwake: 1
+  settingsSo: {fileID: 11400000, guid: f9b3a1709a0f22e42998adf9d729eeaf, type: 2}
+  AudioSourcePoolSize: 5
+  PoolCanExpand: 1
 --- !u!114 &385531913 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 2750732671723009476, guid: dab18ca581c8d4c00ac3032c7260c224, type: 3}
@@ -1060,8 +1089,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Play
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 4eccd51250cfa3948a3ac1e21d15fe34, type: 2}
+  m_sharedMaterial: {fileID: 7304186015023537574, guid: 4eccd51250cfa3948a3ac1e21d15fe34, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1745,6 +1774,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1362276582}
     m_Modifications:
+    - target: {fileID: 1799949697539249421, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1799949697539249421, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1799949697539249421, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 264751870}
+    - target: {fileID: 1799949697539249421, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 1799949697539249421, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PlayButtonClick
+      objectReference: {fileID: 0}
+    - target: {fileID: 1799949697539249421, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: AudioAndHapticsManager, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 1799949697539249421, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
     - target: {fileID: 3297126541031657827, guid: 26ae9b777ee164a4faadbb97d7a57508, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
