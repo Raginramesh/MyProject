@@ -1884,6 +1884,7 @@ MonoBehaviour:
   intersectionLetterColor: {r: 0.8396226, g: 0.2891153, b: 0.3296961, a: 1}
   wordValidator: {fileID: 593137152}
   gameManager: {fileID: 1480404336}
+  cellTypeManager: {fileID: 11400000, guid: cdc01fcd1fef441f09fa00cbd7180f23, type: 2}
 --- !u!4 &593137151
 Transform:
   m_ObjectHideFlags: 0
@@ -1916,6 +1917,7 @@ MonoBehaviour:
   wordListFile: {fileID: 4900000, guid: 18e3f9beda31baa46be256b20b84d7fc, type: 3}
   minWordLength: 4
   maxWordLength: 5
+  centerRowOnlyMode: 1
 --- !u!1 &633469390
 GameObject:
   m_ObjectHideFlags: 0
@@ -3274,7 +3276,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentState: 0
-  currentDisplayMode: 1
+  currentDisplayMode: 2
   gameTimeLimit: 180
   traditionalStartingMoves: 20
   traditionalTargetScore: 50
@@ -3284,7 +3286,6 @@ MonoBehaviour:
   scoreText: {fileID: 1345162615}
   roundScoreText: {fileID: 1365114201}
   scoreTextRectTransform: {fileID: 1345162614}
-  scoreProgressBar: {fileID: 0}
   statusDisplayGroup: {fileID: 331589041}
   timerText: {fileID: 582632626}
   movesText: {fileID: 1234326895}
@@ -3295,6 +3296,7 @@ MonoBehaviour:
   gridInputHandler: {fileID: 450983252}
   numericalScoreUI: {fileID: 56872519}
   animatedScoringSystem: {fileID: 633469393}
+  audioManager: {fileID: 0}
   replacementDelayAfterEffectStart: 0
   visualPauseBetweenWordsInSequence: 0.05
   scoreShakeDuration: 0.1

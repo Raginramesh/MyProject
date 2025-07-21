@@ -526,9 +526,25 @@ public class GameManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Gets the letter at the specified grid position
+    /// Gets the letter at the specified grid position (compatibility method)
     /// </summary>
     public char GetLetterAtPosition(Vector2Int position)
+    {
+        if (wordGridManager != null && wordGridManager.gridData != null)
+        {
+            if (position.x >= 0 && position.x < wordGridManager.gridSize && 
+                position.y >= 0 && position.y < wordGridManager.gridSize)
+            {
+                return wordGridManager.GetLetterFromCellData(wordGridManager.gridData[position.x, position.y]);
+            }
+        }
+        return ' '; // Return space if position is invalid
+    }
+
+    /// <summary>
+    /// Gets the complete cell data at the specified grid position (new enhanced method)
+    /// </summary>
+    public CellData GetCellDataAtPosition(Vector2Int position)
     {
         if (wordGridManager != null && wordGridManager.gridData != null)
         {
@@ -538,7 +554,7 @@ public class GameManager : MonoBehaviour
                 return wordGridManager.gridData[position.x, position.y];
             }
         }
-        return ' '; // Return space if position is invalid
+        return CellData.CreateLetterCell(' '); // Return default empty cell
     }
 
     public int CalculateTotalScoreForWord(FoundWordData wordData)

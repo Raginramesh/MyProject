@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7360dd36bef1248aa931aef4c4fd9895, type: 3}
+  m_Name: Level_01
+  m_EditorClassIdentifier: 
+  availableCellTypes:
+  - {fileID: 11400000, guid: d8e430d4de651429989e0a5a835df9cd, type: 2}
+  - {fileID: 11400000, guid: 52e9902e2edc04a479056e59a38b90d6, type: 2}
+  blankCellProbability: 0.5
+  minBlanksPerGrid: 1
+  maxBlanksPerGrid: 3
+  preferBlanksAtEndOfCenterRow: 1
+  letterDistribution: AAAAAAAAABCCDDDDEEEEEEEEEEEEFGGGHHIIIIIIIIIJKLLLLMMNNNNNNOOOOOOOOPPQRRRRRRSSSSTTTTTTUUUUVVWWXYYZ
+  useAdvancedWeightedSystem: 1

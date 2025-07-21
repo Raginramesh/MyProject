@@ -36,6 +36,10 @@ public class WordValidator : MonoBehaviour
     [SerializeField] private TextAsset wordListFile;
     [SerializeField] private int minWordLength = 3;
     [SerializeField] private int maxWordLength = 10;
+    
+    [Header("Validation Mode Settings")]
+    [SerializeField] private bool centerRowOnlyMode = true;
+    [Tooltip("When enabled, only horizontal words in the center row of the grid will be validated. When disabled, words can be found in any row/column.")]
 
     private HashSet<string> validWordsDictionary = new HashSet<string>();
     private HashSet<string> wordsFoundThisSession = new HashSet<string>();
@@ -158,6 +162,208 @@ public class WordValidator : MonoBehaviour
         return wordsFoundThisSession.Contains(word.ToUpperInvariant());
     }
 
+    // Validation Mode Control Methods
+    public bool IsCenterRowOnlyModeEnabled() => centerRowOnlyMode;
+    
+    public void SetCenterRowOnlyMode(bool enabled)
+    {
+        if (centerRowOnlyMode != enabled)
+        {
+            centerRowOnlyMode = enabled;
+            Debug.Log($"🎯 [WordValidator] Validation mode changed to: {(enabled ? "Center Row Only" : "Full Grid")}");
+        }
+    }
+    
+    public int GetCenterRowIndex()
+    {
+        if (wordGridManager == null) return -1;
+        int gridSize = wordGridManager.gridSize;
+        return (gridSize - 1) / 2;
+    }
+    
+    /// <summary>
+    /// Option A: Strict Grid-Size Validation
+    /// Validates that sequences match the expected length based on grid size
+    /// 5x5: accepts 5-letter, 4-letter+1blank, 3-letter+2blanks
+    /// 3x3: accepts 3-letter, 2-letter+1blank  
+    /// </summary>
+    private bool IsValidGridSizeSequence(string sequence, int sequenceLength, int gridSize)
+    {
+        // Only validate sequences that match the exact grid size
+        if (sequenceLength != gridSize)
+            return false;
+            
+        // Check if sequence has valid structure (letters + trailing blanks only)
+        if (!HasValidSequenceStructure(sequence))
+            return false;
+            
+        // Extract the actual word part (without trailing blanks)
+        string wordPart = ExtractWordFromSequence(sequence);
+        int wordLength = wordPart.Length;
+        int blankCount = sequenceLength - wordLength;
+        
+        // Validate word + blank combinations based on grid size
+        return IsValidWordBlankCombination(wordLength, blankCount, gridSize);
+    }
+    
+    /// <summary>
+    /// Validates specific word + blank combinations for different grid sizes
+    /// </summary>
+    private bool IsValidWordBlankCombination(int wordLength, int blankCount, int gridSize)
+    {
+        switch (gridSize)
+        {
+            case 3:
+                // 3x3 grid: 3-letter OR 2-letter+1blank
+                return (wordLength == 3 && blankCount == 0) || 
+                       (wordLength == 2 && blankCount == 1);
+                       
+            case 5:
+                // 5x5 grid: 5-letter OR 4-letter+1blank OR 3-letter+2blanks
+                return (wordLength == 5 && blankCount == 0) || 
+                       (wordLength == 4 && blankCount == 1) || 
+                       (wordLength == 3 && blankCount == 2);
+                       
+            default:
+                // For other grid sizes, use flexible rule: word + blanks = grid size
+                return (wordLength + blankCount == gridSize) && (wordLength >= minWordLength);
+        }
+    }
+    
+    /// <summary>
+    /// Validates that blanks only appear at the beginning or end of sequences
+    /// No blanks allowed in the middle of words
+    /// Valid: [_][C][A][T] or [C][A][T][_] or [_][_][C][A][T] or [C][A][T][_][_]
+    /// Invalid: [C][A][_][T] - blank in middle
+    /// </summary>
+    private bool HasValidSequenceStructure(string sequence)
+    {
+        int firstLetterIndex = -1;
+        int lastLetterIndex = -1;
+        
+        // Find the first and last letter positions
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            char c = sequence[i];
+            if (c != ' ' && c != '\0') // Non-blank cell
+            {
+                if (firstLetterIndex == -1)
+                    firstLetterIndex = i; // First letter found
+                lastLetterIndex = i; // Update last letter position
+            }
+        }
+        
+        // If no letters found, it's invalid (all blanks)
+        if (firstLetterIndex == -1)
+            return false;
+        
+        // Check that all characters between first and last letter are also letters (no blanks in middle)
+        for (int i = firstLetterIndex; i <= lastLetterIndex; i++)
+        {
+            char c = sequence[i];
+            if (c == ' ' || c == '\0') // Found blank between first and last letter
+                return false;
+        }
+        
+        return true;
+    }
+    
+    /// <summary>
+    /// Extracts the word part from a sequence, ignoring leading and trailing blanks
+    /// [C][A][T][S][_] → "CATS"
+    /// [_][C][A][T][S] → "CATS" 
+    /// [_][_][C][A][T] → "CAT"
+    /// [C][A][T][_][_] → "CAT"
+    /// </summary>
+    private string ExtractWordFromSequence(string sequence)
+    {
+        StringBuilder wordBuilder = new StringBuilder();
+        
+        // Find the continuous letter sequence (skip leading and trailing blanks)
+        bool foundFirstLetter = false;
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            char c = sequence[i];
+            
+            if (c != ' ' && c != '\0') // Non-blank cell
+            {
+                foundFirstLetter = true;
+                wordBuilder.Append(c);
+            }
+            else if (foundFirstLetter) // Blank after we've started finding letters
+            {
+                // This must be a trailing blank, stop here
+                break;
+            }
+            // If not foundFirstLetter yet, this is a leading blank, so skip it
+        }
+        
+        return wordBuilder.ToString();
+    }
+
+    /// <summary>
+    /// Helper method to convert CellData array to char array for validation
+    /// This method extracts the letter values from CellData and handles blank cells appropriately
+    /// </summary>
+    public void DebugCenterRowValidation()
+    {
+        if (wordGridManager == null || wordGridManager.gridData == null)
+        {
+            Debug.LogWarning("🚫 [WordValidator] Cannot debug: WordGridManager or grid data is null");
+            return;
+        }
+        
+        int gridSize = wordGridManager.gridSize;
+        int centerRow = GetCenterRowIndex();
+        // Get grid data as char array for compatibility with existing debug logic
+        char[,] gridData = ConvertCellDataToCharArray(wordGridManager.gridData);
+        
+        Debug.Log($"🎯 === CENTER ROW VALIDATION DEBUG ===");
+        Debug.Log($"📊 Grid Size: {gridSize}×{gridSize}");
+        Debug.Log($"🎯 Center Row Index: {centerRow}");
+        Debug.Log($"⚙️ Center Row Only Mode: {(centerRowOnlyMode ? "ENABLED" : "DISABLED")}");
+        
+        // Show full grid with center row highlighted
+        System.Text.StringBuilder gridDisplay = new System.Text.StringBuilder();
+        gridDisplay.AppendLine("📋 Full Grid (★ marks center row):");
+        
+        for (int row = 0; row < gridSize; row++)
+        {
+            string rowPrefix = (row == centerRow) ? "★ " : "  ";
+            gridDisplay.Append(rowPrefix + "Row " + row + ": ");
+            
+            for (int col = 0; col < gridSize; col++)
+            {
+                gridDisplay.Append(gridData[row, col] + " ");
+            }
+            gridDisplay.AppendLine();
+        }
+        
+        Debug.Log(gridDisplay.ToString());
+        
+        // Show center row specifically
+        System.Text.StringBuilder centerRowBuilder = new System.Text.StringBuilder();
+        for (int c = 0; c < gridSize; c++)
+        {
+            centerRowBuilder.Append(gridData[centerRow, c]);
+        }
+        string centerRowString = centerRowBuilder.ToString();
+        
+        Debug.Log($"🎯 CENTER ROW CONTENT: \"{centerRowString}\"");
+        
+        // Show what words would be found
+        var potentialWords = FindAllPotentialWords();
+        Debug.Log($"🔍 Words found with current settings: {potentialWords.Count}");
+        
+        foreach (var word in potentialWords)
+        {
+            string coordString = string.Join(", ", word.Coordinates.Select(c => $"({c.x},{c.y})"));
+            Debug.Log($"   • \"{word.Word}\" at coordinates: {coordString}");
+        }
+        
+        Debug.Log($"🎯 === END DEBUG ===");
+    }
+
     public List<FoundWordData> FindAllPotentialWords()
     {
         List<FoundWordData> potentialWords = new List<FoundWordData>();
@@ -168,22 +374,49 @@ public class WordValidator : MonoBehaviour
         }
 
         int currentGridSize = wordGridManager.gridSize;
-        char[,] gridData = wordGridManager.gridData;
+        // Get grid data as char array for compatibility with existing validation logic
+        char[,] gridData = ConvertCellDataToCharArray(wordGridManager.gridData);
         int effectiveMaxSearchLength = Mathf.Min(maxWordLength, currentGridSize);
         List<FoundWordData> allFoundRaw = new List<FoundWordData>();
 
-        for (int r = 0; r < currentGridSize; r++)
+        if (centerRowOnlyMode)
         {
-            StringBuilder rowBuilder = new StringBuilder(currentGridSize);
-            for (int c = 0; c < currentGridSize; c++) { rowBuilder.Append(gridData[r, c]); }
-            FindWordsInLine(rowBuilder.ToString(), r, true, allFoundRaw, effectiveMaxSearchLength, currentGridSize);
+            // CENTER ROW ONLY VALIDATION: Only scan horizontally in the center row
+            int centerRow = (currentGridSize - 1) / 2; // Calculate center row for NxN grid
+            
+            Debug.Log($"🎯 [WordValidator] Center-row-only validation enabled! Grid size: {currentGridSize}, Center row: {centerRow}");
+            
+            // Build the center row string
+            StringBuilder centerRowBuilder = new StringBuilder(currentGridSize);
+            for (int c = 0; c < currentGridSize; c++) 
+            { 
+                centerRowBuilder.Append(gridData[centerRow, c]); 
+            }
+            
+            // Only scan horizontally in the center row
+            FindWordsInLine(centerRowBuilder.ToString(), centerRow, true, allFoundRaw, effectiveMaxSearchLength, currentGridSize);
+            
+            Debug.Log($"🔍 [WordValidator] Found {allFoundRaw.Count} raw words in center row {centerRow}: \"{centerRowBuilder.ToString()}\"");
         }
-        for (int c = 0; c < currentGridSize; c++)
+        else
         {
-            StringBuilder colBuilder = new StringBuilder(currentGridSize);
-            for (int r = 0; r < currentGridSize; r++) { colBuilder.Append(gridData[r, c]); }
-            FindWordsInLine(colBuilder.ToString(), c, false, allFoundRaw, effectiveMaxSearchLength, currentGridSize);
+            // ORIGINAL VALIDATION: Scan all rows and columns
+            Debug.Log($"🔄 [WordValidator] Full grid validation mode - scanning all rows and columns");
+            
+            for (int r = 0; r < currentGridSize; r++)
+            {
+                StringBuilder rowBuilder = new StringBuilder(currentGridSize);
+                for (int c = 0; c < currentGridSize; c++) { rowBuilder.Append(gridData[r, c]); }
+                FindWordsInLine(rowBuilder.ToString(), r, true, allFoundRaw, effectiveMaxSearchLength, currentGridSize);
+            }
+            for (int c = 0; c < currentGridSize; c++)
+            {
+                StringBuilder colBuilder = new StringBuilder(currentGridSize);
+                for (int r = 0; r < currentGridSize; r++) { colBuilder.Append(gridData[r, c]); }
+                FindWordsInLine(colBuilder.ToString(), c, false, allFoundRaw, effectiveMaxSearchLength, currentGridSize);
+            }
         }
+        
         return FilterWords(allFoundRaw); // Renamed main filtering method
     }
 
@@ -194,13 +427,24 @@ public class WordValidator : MonoBehaviour
         {
             for (int len = minWordLength; len <= Mathf.Min(effectiveMaxLen, n - start); len++)
             {
-                string sub = line.Substring(start, len).ToUpperInvariant();
-                if (validWordsDictionary.Contains(sub) && !IsWordFoundThisSession(sub))
+                string sequence = line.Substring(start, len).ToUpperInvariant();
+                
+                // Apply Option A: Strict Grid-Size Validation
+                if (IsValidGridSizeSequence(sequence, len, currentGridSize))
                 {
-                    List<Vector2Int> wordCoords = CalculateCoordinates(lineIndex, start, len, isRow, currentGridSize);
-                    if (wordCoords != null && wordCoords.Count == len)
+                    // Extract word part (ignore trailing blanks for dictionary lookup)
+                    string wordForValidation = ExtractWordFromSequence(sequence);
+                    
+                    if (!string.IsNullOrEmpty(wordForValidation) && 
+                        validWordsDictionary.Contains(wordForValidation) && 
+                        !IsWordFoundThisSession(wordForValidation))
                     {
-                        foundList.Add(new FoundWordData(sub, wordCoords));
+                        List<Vector2Int> wordCoords = CalculateCoordinates(lineIndex, start, len, isRow, currentGridSize);
+                        if (wordCoords != null && wordCoords.Count == len)
+                        {
+                            // Store the original word (not the sequence with blanks)
+                            foundList.Add(new FoundWordData(wordForValidation, wordCoords));
+                        }
                     }
                 }
             }
@@ -450,5 +694,36 @@ public class WordValidator : MonoBehaviour
             }
         }
         return coords;
+    }
+
+    /// <summary>
+    /// Converts CellData array to char array for compatibility with existing validation logic
+    /// This method extracts the letter values from CellData and handles blank cells appropriately
+    /// </summary>
+    private char[,] ConvertCellDataToCharArray(CellData[,] cellDataArray)
+    {
+        int rows = cellDataArray.GetLength(0);
+        int cols = cellDataArray.GetLength(1);
+        char[,] charArray = new char[rows, cols];
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                CellData cellData = cellDataArray[r, c];
+                if (cellData.IsBlank || !cellData.participatesInValidation)
+                {
+                    // Use space character for blank cells or cells that don't participate in validation
+                    charArray[r, c] = ' ';
+                }
+                else
+                {
+                    // Use the actual letter value from the cell
+                    charArray[r, c] = cellData.letterValue;
+                }
+            }
+        }
+
+        return charArray;
     }
 }

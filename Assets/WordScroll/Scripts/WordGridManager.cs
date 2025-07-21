@@ -35,13 +35,17 @@ public class WordGridManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private WordValidator wordValidator;
     [SerializeField] private GameManager gameManager;
+    
+    [Header("Cell Type System")]
+    [SerializeField] private CellTypeManager cellTypeManager;
 
     private CellController[,] gridCells;
-    public char[,] gridData { get; private set; }
+    public CellData[,] gridData { get; private set; } // Enhanced cell data
+    private char[,] legacyGridData; // Compatibility layer for existing code
 
     public bool isAnimating { get; private set; } = false;
 
-    private List<char> WeightedLetters = new List<char>();
+    // Note: WeightedLetters removed - now handled by CellTypeManager
     private Vector2 gridCenterOffset;
 
     // Define the number of extra cells for wrap-around effect on each side
@@ -73,8 +77,8 @@ public class WordGridManager : MonoBehaviour
         if (gameManager == null) Debug.LogWarning("WGM: GameManager not found!", this);
 
         gridCells = new CellController[gridSize, gridSize];
-        gridData = new char[gridSize, gridSize];
-        PopulateWeightedLettersList();
+        gridData = new CellData[gridSize, gridSize]; // Changed from char[,] to CellData[,]
+        // Note: PopulateWeightedLettersList() removed - now handled by CellTypeManager
         CalculateGridCenterOffset();
 
         // Initialize visual offset maps based on WRAP_COUNT and gridSize
@@ -158,7 +162,7 @@ public class WordGridManager : MonoBehaviour
                 }
 
                 cell.transform.localPosition = GetBaseCellPosition(r, c);
-                cell.SetLetter(gridData[r, c]);
+                cell.SetCellData(gridData[r, c]); // Updated to use new CellData system
                 Image bgImage = cell.GetComponent<Image>();
                 if (bgImage != null)
                 {
@@ -179,40 +183,85 @@ public class WordGridManager : MonoBehaviour
         }, false);
     }
 
-    void PopulateWeightedLettersList()
-    {
-        WeightedLetters.Clear();
-        AddLetters("E", 12); AddLetters("A", 9); AddLetters("I", 9); AddLetters("O", 8);
-        AddLetters("N", 6); AddLetters("R", 6); AddLetters("T", 6); AddLetters("L", 4);
-        AddLetters("S", 4); AddLetters("U", 4); AddLetters("D", 4); AddLetters("G", 3);
-        AddLetters("B", 2); AddLetters("C", 2); AddLetters("M", 2); AddLetters("P", 2);
-        AddLetters("F", 2); AddLetters("H", 2); AddLetters("V", 2); AddLetters("W", 2); AddLetters("Y", 2);
-        AddLetters("K", 1); AddLetters("J", 1); AddLetters("X", 1); AddLetters("Q", 1); AddLetters("Z", 1);
-    }
-
-    void AddLetters(string letters, int count)
-    {
-        foreach (char letter in letters)
-        {
-            for (int i = 0; i < count; i++) { WeightedLetters.Add(letter); }
-        }
-    }
-
     void PopulateGridData()
     {
+        int blankCount = 0;
+        int totalCells = gridSize * gridSize;
+        
         for (int r = 0; r < gridSize; r++)
         {
             for (int c = 0; c < gridSize; c++)
             {
-                gridData[r, c] = GetRandomLetter();
+                Vector2Int position = new Vector2Int(c, r);
+                
+                if (cellTypeManager != null)
+                {
+                    // Use CellTypeManager to generate cells
+                    gridData[r, c] = cellTypeManager.GenerateCell(blankCount, r * gridSize + c, position, gridSize);
+                    
+                    if (gridData[r, c].IsBlank)
+                    {
+                        blankCount++;
+                    }
+                }
+                else
+                {
+                    // Fallback: Generate standard letter cells using CellTypeManager for letters
+                    char randomLetter = GetRandomLetter();
+                    gridData[r, c] = CellData.CreateLetterCell(randomLetter);
+                }
             }
         }
+        
+        Debug.Log($"📋 Grid populated with {blankCount} blank cells out of {totalCells} total cells");
     }
 
+    /// <summary>
+    /// Get random letter (now delegates to CellTypeManager for consistency)
+    /// </summary>
     char GetRandomLetter()
     {
-        if (WeightedLetters.Count == 0) return 'A';
-        return WeightedLetters[UnityEngine.Random.Range(0, WeightedLetters.Count)];
+        if (cellTypeManager != null)
+        {
+            return cellTypeManager.GetRandomLetter();
+        }
+        
+        // Ultimate fallback if no CellTypeManager is assigned
+        return (char)('A' + UnityEngine.Random.Range(0, 26));
+    }
+
+    /// <summary>
+    /// Compatibility method to extract char from CellData for legacy systems
+    /// </summary>
+    public char GetLetterFromCellData(CellData cellData)
+    {
+        if (cellData.IsBlank)
+            return ' '; // Return space for blank cells
+        return cellData.letterValue;
+    }
+
+    /// <summary>
+    /// Get cell data at specific position (new interface)
+    /// </summary>
+    public CellData GetCellDataAtPosition(Vector2Int position)
+    {
+        if (position.x >= 0 && position.x < gridSize && position.y >= 0 && position.y < gridSize)
+        {
+            return gridData[position.y, position.x]; // Note: gridData is [row, col] format
+        }
+        return CellData.CreateLetterCell(' '); // Return default empty cell
+    }
+
+    /// <summary>
+    /// Get cell data at specific position (overload)
+    /// </summary>
+    public CellData GetCellDataAtPosition(int row, int col)
+    {
+        if (row >= 0 && row < gridSize && col >= 0 && col < gridSize)
+        {
+            return gridData[row, col];
+        }
+        return CellData.CreateLetterCell(' '); // Return default empty cell
     }
 
     public void SetRowVisualOffset(int rowIndex, float currentFrameVisualOffset)
@@ -245,7 +294,7 @@ public class WordGridManager : MonoBehaviour
         {
             if (gridCells[rowIndex, c] != null)
             {
-                gridCells[rowIndex, c].SetLetter(gridData[rowIndex, c]);
+                gridCells[rowIndex, c].SetCellData(gridData[rowIndex, c]);
             }
         }
         // Horizontal wraparound cells for this row
@@ -256,7 +305,7 @@ public class WordGridManager : MonoBehaviour
             {
                 int visualCol = _visualColOffsets[i];
                 int dataCol = (visualCol % gridSize + gridSize) % gridSize;
-                wrapCell.SetLetter(gridData[rowIndex, dataCol]);
+                wrapCell.SetCellData(gridData[rowIndex, dataCol]);
             }
         }
 
@@ -276,7 +325,7 @@ public class WordGridManager : MonoBehaviour
                     if (dataRowForWrap == rowIndex)
                     {
                         // ...then update its letter from the (potentially new) gridData at [rowIndex, c]
-                        vertWrapCell.SetLetter(gridData[rowIndex, c]);
+                        vertWrapCell.SetCellData(gridData[rowIndex, c]);
                     }
                 }
             }
@@ -297,7 +346,7 @@ public class WordGridManager : MonoBehaviour
         {
             if (gridCells[r, colIndex] != null)
             {
-                gridCells[r, colIndex].SetLetter(gridData[r, colIndex]);
+                gridCells[r, colIndex].SetCellData(gridData[r, colIndex]);
             }
         }
         // Vertical wraparound cells for this column
@@ -308,7 +357,7 @@ public class WordGridManager : MonoBehaviour
             {
                 int visualRow = _visualRowOffsets[i];
                 int dataRow = (visualRow % gridSize + gridSize) % gridSize;
-                wrapCell.SetLetter(gridData[dataRow, colIndex]);
+                wrapCell.SetCellData(gridData[dataRow, colIndex]);
             }
         }
 
@@ -328,7 +377,7 @@ public class WordGridManager : MonoBehaviour
                     if (dataColForWrap == colIndex)
                     {
                         // ...then update its letter from the (potentially new) gridData at [r, colIndex]
-                        horizWrapCell.SetLetter(gridData[r, colIndex]);
+                        horizWrapCell.SetCellData(gridData[r, colIndex]);
                     }
                 }
             }
@@ -368,7 +417,7 @@ public class WordGridManager : MonoBehaviour
     private void ShiftRowDataInternal(int rowIndex, int direction)
     {
         if (direction == 0) return;
-        char[] tempRow = new char[gridSize];
+        CellData[] tempRow = new CellData[gridSize];
         for (int c = 0; c < gridSize; c++) tempRow[c] = gridData[rowIndex, c];
 
         for (int c = 0; c < gridSize; c++)
@@ -381,7 +430,7 @@ public class WordGridManager : MonoBehaviour
     private void ShiftColumnDataInternal(int colIndex, int direction)
     {
         if (direction == 0) return;
-        char[] tempCol = new char[gridSize];
+        CellData[] tempCol = new CellData[gridSize];
         for (int r = 0; r < gridSize; r++) tempCol[r] = gridData[r, colIndex];
 
         for (int r = 0; r < gridSize; r++)
@@ -398,7 +447,7 @@ public class WordGridManager : MonoBehaviour
         {
             if (gridCells[rowIndex, c] != null)
             {
-                gridCells[rowIndex, c].SetLetter(gridData[rowIndex, c]);
+                gridCells[rowIndex, c].SetCellData(gridData[rowIndex, c]);
             }
         }
     }
@@ -410,7 +459,7 @@ public class WordGridManager : MonoBehaviour
         {
             if (gridCells[r, colIndex] != null)
             {
-                gridCells[r, colIndex].SetLetter(gridData[r, colIndex]);
+                gridCells[r, colIndex].SetCellData(gridData[r, colIndex]);
             }
         }
     }
@@ -436,14 +485,14 @@ public class WordGridManager : MonoBehaviour
                 {
                     mainCell.SetHighlightState(false, mainCell.GetDefaultColor()); 
 
-                    gridData[coord.x, coord.y] = GetRandomLetter(); 
-                    char newLetter = gridData[coord.x, coord.y]; 
+                    gridData[coord.x, coord.y] = CellData.CreateLetterCell(GetRandomLetter()); 
+                    CellData newCellData = gridData[coord.x, coord.y]; 
 
                     if (fadeIn)
                     {
                         mainCell.SetAlpha(0f); 
                         replacementSequence.AppendCallback(() => {
-                            mainCell.SetLetter(newLetter); 
+                            mainCell.SetCellData(newCellData); 
                             Image bgImage = mainCell.GetComponent<Image>();
                             if (bgImage != null)
                             {
@@ -455,7 +504,7 @@ public class WordGridManager : MonoBehaviour
                     }
                     else
                     {
-                        mainCell.SetLetter(newLetter);
+                        mainCell.SetCellData(newCellData);
                         Image bgImage = mainCell.GetComponent<Image>();
                         if (bgImage != null)
                         {
@@ -478,7 +527,7 @@ public class WordGridManager : MonoBehaviour
                                 int mirroredDataCol = (visualCol % gridSize + gridSize) % gridSize;
                                 if (mirroredDataCol == coord.y)
                                 {
-                                    wrapCell.SetLetter(newLetter);
+                                    wrapCell.SetCellData(newCellData);
                                 }
                             }
                         }
@@ -493,7 +542,7 @@ public class WordGridManager : MonoBehaviour
                                 int mirroredDataRow = (visualRow % gridSize + gridSize) % gridSize;
                                 if (mirroredDataRow == coord.x)
                                 {
-                                    wrapCell.SetLetter(newLetter);
+                                    wrapCell.SetCellData(newCellData);
                                 }
                             }
                         }
@@ -659,7 +708,7 @@ public class WordGridManager : MonoBehaviour
         char[] row = new char[gridSize];
         for (int c = 0; c < gridSize; c++)
         {
-            row[c] = gridData[rowIndex, c];
+            row[c] = GetLetterFromCellData(gridData[rowIndex, c]);
         }
         return row;
     }
@@ -672,6 +721,42 @@ public class WordGridManager : MonoBehaviour
             return null;
         }
         char[] col = new char[gridSize];
+        for (int r = 0; r < gridSize; r++)
+        {
+            col[r] = GetLetterFromCellData(gridData[r, colIndex]);
+        }
+        return col;
+    }
+
+    /// <summary>
+    /// Get row data as CellData array (new interface)
+    /// </summary>
+    public CellData[] GetRowCellData(int rowIndex)
+    {
+        if (rowIndex < 0 || rowIndex >= gridSize)
+        {
+            Debug.LogError($"WGM.GetRowCellData: Invalid rowIndex {rowIndex}");
+            return null;
+        }
+        CellData[] row = new CellData[gridSize];
+        for (int c = 0; c < gridSize; c++)
+        {
+            row[c] = gridData[rowIndex, c];
+        }
+        return row;
+    }
+
+    /// <summary>
+    /// Get column data as CellData array (new interface)
+    /// </summary>
+    public CellData[] GetColumnCellData(int colIndex)
+    {
+        if (colIndex < 0 || colIndex >= gridSize)
+        {
+            Debug.LogError($"WGM.GetColumnCellData: Invalid colIndex {colIndex}");
+            return null;
+        }
+        CellData[] col = new CellData[gridSize];
         for (int r = 0; r < gridSize; r++)
         {
             col[r] = gridData[r, colIndex];
@@ -759,7 +844,7 @@ public class WordGridManager : MonoBehaviour
                 int visualCol = _visualColOffsets[i];
                 // Determine the data column this visual column should mirror
                 int dataCol = (visualCol % gridSize + gridSize) % gridSize;
-                _horizontalWrapCells[r, i] = SetupWraparoundCell("HWrap", r, i, true, gridData[r, dataCol]);
+                _horizontalWrapCells[r, i] = SetupWraparoundCell("HWrap", r, i, true, GetLetterFromCellData(gridData[r, dataCol]));
             }
         }
 
@@ -770,7 +855,7 @@ public class WordGridManager : MonoBehaviour
                 int visualRow = _visualRowOffsets[i];
                 // Determine the data row this visual row should mirror
                 int dataRow = (visualRow % gridSize + gridSize) % gridSize;
-                _verticalWrapCells[c, i] = SetupWraparoundCell("VWrap", c, i, false, gridData[dataRow, c]);
+                _verticalWrapCells[c, i] = SetupWraparoundCell("VWrap", c, i, false, GetLetterFromCellData(gridData[dataRow, c]));
             }
         }
         
