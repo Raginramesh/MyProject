@@ -1657,15 +1657,15 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
+  m_fontSize: 179
   m_fontSizeBase: 36
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
-  m_fontSizeMax: 72
+  m_fontSizeMax: 500
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -2242,6 +2242,7 @@ MonoBehaviour:
   correctLetterColor: {r: 0.05406728, g: 0.764151, b: 0.05406728, a: 1}
   presentLetterColor: {r: 0.9056604, g: 0.8334962, b: 0, a: 1}
   absentLetterColor: {r: 1, g: 1, b: 1, a: 1}
+  interferenceLetterColor: {r: 1, g: 0, b: 1, a: 1}
   wordValidator: {fileID: 593137152}
   gameManager: {fileID: 1480404336}
   cellTypeManager: {fileID: 11400000, guid: cdc01fcd1fef441f09fa00cbd7180f23, type: 2}
@@ -3768,15 +3769,15 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
+  m_fontSize: 179
   m_fontSizeBase: 36
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
-  m_fontSizeMax: 72
+  m_fontSizeMax: 500
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -4040,7 +4041,7 @@ MonoBehaviour:
   pausePanel: {fileID: 0}
   scrabbleUIGroup: {fileID: 277452054}
   wordleUIGroup: {fileID: 1882687836}
-  targetWordProgressText: {fileID: 1490566784}
+  targetWordProgressText: {fileID: 890131377}
   wordGridManager: {fileID: 593137150}
   wordValidator: {fileID: 593137152}
   gridInputHandler: {fileID: 450983252}
@@ -4163,15 +4164,15 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
+  m_fontSize: 179
   m_fontSizeBase: 36
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
-  m_fontSizeMax: 72
+  m_fontSizeMax: 500
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0

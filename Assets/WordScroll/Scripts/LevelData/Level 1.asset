@@ -17,15 +17,15 @@ MonoBehaviour:
   levelDescription: Complete the level by reaching the target score within the move
     limit.
   gameMode: 1
-  gridSize: 5
+  gridSize: 3
   targetScore: 0
   oneStarPercentage: 50
   twoStarPercentage: 75
   threeStarPercentage: 100
   targetWords:
-  - CATCH
-  - PREPS
-  - STARS
+  - CAT
+  - BUS
+  - ACE
   winConditionType: 1
   maxMoves: 10
   unlimitedMoves: 0

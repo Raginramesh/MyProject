@@ -640,23 +640,25 @@ public class WordGridManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Manual test method to demonstrate different multi-word scenarios
+    /// Manual test method to demonstrate position-based priority and letter frequency handling
     /// Call this from Unity Inspector or Console to test specific cases
     /// </summary>
     [ContextMenu("Test Multi-Word Scenarios")]
     public void TestMultiWordScenarios()
     {
-        Debug.Log($"🧪 MANUAL TEST: Starting comprehensive multi-word scenario tests");
+        Debug.Log($"🧪 MANUAL TEST: Starting position-based priority and letter frequency tests");
         
-        // Test scenarios with different letter combinations
+        // Test scenarios focusing on position-based priority and duplicate letter handling
         string[] testScenarios = new string[]
         {
-            "CATCH", // Perfect match with first word
-            "CATPR", // Mix of CATCH and PREPS - C from CATCH should be dominant
-            "PRCAT", // P from PREPS first, then mix
-            "STARS", // Perfect match with third word
-            "STARP", // STARS with interference from PREPS
-            "CSTAR"  // Mixed start - C from CATCH, then STARS letters
+            "STARS", // Perfect match with STARS - should be all correct (green)
+            "STTRS", // STARS with extra T - first T should be green, second T should be purple (from CATCH)
+            "CATCH", // Perfect match with CATCH - should be all correct (green)
+            "CATTH", // CATCH with extra T - both T's should be green (CATCH has 2 T's)
+            "CTTCH", // CATCH with 3 T's - first 2 T's green, third T should be purple (from STARS)
+            "SCARS", // S matches STARS (position 0), so STARS dominant - mixed feedback
+            "CREEP", // C matches CATCH (position 0), so CATCH dominant - mixed feedback
+            "PREPS", // Perfect match with PREPS - should be all correct (green)
         };
         
         string[] targetWords = new string[] { "CATCH", "PREPS", "STARS" };
@@ -666,6 +668,7 @@ public class WordGridManager : MonoBehaviour
         {
             testIndex++;
             Debug.Log($"🧪 TEST SCENARIO {testIndex}: Testing '{testScenario}' vs [{string.Join(", ", targetWords)}]");
+            Debug.Log($"🧪 EXPECTED: Position 0 letter '{testScenario[0]}' will determine dominant word");
             
             // Simulate this scenario by temporarily setting center row letters
             SetCenterRowForTesting(testScenario);
@@ -675,8 +678,17 @@ public class WordGridManager : MonoBehaviour
             
             // Wait a moment for visual inspection
             Debug.Log($"🧪 SCENARIO {testIndex} COMPLETE - Check the center row colors!");
+            Debug.Log($"🧪 ↳ Green = Correct position in dominant word");
+            Debug.Log($"🧪 ↳ Yellow = Wrong position in dominant word (unused letters only)");
+            Debug.Log($"🧪 ↳ Purple = Extra letters from other target words");
+            Debug.Log($"🧪 ↳ Gray = Not in any target word");
             Debug.Log($"🧪 ----");
         }
+        
+        Debug.Log($"🧪 POSITION PRIORITY LOGIC:");
+        Debug.Log($"🧪 ↳ CATCH starts with C, PREPS starts with P, STARS starts with S");
+        Debug.Log($"🧪 ↳ First letter in center row determines which word gets priority");
+        Debug.Log($"🧪 ↳ Extra instances of letters are marked purple if they exist in other targets");
     }
     
     /// <summary>
@@ -921,58 +933,61 @@ public class WordGridManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Determine the dominant word based on your specified logic:
-    /// 1. First unique letter determines dominance
-    /// 2. If ambiguous, use next distinguishing letter or random selection
+    /// Determine the dominant word based on position priority:
+    /// The first letter in the center row that matches any target word determines the dominant word
     /// </summary>
     private WordMatchAnalysis DetermineDominantWord(List<WordMatchAnalysis> analyses, string centerRowWord)
     {
-        // Filter out words with no matches at all
+        string upperCenterRow = centerRowWord.ToUpper();
+        
+        Debug.Log($"🎯 POSITION PRIORITY: Scanning center row '{upperCenterRow}' left-to-right for first matching letter");
+        
+        // Scan from left to right to find the first letter that matches any target word at that position
+        for (int position = 0; position < upperCenterRow.Length; position++)
+        {
+            char currentLetter = upperCenterRow[position];
+            
+            Debug.Log($"🎯 POSITION {position}: Checking letter '{currentLetter}'");
+            
+            // Check which target words have this letter at this exact position
+            var wordsMatchingAtPosition = analyses.Where(w => 
+                position < w.targetWord.Length && 
+                w.targetWord.ToUpper()[position] == currentLetter
+            ).ToList();
+            
+            if (wordsMatchingAtPosition.Count == 1)
+            {
+                // Single word matches at this position - it becomes dominant
+                var dominantWord = wordsMatchingAtPosition[0];
+                Debug.Log($"🎯 POSITION PRIORITY: Position {position} letter '{currentLetter}' uniquely matches '{dominantWord.targetWord}' - DOMINANT WORD DETERMINED");
+                return dominantWord;
+            }
+            else if (wordsMatchingAtPosition.Count > 1)
+            {
+                // Multiple words match at this position - continue scanning
+                string matchingWords = string.Join(", ", wordsMatchingAtPosition.Select(w => w.targetWord));
+                Debug.Log($"🎯 POSITION {position}: Letter '{currentLetter}' matches multiple words: [{matchingWords}] - continuing scan");
+            }
+            else
+            {
+                // No words match at this position
+                Debug.Log($"🎯 POSITION {position}: Letter '{currentLetter}' doesn't match any target word at this position");
+            }
+        }
+        
+        // If we get here, no position uniquely determined a dominant word
+        // Fallback to the word with the best overall match
         var viableWords = analyses.Where(w => w.totalMatches > 0).ToList();
         
         if (viableWords.Count == 0)
         {
-            Debug.Log($"🎯 DOMINANT: No viable words found");
+            Debug.Log($"🎯 POSITION PRIORITY: No viable words found");
             return null;
         }
         
-        if (viableWords.Count == 1)
-        {
-            Debug.Log($"🎯 DOMINANT: Only one viable word: '{viableWords[0].targetWord}'");
-            return viableWords[0];
-        }
-        
-        // Look for the word with the earliest unique correct letter
-        var wordsWithUniqueLetters = viableWords.Where(w => w.hasUniqueLetters && w.firstUniquePosition != -1).ToList();
-        
-        if (wordsWithUniqueLetters.Count == 1)
-        {
-            Debug.Log($"🎯 DOMINANT: Single word with unique letters: '{wordsWithUniqueLetters[0].targetWord}' at position {wordsWithUniqueLetters[0].firstUniquePosition}");
-            return wordsWithUniqueLetters[0];
-        }
-        
-        if (wordsWithUniqueLetters.Count > 1)
-        {
-            // Find the word with the earliest unique letter
-            var earliestUnique = wordsWithUniqueLetters.OrderBy(w => w.firstUniquePosition).First();
-            Debug.Log($"🎯 DOMINANT: Earliest unique letter at position {earliestUnique.firstUniquePosition}: '{earliestUnique.targetWord}'");
-            return earliestUnique;
-        }
-        
-        // If no unique letters, use highest match score
         var bestMatch = viableWords.OrderByDescending(w => w.matchScore).First();
-        var topMatches = viableWords.Where(w => Math.Abs(w.matchScore - bestMatch.matchScore) < 0.1f).ToList();
-        
-        if (topMatches.Count == 1)
-        {
-            Debug.Log($"🎯 DOMINANT: Best match score: '{bestMatch.targetWord}' with score {bestMatch.matchScore:F2}");
-            return bestMatch;
-        }
-        
-        // If tied, pick randomly among top matches
-        var randomChoice = topMatches[UnityEngine.Random.Range(0, topMatches.Count)];
-        Debug.Log($"🎯 DOMINANT: Random choice among {topMatches.Count} tied words: '{randomChoice.targetWord}'");
-        return randomChoice;
+        Debug.Log($"🎯 POSITION PRIORITY: No unique position match found, using best overall match: '{bestMatch.targetWord}' (score: {bestMatch.matchScore:F2})");
+        return bestMatch;
     }
     
     /// <summary>
@@ -1009,53 +1024,113 @@ public class WordGridManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Apply feedback based on the dominant word with interference detection
+    /// Apply feedback based on the dominant word with proper letter frequency handling
+    /// Uses two-pass algorithm: 1) Exact matches (green), 2) Wrong position matches (yellow), 3) Interference/absent
     /// </summary>
     private void ApplyDominantWordFeedback(string centerRowWord, WordMatchAnalysis dominantWord, string[] allTargetWords)
     {
         int centerRow = gridSize / 2;
         string dominantWordUpper = dominantWord.targetWord.ToUpper();
+        string centerRowUpper = centerRowWord.ToUpper();
         
-        for (int c = 0; c < gridSize && c < centerRowWord.Length; c++)
+        Debug.Log($"🎯 FEEDBACK: Applying two-pass feedback for '{centerRowWord}' vs dominant word '{dominantWord.targetWord}'");
+        
+        // Count available letters in dominant word
+        Dictionary<char, int> dominantWordLetterCounts = new Dictionary<char, int>();
+        foreach (char letter in dominantWordUpper)
+        {
+            if (dominantWordLetterCounts.ContainsKey(letter))
+                dominantWordLetterCounts[letter]++;
+            else
+                dominantWordLetterCounts[letter] = 1;
+        }
+        
+        Debug.Log($"🎯 LETTER COUNTS: Dominant word '{dominantWord.targetWord}' letter frequencies: {string.Join(", ", dominantWordLetterCounts.Select(kvp => $"{kvp.Key}:{kvp.Value}"))}");
+        
+        // Arrays to track feedback results
+        Color[] feedbackColors = new Color[gridSize];
+        string[] feedbackNames = new string[gridSize];
+        
+        // PASS 1: Mark exact position matches (GREEN) and consume letters
+        for (int c = 0; c < gridSize && c < centerRowUpper.Length; c++)
+        {
+            char currentLetter = centerRowUpper[c];
+            
+            // Check if this letter is correct at this position
+            if (c < dominantWordUpper.Length && dominantWordUpper[c] == currentLetter)
+            {
+                // Exact match - mark as green and consume one instance of this letter
+                feedbackColors[c] = correctLetterColor;
+                feedbackNames[c] = "Correct (Green)";
+                dominantWordLetterCounts[currentLetter]--;
+                
+                Debug.Log($"🎯 PASS 1: Position {c} letter '{currentLetter}' → EXACT MATCH (Green). Remaining count: {dominantWordLetterCounts[currentLetter]}");
+            }
+            else
+            {
+                // Not an exact match, will be handled in pass 2
+                feedbackColors[c] = Color.clear; // Placeholder
+                feedbackNames[c] = "TBD";
+            }
+        }
+        
+        // PASS 2: Mark wrong position matches (YELLOW) for remaining letters
+        for (int c = 0; c < gridSize && c < centerRowUpper.Length; c++)
+        {
+            if (feedbackColors[c] != Color.clear) continue; // Already handled in pass 1
+            
+            char currentLetter = centerRowUpper[c];
+            
+            // Check if this letter exists in the dominant word and we have remaining instances
+            if (dominantWordLetterCounts.ContainsKey(currentLetter) && dominantWordLetterCounts[currentLetter] > 0)
+            {
+                // Letter exists but wrong position - mark as yellow and consume one instance
+                feedbackColors[c] = presentLetterColor;
+                feedbackNames[c] = "Present (Yellow)";
+                dominantWordLetterCounts[currentLetter]--;
+                
+                Debug.Log($"🎯 PASS 2: Position {c} letter '{currentLetter}' → WRONG POSITION (Yellow). Remaining count: {dominantWordLetterCounts[currentLetter]}");
+            }
+            else
+            {
+                // Letter not in dominant word or no more instances available
+                feedbackColors[c] = Color.clear; // Will be handled in pass 3
+                feedbackNames[c] = "TBD";
+            }
+        }
+        
+        // PASS 3: Mark interference (PURPLE) or absent (GRAY) for remaining letters
+        for (int c = 0; c < gridSize && c < centerRowUpper.Length; c++)
+        {
+            if (feedbackColors[c] != Color.clear) continue; // Already handled in previous passes
+            
+            char currentLetter = centerRowUpper[c];
+            
+            // Check if this letter exists in any other target word (interference)
+            bool isInterference = IsInterferenceLetter(currentLetter, c, dominantWord, allTargetWords);
+            
+            if (isInterference)
+            {
+                feedbackColors[c] = interferenceLetterColor;
+                feedbackNames[c] = "Interference (Purple)";
+                Debug.Log($"🎯 PASS 3: Position {c} letter '{currentLetter}' → INTERFERENCE from other target word (Purple)");
+            }
+            else
+            {
+                feedbackColors[c] = absentLetterColor;
+                feedbackNames[c] = "Absent (Gray)";
+                Debug.Log($"🎯 PASS 3: Position {c} letter '{currentLetter}' → NOT IN ANY TARGET (Gray)");
+            }
+        }
+        
+        // Apply all feedback colors to cells
+        for (int c = 0; c < gridSize && c < centerRowUpper.Length; c++)
         {
             if (gridCells[centerRow, c] != null)
             {
-                char currentLetter = char.ToUpper(centerRowWord[c]);
-                Color feedbackColor;
-                string feedbackName;
-                
-                // Check position in dominant word
-                if (c < dominantWordUpper.Length && dominantWordUpper[c] == currentLetter)
-                {
-                    // Correct position in dominant word
-                    feedbackColor = correctLetterColor;
-                    feedbackName = "Correct (Green)";
-                }
-                else if (dominantWordUpper.Contains(currentLetter))
-                {
-                    // Present in dominant word but wrong position
-                    feedbackColor = presentLetterColor;
-                    feedbackName = "Present (Yellow)";
-                }
-                else
-                {
-                    // Not in dominant word - check for interference
-                    bool isInterference = IsInterferenceLetter(currentLetter, c, dominantWord, allTargetWords);
-                    
-                    if (isInterference)
-                    {
-                        feedbackColor = interferenceLetterColor;
-                        feedbackName = "Interference (Purple)";
-                    }
-                    else
-                    {
-                        feedbackColor = absentLetterColor;
-                        feedbackName = "Absent (Gray)";
-                    }
-                }
-                
-                Debug.Log($"🎯 DOMINANT: Letter '{currentLetter}' at position {c} → {feedbackName} (vs '{dominantWord.targetWord}')");
-                gridCells[centerRow, c].SetHighlightState(true, feedbackColor);
+                char currentLetter = centerRowUpper[c];
+                Debug.Log($"🎯 FINAL: Letter '{currentLetter}' at position {c} → {feedbackNames[c]}");
+                gridCells[centerRow, c].SetHighlightState(true, feedbackColors[c]);
             }
         }
     }
