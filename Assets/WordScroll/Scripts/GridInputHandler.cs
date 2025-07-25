@@ -754,16 +754,21 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         float cDimWithSpacing = wordGridManager.cellSize + wordGridManager.spacing;
         if (cDimWithSpacing <= 0) return new Vector2Int(-1, -1);
 
-        float gridContentWidth = wordGridManager.gridSize * wordGridManager.cellSize + (wordGridManager.gridSize - 1) * wordGridManager.spacing;
+        // Use the same calculation as WordGridManager for consistency
+        float totalGridWidth = wordGridManager.gridSize * wordGridManager.cellSize + (wordGridManager.gridSize - 1) * wordGridManager.spacing;
+        float gridCenterOffsetX = totalGridWidth / 2f - wordGridManager.cellSize / 2f;
+        float gridCenterOffsetY = totalGridWidth / 2f - wordGridManager.cellSize / 2f;
 
-        float gridStartX = -gridContentWidth / 2f;
-        float gridStartY = gridContentWidth / 2f;
+        // Calculate which cell this position falls into
+        // Reverse the GetBaseCellPosition calculation:
+        // xPos = c * (cellSize + spacing) - gridCenterOffset.x
+        // yPos = -(r * (cellSize + spacing) - gridCenterOffset.y)
+        
+        float adjustedX = localPosition.x + gridCenterOffsetX;
+        float adjustedY = -localPosition.y + gridCenterOffsetY;
 
-        float xInGrid = localPosition.x - gridStartX;
-        float yInGrid = gridStartY - localPosition.y;
-
-        int col = Mathf.FloorToInt(xInGrid / cDimWithSpacing);
-        int row = Mathf.FloorToInt(yInGrid / cDimWithSpacing);
+        int col = Mathf.FloorToInt(adjustedX / cDimWithSpacing);
+        int row = Mathf.FloorToInt(adjustedY / cDimWithSpacing);
 
         if (row >= 0 && row < wordGridManager.gridSize && col >= 0 && col < wordGridManager.gridSize)
         {

@@ -68,12 +68,18 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI movesText;
     [SerializeField] private GameObject gameOverPanel;
     [SerializeField] private GameObject pausePanel;
+    
+    [Header("Dual-Mode UI")]
+    [SerializeField] private GameObject scrabbleUIGroup; // Contains score-related UI elements
+    [SerializeField] private GameObject wordleUIGroup; // Contains target word progress UI elements
+    [SerializeField] private TextMeshProUGUI targetWordProgressText; // Shows "X/Y words found"
 
     [Header("Component References")]
     [SerializeField] private WordGridManager wordGridManager;
     [SerializeField] private WordValidator wordValidator;
     [SerializeField] private GridInputHandler gridInputHandler;
     [SerializeField] private NumericalScoreUI numericalScoreUI;
+    [SerializeField] private TargetWordFeedbackUI targetWordFeedbackUI; // For Wordle-style feedback
     [SerializeField] private AnimatedScoringSystem animatedScoringSystem;
     [SerializeField] private AudioAndHapticsManager audioManager; // Reference to audio manager
 
@@ -101,9 +107,9 @@ public class GameManager : MonoBehaviour
     {
         get
         {
-            if (IsUsingLevelSystem && LevelManager.Instance?.CurrentLevel != null)
+            if (hasValidLevelData)
             {
-                return LevelManager.Instance.CurrentLevel.TargetScore;
+                return currentLevelData.TargetScore;
             }
             return traditionalTargetScore;
         }
@@ -114,13 +120,18 @@ public class GameManager : MonoBehaviour
     {
         get
         {
-            if (IsUsingLevelSystem && LevelManager.Instance?.CurrentLevel != null)
+            if (hasValidLevelData)
             {
-                return LevelManager.Instance.CurrentLevel.MaxMoves;
+                return currentLevelData.MaxMoves;
             }
             return traditionalStartingMoves;
         }
     }
+    
+    // Helper properties to reduce redundant level data access
+    private LevelManager levelManager => LevelManager.Instance;
+    private LevelData currentLevelData => levelManager?.CurrentLevel;
+    private bool hasValidLevelData => IsUsingLevelSystem && currentLevelData != null;
 
     private float currentTimeRemaining;
     private int currentMovesRemaining;
@@ -132,9 +143,9 @@ public class GameManager : MonoBehaviour
     {
         get 
         { 
-            if (IsUsingLevelSystem && LevelManager.Instance != null)
+            if (IsUsingLevelSystem && levelManager != null)
             {
-                return LevelManager.Instance.CurrentScore;
+                return levelManager.CurrentScore;
             }
             return currentScore; 
         }
@@ -144,9 +155,9 @@ public class GameManager : MonoBehaviour
     {
         get
         {
-            if (IsUsingLevelSystem && LevelManager.Instance != null && LevelManager.Instance.CurrentLevel != null)
+            if (hasValidLevelData)
             {
-                return LevelManager.Instance.CurrentLevel.GetRemainingMoves(LevelManager.Instance.CurrentMoves);
+                return currentLevelData.GetRemainingMoves(levelManager.CurrentMoves);
             }
             return currentMovesRemaining;
         }
@@ -295,20 +306,66 @@ public class GameManager : MonoBehaviour
     {
         SetState(GameState.Initializing);
         
+        // Set appropriate display mode based on game system
+        if (IsUsingLevelSystem)
+        {
+            // For level system, check the win condition type from level data
+            if (hasValidLevelData)
+            {
+                // Check if this is a Wordle-style level with time-based win condition
+                if (currentLevelData.IsWordleStyle && currentLevelData.WinConditionType == LevelWinConditionType.TimeBased)
+                {
+                    currentDisplayMode = DisplayMode.Timer;
+                    Debug.Log($"🎮 Level System: Set display mode to Timer (Wordle-style level with TimeBased win condition)");
+                }
+                // Check if level uses moves (either Scrabble-style or Wordle-style with move-based win condition)
+                else if (currentLevelData.IsScrabbleStyle || 
+                        (currentLevelData.IsWordleStyle && currentLevelData.WinConditionType == LevelWinConditionType.MoveBased))
+                {
+                    currentDisplayMode = DisplayMode.Moves;
+                    if (currentLevelData.IsScrabbleStyle)
+                    {
+                        Debug.Log($"🎮 Level System: Set display mode to Moves (Scrabble-style level with {currentLevelData.MaxMoves} max moves)");
+                    }
+                    else
+                    {
+                        Debug.Log($"🎮 Level System: Set display mode to Moves (Wordle-style level with MoveBased win condition, {currentLevelData.MaxMoves} max moves)");
+                    }
+                }
+                else
+                {
+                    // Fallback - this shouldn't happen with proper level configuration
+                    currentDisplayMode = DisplayMode.Moves;
+                    Debug.LogWarning($"🎮 Level System: Unexpected level configuration, defaulting to Moves display mode");
+                }
+            }
+            else
+            {
+                // Default to moves for level system if no level data yet
+                currentDisplayMode = DisplayMode.Moves;
+                Debug.Log($"🎮 Level System: Set display mode to Moves (default - no level data yet)");
+            }
+        }
+        else
+        {
+            // Keep the serialized value for traditional mode (Timer by default)
+            Debug.Log($"🎮 Traditional Mode: Using display mode {currentDisplayMode}");
+        }
+        
         // Initialize score and moves based on current system
         if (IsUsingLevelSystem)
         {
             // Let LevelManager handle score tracking - don't reset its score here
             currentScore = 0; // GameManager's internal tracking (not used for display)
             currentRoundScore = 0;
-            Debug.Log($"🎮 Level System: Current level is {LevelManager.Instance?.CurrentLevel?.LevelName ?? "Unknown Level"}");
-            Debug.Log($"🎮 Level System: LevelManager score is {LevelManager.Instance?.CurrentScore ?? 0}");
+            Debug.Log($"🎮 Level System: Current level is {currentLevelData?.LevelName ?? "Unknown Level"}");
+            Debug.Log($"🎮 Level System: LevelManager score is {levelManager?.CurrentScore ?? 0}");
             
             // Ensure we have a current level - if not, start the first level
-            if (LevelManager.Instance != null && LevelManager.Instance.CurrentLevel == null)
+            if (levelManager != null && currentLevelData == null)
             {
                 Debug.Log($"🎮 No current level found, starting level 0");
-                bool levelStarted = LevelManager.Instance.StartLevel(0);
+                bool levelStarted = levelManager.StartLevel(0);
                 Debug.Log($"🎮 Level start result: {levelStarted}");
             }
         }
@@ -330,6 +387,7 @@ public class GameManager : MonoBehaviour
 
         UpdateScoreUI();
         UpdateRoundScoreUI(); // Initialize round score UI
+        InitializeDualModeUI(); // Initialize UI based on game mode
         
         // DEBUG: Ensure main score elements are visible
         #if UNITY_EDITOR
@@ -352,21 +410,37 @@ public class GameManager : MonoBehaviour
             bool isGroupActive = currentDisplayMode != DisplayMode.None;
             statusDisplayGroup.SetActive(isGroupActive);
             Debug.Log($"🎮 Status Display Group: Active={isGroupActive}, CurrentDisplayMode={currentDisplayMode}");
+            Debug.Log($"🎮 Status Display Group GameObject: {statusDisplayGroup.name}, Active in Hierarchy: {statusDisplayGroup.activeInHierarchy}");
             
             if (isGroupActive)
             {
-                if (timerText != null) timerText.gameObject.SetActive(currentDisplayMode == DisplayMode.Timer);
+                if (timerText != null) 
+                {
+                    timerText.gameObject.SetActive(currentDisplayMode == DisplayMode.Timer);
+                    Debug.Log($"⏰ Timer Text: {(timerText != null ? "Found" : "NULL")}, Active={timerText.gameObject.activeSelf}, DisplayMode={currentDisplayMode}");
+                    Debug.Log($"⏰ Timer Text GameObject: {timerText.gameObject.name}, Active in Hierarchy: {timerText.gameObject.activeInHierarchy}");
+                }
+                else
+                {
+                    Debug.LogError("❌ timerText is NULL in StartGame!");
+                }
+                
                 if (movesText != null) 
                 {
                     movesText.gameObject.SetActive(currentDisplayMode == DisplayMode.Moves);
-                    Debug.Log($"📱 Moves Text GameObject: Active={movesText.gameObject.activeSelf}, DisplayMode={currentDisplayMode}");
+                    Debug.Log($"📱 Moves Text: {(movesText != null ? "Found" : "NULL")}, Active={movesText.gameObject.activeSelf}, DisplayMode={currentDisplayMode}");
+                }
+                else
+                {
+                    Debug.LogError("❌ movesText is NULL in StartGame!");
                 }
                 
                 if (currentDisplayMode == DisplayMode.Timer) 
                 { 
                     currentTimeRemaining = gameTimeLimit; 
                     UpdateTimerUI(); 
-                    Debug.Log($"⏰ Timer Mode: Time={currentTimeRemaining}");
+                    Debug.Log($"⏰ Timer Mode: Time={currentTimeRemaining}, gameTimeLimit={gameTimeLimit}");
+                    Debug.Log($"⏰ Timer Mode: timerText.text=\"{(timerText != null ? timerText.text : "NULL")}\"");
                 }
                 else if (currentDisplayMode == DisplayMode.Moves) 
                 { 
@@ -380,10 +454,10 @@ public class GameManager : MonoBehaviour
                     }
                     else
                     {
-                        Debug.Log($"🎯 Level System Moves: LevelManager.Instance={(LevelManager.Instance != null ? "Found" : "NULL")}, CurrentLevel={(LevelManager.Instance?.CurrentLevel != null ? LevelManager.Instance.CurrentLevel.LevelName : "NULL")}");
-                        if (LevelManager.Instance?.CurrentLevel != null)
+                        Debug.Log($"🎯 Level System Moves: LevelManager={(levelManager != null ? "Found" : "NULL")}, CurrentLevel={(currentLevelData != null ? currentLevelData.LevelName : "NULL")}");
+                        if (hasValidLevelData)
                         {
-                            Debug.Log($"🎯 Level Data: MaxMoves={LevelManager.Instance.CurrentLevel.MaxMoves}, CurrentMoves={LevelManager.Instance.CurrentMoves}");
+                            Debug.Log($"🎯 Level Data: MaxMoves={currentLevelData.MaxMoves}, CurrentMoves={levelManager.CurrentMoves}");
                         }
                     }
                     
@@ -391,9 +465,21 @@ public class GameManager : MonoBehaviour
                 }
             }
         }
+        else
+        {
+            Debug.LogError("❌ statusDisplayGroup is NULL in StartGame!");
+        }
         if (wordGridManager != null)
         {
-            wordGridManager.InitializeGrid();
+            // If using level system, wait for LevelManager to be ready
+            if (IsUsingLevelSystem)
+            {
+                StartCoroutine(InitializeGridWhenReady());
+            }
+            else
+            {
+                wordGridManager.InitializeGrid();
+            }
         }
         else
         {
@@ -419,6 +505,32 @@ public class GameManager : MonoBehaviour
         }
         
         SetState(GameState.Playing);
+    }
+
+    private IEnumerator InitializeGridWhenReady()
+    {
+        Debug.Log("🔄 Waiting for LevelManager to be ready for grid initialization...");
+        
+        int retryCount = 0;
+        const int maxRetries = 10;
+        const float retryDelay = 0.1f;
+        
+        while (retryCount < maxRetries)
+        {
+            if (levelManager != null && currentLevelData != null)
+            {
+                Debug.Log($"✅ LevelManager ready after {retryCount} retries. Initializing grid...");
+                wordGridManager.InitializeGrid();
+                yield break;
+            }
+            
+            retryCount++;
+            Debug.Log($"⏳ LevelManager not ready, retry {retryCount}/{maxRetries}...");
+            yield return new WaitForSeconds(retryDelay);
+        }
+        
+        Debug.LogWarning($"⚠️ LevelManager still not ready after {maxRetries} retries. Initializing grid anyway...");
+        wordGridManager.InitializeGrid();
     }
 
     private void PlayerWins()
@@ -916,22 +1028,22 @@ public class GameManager : MonoBehaviour
             else
             {
                 Debug.Log($"[GameManager] Level system mode: Skipping currentScore update from animated scoring system.");
-                Debug.Log($"[GameManager] ↳ LevelManager.Instance exists: {LevelManager.Instance != null}");
-                if (LevelManager.Instance != null)
+                Debug.Log($"[GameManager] ↳ LevelManager.Instance exists: {levelManager != null}");
+                if (levelManager != null)
                 {
-                    Debug.Log($"[GameManager] ↳ LevelManager.CurrentScore: {LevelManager.Instance.CurrentScore}");
+                    Debug.Log($"[GameManager] ↳ LevelManager.CurrentScore: {levelManager.CurrentScore}");
                 }
                 Debug.Log($"[GameManager] ↳ GameManager.CurrentScore property: {CurrentScore}");
                 Debug.Log($"[GameManager] ↳ animatedScoringSystem.GetTotalScore(): {animatedScoringSystem.GetTotalScore()}");
                 
                 // CRITICAL FIX: Add score to LevelManager immediately so UpdateScoreUI shows correct value
-                if (LevelManager.Instance != null && scoringData.finalScore > 0)
+                if (levelManager != null && scoringData.finalScore > 0)
                 {
-                    int scoreBeforeAdd = LevelManager.Instance.CurrentScore;
+                    int scoreBeforeAdd = levelManager.CurrentScore;
                     Debug.Log($"[GameManager] ↳ BEFORE AddScore: LevelManager.CurrentScore = {scoreBeforeAdd}");
                     Debug.Log($"[GameManager] ↳ Adding {scoringData.finalScore} points to LevelManager immediately");
-                    LevelManager.Instance.AddScore(scoringData.finalScore);
-                    int scoreAfterAdd = LevelManager.Instance.CurrentScore;
+                    levelManager.AddScore(scoringData.finalScore);
+                    int scoreAfterAdd = levelManager.CurrentScore;
                     Debug.Log($"[GameManager] ↳ AFTER AddScore: LevelManager.CurrentScore = {scoreAfterAdd}");
                     Debug.Log($"[GameManager] ↳ Expected total: {scoreBeforeAdd} + {scoringData.finalScore} = {scoreBeforeAdd + scoringData.finalScore}");
                     
@@ -967,6 +1079,102 @@ public class GameManager : MonoBehaviour
         {
             wordValidator.MarkWordAsFoundInSession(word.Word);
         }
+        
+        // Handle Wordle-style specific logic
+        if (IsUsingLevelSystem && LevelManager.Instance?.CurrentLevel?.IsWordleStyle == true)
+        {
+            yield return StartCoroutine(ProcessWordleStyleLogic(words));
+        }
+    }
+    
+    /// <summary>
+    /// Handle Wordle-style specific logic after words are processed
+    /// </summary>
+    private IEnumerator ProcessWordleStyleLogic(List<FoundWordData> words)
+    {
+        if (!hasValidLevelData) yield break;
+        
+        // Check for target words found
+        int targetWordsFound = 0;
+        List<string> newTargetWordsFound = new List<string>();
+        
+        // Process each word for letter feedback and target word detection
+        foreach (var word in words)
+        {
+            // Show letter feedback for all words in Wordle mode
+            if (targetWordFeedbackUI != null && wordValidator != null)
+            {
+                // Get letter feedback for this word
+                var validationResult = wordValidator.ValidateWordWithFeedback(word.Word, word.Coordinates);
+                if (validationResult.LetterFeedbacks != null)
+                {
+                    // Show letter feedback (but only for non-target words to avoid duplication)
+                    if (!currentLevelData.IsTargetWord(word.Word))
+                    {
+                        targetWordFeedbackUI.ShowLetterFeedback(word.Word, validationResult.LetterFeedbacks);
+                        yield return new WaitForSeconds(0.3f); // Small delay between feedback displays
+                    }
+                }
+            }
+            
+            // Check if this is a target word
+            if (currentLevelData.IsTargetWord(word.Word))
+            {
+                targetWordsFound++;
+                newTargetWordsFound.Add(word.Word);
+                Debug.Log($"🎯 Target word found: '{word.Word}'");
+            }
+        }
+        
+        // Update word validator validation mode
+        wordValidator.UpdateValidationModeForLevel();
+        
+        // Display feedback for target words found
+        if (newTargetWordsFound.Count > 0)
+        {
+            Debug.Log($"🎯 Found {newTargetWordsFound.Count} target words this round!");
+            
+            // Show individual target word feedback
+            if (targetWordFeedbackUI != null)
+            {
+                foreach (string targetWord in newTargetWordsFound)
+                {
+                    targetWordFeedbackUI.ShowTargetWordFound(targetWord);
+                    // Add delay between multiple target words if needed
+                    yield return new WaitForSeconds(0.5f);
+                }
+            }
+            
+            // Update Wordle UI to show newly found words
+            UpdateWordleUI();
+        }
+        
+        // Check for level completion (all target words found)
+        if (wordValidator.AreAllTargetWordsFound())
+        {
+            Debug.Log("🎯 ALL TARGET WORDS FOUND! Level complete!");
+            // Final UI update before completion
+            UpdateWordleUI();
+            // Let LevelManager handle the completion
+            levelManager.CheckWordleCompletion();
+        }
+        else
+        {
+            int totalFound = wordValidator.GetTargetWordsFoundCount();
+            int totalTarget = currentLevelData.TargetWordCount;
+            Debug.Log($"🎯 Progress: {totalFound}/{totalTarget} target words found");
+            
+            // Show progress update
+            if (targetWordFeedbackUI != null && newTargetWordsFound.Count > 0)
+            {
+                targetWordFeedbackUI.ShowProgressUpdate(totalFound, totalTarget);
+            }
+            
+            // Update UI to show current progress
+            UpdateWordleUI();
+        }
+        
+        yield return null; // Small delay for processing
     }
     
     /// <summary>
@@ -1110,15 +1318,15 @@ public class GameManager : MonoBehaviour
         }
         
         // Game progress info
-        int currentGameScore = IsUsingLevelSystem && LevelManager.Instance != null ? LevelManager.Instance.CurrentScore : currentScore;
+        int currentGameScore = IsUsingLevelSystem && levelManager != null ? levelManager.CurrentScore : currentScore;
         float progressToTarget = targetScoreForLevel > 0 ? (float)currentGameScore / targetScoreForLevel * 100f : 0f;
         Debug.Log($"📊 Game Progress: {progressToTarget:F1}% to target ({currentGameScore}/{targetScoreForLevel})");
         
         if (currentState == GameState.Playing)
         {
-            if (IsUsingLevelSystem && LevelManager.Instance != null && LevelManager.Instance.CurrentLevel != null)
+            if (hasValidLevelData)
             {
-                int movesRemaining = LevelManager.Instance.CurrentLevel.GetRemainingMoves(LevelManager.Instance.CurrentMoves);
+                int movesRemaining = currentLevelData.GetRemainingMoves(levelManager.CurrentMoves);
                 Debug.Log($"⏱️  Game Status: Playing | Moves Remaining: {(movesRemaining == -1 ? "∞" : movesRemaining.ToString())}");
             }
             else
@@ -1232,18 +1440,45 @@ public class GameManager : MonoBehaviour
     
     /// <summary>
     /// Updates the score display UI
+    /// <summary>
+    /// Updates the UI based on the current game mode (Scrabble vs Wordle style)
     /// </summary>
     private void UpdateScoreUI()
     {
+        // Determine if we're using Wordle-style mode
+        bool isWordleMode = IsUsingLevelSystem && LevelManager.Instance?.CurrentLevel?.IsWordleStyle == true;
+        
+        // Toggle UI groups based on game mode
+        if (scrabbleUIGroup != null && wordleUIGroup != null)
+        {
+            scrabbleUIGroup.SetActive(!isWordleMode);
+            wordleUIGroup.SetActive(isWordleMode);
+        }
+        
+        if (isWordleMode)
+        {
+            UpdateWordleUI();
+        }
+        else
+        {
+            UpdateScrabbleUI();
+        }
+    }
+    
+    /// <summary>
+    /// Updates UI for Scrabble-style gameplay (score-based)
+    /// </summary>
+    private void UpdateScrabbleUI()
+    {
         int displayScore;
         
-        Debug.Log($"🔍 UpdateScoreUI ENTRY: IsUsingLevelSystem={IsUsingLevelSystem}, LevelManager.Instance={LevelManager.Instance != null}");
+        Debug.Log($"🔍 UpdateScrabbleUI ENTRY: IsUsingLevelSystem={IsUsingLevelSystem}, LevelManager.Instance={LevelManager.Instance != null}");
         
          // Use appropriate score source based on system
         if (IsUsingLevelSystem && LevelManager.Instance != null)
         {
             displayScore = LevelManager.Instance.CurrentScore;
-            Debug.Log($"🎯 UpdateScoreUI (Level System): LevelManager.CurrentScore={displayScore}, currentRoundScore={currentRoundScore}");
+            Debug.Log($"🎯 UpdateScrabbleUI (Level System): LevelManager.CurrentScore={displayScore}, currentRoundScore={currentRoundScore}");
             Debug.Log($"🎯 ↳ IsUsingLevelSystem: {IsUsingLevelSystem}");
             Debug.Log($"🎯 ↳ LevelManager.Instance != null: {LevelManager.Instance != null}");
             Debug.Log($"🎯 ↳ LevelManager.Instance.CurrentScore (direct): {LevelManager.Instance.CurrentScore}");
@@ -1258,7 +1493,7 @@ public class GameManager : MonoBehaviour
         else
         {
             displayScore = currentScore;
-            Debug.Log($"🎯 UpdateScoreUI (Traditional): currentScore={displayScore}, currentRoundScore={currentRoundScore}");
+            Debug.Log($"🎯 UpdateScrabbleUI (Traditional): currentScore={displayScore}, currentRoundScore={currentRoundScore}");
             Debug.Log($"🎯 ↳ IsUsingLevelSystem: {IsUsingLevelSystem}");
             Debug.Log($"🎯 ↳ LevelManager.Instance != null: {LevelManager.Instance != null}");
         }
@@ -1298,7 +1533,74 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            Debug.LogError("❌ scoreText is NULL in UpdateScoreUI!");
+            Debug.LogError("❌ scoreText is NULL in UpdateScrabbleUI!");
+        }
+    }
+    
+    /// <summary>
+    /// Updates UI for Wordle-style gameplay (target word progress)
+    /// </summary>
+    private void UpdateWordleUI()
+    {
+        if (!hasValidLevelData)
+        {
+            Debug.LogWarning("UpdateWordleUI called but not in level system or no current level");
+            return;
+        }
+        
+        if (!currentLevelData.IsWordleStyle)
+        {
+            Debug.LogWarning("UpdateWordleUI called but current level is not Wordle style");
+            return;
+        }
+        
+        // Get target word progress
+        int totalTargetWords = currentLevelData.TargetWordCount;
+        int foundTargetWords = wordValidator?.GetTargetWordsFoundCount() ?? 0;
+        
+        // Update progress text - only show count, not actual words
+        if (targetWordProgressText != null)
+        {
+            targetWordProgressText.text = $"{foundTargetWords}/{totalTargetWords} Words Found";
+            Debug.Log($"🎯 Wordle UI: Progress updated to {foundTargetWords}/{totalTargetWords}");
+        }
+    }
+    
+    /// <summary>
+    /// Initialize dual-mode UI based on current game mode
+    /// </summary>
+    private void InitializeDualModeUI()
+    {
+        bool isWordleMode = hasValidLevelData && currentLevelData.IsWordleStyle;
+        
+        Debug.Log($"🎮 InitializeDualModeUI: isWordleMode={isWordleMode}");
+        
+        // Toggle UI groups based on game mode
+        if (scrabbleUIGroup != null)
+        {
+            scrabbleUIGroup.SetActive(!isWordleMode);
+            Debug.Log($"🎮 Scrabble UI Group: {(!isWordleMode ? "ACTIVE" : "INACTIVE")}");
+        }
+        
+        if (wordleUIGroup != null)
+        {
+            wordleUIGroup.SetActive(isWordleMode);
+            Debug.Log($"🎮 Wordle UI Group: {(isWordleMode ? "ACTIVE" : "INACTIVE")}");
+        }
+        
+        // Initialize Wordle UI with initial state
+        if (isWordleMode)
+        {
+            if (currentLevelData != null)
+            {
+                // Set initial target word progress
+                if (targetWordProgressText != null)
+                {
+                    targetWordProgressText.text = $"0/{currentLevelData.TargetWordCount} Words Found";
+                }
+                
+                Debug.Log($"🎯 Wordle UI initialized for level: {currentLevelData.LevelName} with {currentLevelData.TargetWordCount} target words");
+            }
         }
     }
     
@@ -1336,6 +1638,11 @@ public class GameManager : MonoBehaviour
             int minutes = Mathf.FloorToInt(currentTimeRemaining / 60f);
             int seconds = Mathf.FloorToInt(currentTimeRemaining % 60f);
             timerText.text = string.Format("{0:00}:{1:00}", minutes, seconds);
+            //Debug.Log($"⏰ Timer Text Updated: \"{timerText.text}\" (Time: {currentTimeRemaining:F1}s)");
+        }
+        else
+        {
+            Debug.LogError("❌ UpdateTimerUI: timerText is NULL!");
         }
     }
     
@@ -1346,13 +1653,13 @@ public class GameManager : MonoBehaviour
     {
         if (movesText != null)
         {
-            if (IsUsingLevelSystem && LevelManager.Instance != null && LevelManager.Instance.CurrentLevel != null)
+            if (hasValidLevelData)
             {
-                int currentMoves = LevelManager.Instance.CurrentMoves;
-                int movesRemaining = LevelManager.Instance.CurrentLevel.GetRemainingMoves(currentMoves);
+                int currentMoves = levelManager.CurrentMoves;
+                int movesRemaining = currentLevelData.GetRemainingMoves(currentMoves);
                 
                 // Debug logging to see what's happening
-                Debug.Log($"🎯 UpdateMovesUI (Level System): CurrentMoves={currentMoves}, MovesRemaining={movesRemaining}, MaxMoves={LevelManager.Instance.CurrentLevel.MaxMoves}");
+                Debug.Log($"🎯 UpdateMovesUI (Level System): CurrentMoves={currentMoves}, MovesRemaining={movesRemaining}, MaxMoves={currentLevelData.MaxMoves}");
                 
                 if (movesRemaining == -1)
                 {
@@ -1530,6 +1837,65 @@ public class GameManager : MonoBehaviour
     }
     
     /// <summary>
+    /// Force switch to timer mode for testing
+    /// </summary>
+    public void ForceTimerMode()
+    {
+        Debug.Log($"🔧 Force switching to Timer Mode");
+        currentDisplayMode = DisplayMode.Timer;
+        currentTimeRemaining = gameTimeLimit;
+        
+        // Update UI elements
+        if (statusDisplayGroup != null)
+        {
+            statusDisplayGroup.SetActive(true);
+            
+            if (timerText != null)
+            {
+                timerText.gameObject.SetActive(true);
+                UpdateTimerUI();
+                Debug.Log($"⏰ Force Timer: timerText active={timerText.gameObject.activeSelf}, text=\"{timerText.text}\"");
+            }
+            
+            if (movesText != null)
+            {
+                movesText.gameObject.SetActive(false);
+            }
+        }
+        
+        Debug.Log($"🔧 Forced timer mode: currentDisplayMode={currentDisplayMode}, currentTimeRemaining={currentTimeRemaining}");
+    }
+    
+    /// <summary>
+    /// Force switch to moves mode for testing  
+    /// </summary>
+    public void ForceMovesMode()
+    {
+        Debug.Log($"🔧 Force switching to Moves Mode");
+        currentDisplayMode = DisplayMode.Moves;
+        
+        // Update UI elements
+        if (statusDisplayGroup != null)
+        {
+            statusDisplayGroup.SetActive(true);
+            
+            if (timerText != null)
+            {
+                timerText.gameObject.SetActive(false);
+            }
+            
+            if (movesText != null)
+            {
+                movesText.gameObject.SetActive(true);
+                UpdateMovesUI();
+                Debug.Log($"🎯 Force Moves: movesText active={movesText.gameObject.activeSelf}, text=\"{movesText.text}\"");
+            }
+        }
+        
+        Debug.Log($"🔧 Forced moves mode: currentDisplayMode={currentDisplayMode}");
+    }
+
+    /// <summary>
     /// Force score UI to show the correct LevelManager score (for debugging)
     /// </summary>
     public void ForceCorrectScoreDisplay()
@@ -1540,6 +1906,42 @@ public class GameManager : MonoBehaviour
             scoreText.text = correctScore.ToString();
             Debug.Log($"🔧 Forced score display to correct value: {correctScore}");
         }
+    }
+    
+    /// <summary>
+    /// Force switch to time-based level mode for testing
+    /// </summary>
+    public void ForceTimeBasedLevel()
+    {
+        Debug.Log($"🔧 TESTING: Simulating time-based level start");
+        
+        // Simulate a time-based level being started
+        currentDisplayMode = DisplayMode.Timer;
+        currentTimeRemaining = gameTimeLimit;
+        
+        // Update UI to show timer
+        if (statusDisplayGroup != null)
+        {
+            statusDisplayGroup.SetActive(true);
+            
+            if (timerText != null) 
+            {
+                timerText.gameObject.SetActive(true);
+                UpdateTimerUI();
+                Debug.Log($"⏰ TESTING TIME-BASED: Timer text activated, text=\"{timerText.text}\"");
+            }
+            
+            if (movesText != null) 
+            {
+                movesText.gameObject.SetActive(false);
+                Debug.Log($"📱 TESTING TIME-BASED: Moves text deactivated");
+            }
+        }
+        
+        Debug.Log($"🔧 TESTING TIME-BASED: Current display mode: {currentDisplayMode}");
+        Debug.Log($"🔧 TESTING TIME-BASED: Timer text visible: {timerText?.gameObject.activeInHierarchy}");
+        Debug.Log($"🔧 TESTING TIME-BASED: Time remaining: {currentTimeRemaining}");
+        Debug.Log($"🔧 TESTING TIME-BASED: This simulates what should happen when you set a level's WinConditionType to TimeBased");
     }
 
     /// <summary>
@@ -1575,25 +1977,35 @@ public class GameManager : MonoBehaviour
     }
     
     /// <summary>
-    /// DEBUG: Switch scoring mode for testing
+    /// DEBUG: Switch display mode for testing
     /// </summary>
     [System.Diagnostics.Conditional("UNITY_EDITOR")]
-    public void DebugToggleScoringMode()
+    public void DebugSwitchDisplayMode()
     {
-        currentScoringMode = (currentScoringMode == ScoringMode.ScrabbleBased) 
-            ? ScoringMode.LengthBased 
-            : ScoringMode.ScrabbleBased;
-            
-        Debug.Log($"🔄 Scoring mode switched to: {currentScoringMode}");
+        DisplayMode newMode = (currentDisplayMode == DisplayMode.Timer) ? DisplayMode.Moves : DisplayMode.Timer;
         
-        // Reconfigure systems that cache scoring settings
-        if (wordValidator != null)
+        Debug.Log($"🔄 Switching display mode from {currentDisplayMode} to {newMode}");
+        currentDisplayMode = newMode;
+        
+        // Re-initialize based on new mode
+        if (currentDisplayMode == DisplayMode.Timer)
         {
-            wordValidator.SetGameManager(this); // This will trigger ConfigureScoring
+            currentTimeRemaining = gameTimeLimit;
+            UpdateTimerUI();
+            Debug.Log($"⏰ Timer Mode: Initialized with {gameTimeLimit}s");
+        }
+        else
+        {
+            if (!IsUsingLevelSystem)
+            {
+                currentMovesRemaining = startingMoves;
+            }
+            UpdateMovesUI();
+            Debug.Log($"🎯 Moves Mode: Initialized");
         }
         
-        // Test the new mode
-        DebugTestScoring();
+        // Refresh UI to show proper elements
+        RefreshGameUI();
     }
 
     /// <summary>
@@ -1668,6 +2080,39 @@ public class GameManager : MonoBehaviour
     {
         isLevelRestarting = true;
         Debug.Log($"🎮 Level System: {level.LevelName} started - allowing score reset");
+        
+        // Update display mode based on the actual level that started - use win condition type
+        if (level.IsWordleStyle && level.WinConditionType == LevelWinConditionType.TimeBased)
+        {
+            currentDisplayMode = DisplayMode.Timer;
+            Debug.Log($"🎮 Level Started: Set display mode to Timer (Wordle-style level with TimeBased win condition)");
+            
+            // Initialize timer for this level if using timer mode
+            currentTimeRemaining = level.TimeLimit > 0 ? level.TimeLimit : gameTimeLimit;
+            UpdateTimerUI();
+        }
+        else if (level.IsScrabbleStyle || 
+                (level.IsWordleStyle && level.WinConditionType == LevelWinConditionType.MoveBased))
+        {
+            currentDisplayMode = DisplayMode.Moves;
+            if (level.IsScrabbleStyle)
+            {
+                Debug.Log($"🎮 Level Started: Set display mode to Moves (Scrabble-style level with {level.MaxMoves} max moves)");
+            }
+            else
+            {
+                Debug.Log($"🎮 Level Started: Set display mode to Moves (Wordle-style level with MoveBased win condition, {level.MaxMoves} max moves)");
+            }
+        }
+        else
+        {
+            // Fallback
+            currentDisplayMode = DisplayMode.Moves;
+            Debug.LogWarning($"🎮 Level Started: Unexpected level configuration, defaulting to Moves display mode");
+        }
+        
+        // Refresh UI when level starts to ensure proper display
+        RefreshGameUI();
         
         // Clear the flag after a short delay to allow for initial score reset
         StartCoroutine(ClearRestartFlag());

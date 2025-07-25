@@ -4,6 +4,37 @@ using System.Text;
 using System.Linq;
 // Removed System.IO as it wasn't used
 
+/// <summary>
+/// Letter feedback types for Wordle-style gameplay
+/// </summary>
+public enum LetterFeedback
+{
+    None,       // Letter not in target word (gray)
+    Present,    // Letter in target word but wrong position (yellow)  
+    Correct     // Letter in target word and correct position (green)
+}
+
+/// <summary>
+/// Data structure for word validation with letter feedback
+/// </summary>
+public struct WordValidationResult
+{
+    public string Word;
+    public bool IsValid;
+    public bool IsTargetWord;
+    public LetterFeedback[] LetterFeedbacks;
+    public List<Vector2Int> Coordinates;
+    
+    public WordValidationResult(string word, bool isValid, bool isTargetWord, LetterFeedback[] feedbacks, List<Vector2Int> coordinates)
+    {
+        Word = word;
+        IsValid = isValid;
+        IsTargetWord = isTargetWord;
+        LetterFeedbacks = feedbacks;
+        Coordinates = coordinates;
+    }
+}
+
 public struct FoundWordData
 {
     public string Word;
@@ -436,7 +467,7 @@ public class WordValidator : MonoBehaviour
                     string wordForValidation = ExtractWordFromSequence(sequence);
                     
                     if (!string.IsNullOrEmpty(wordForValidation) && 
-                        validWordsDictionary.Contains(wordForValidation) && 
+                        IsWordValidForCurrentMode(wordForValidation) && 
                         !IsWordFoundThisSession(wordForValidation))
                     {
                         List<Vector2Int> wordCoords = CalculateCoordinates(lineIndex, start, len, isRow, currentGridSize);
@@ -449,6 +480,32 @@ public class WordValidator : MonoBehaviour
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Check if a word is valid for the current game mode
+    /// For Wordle-style levels: Only target words are valid
+    /// For Scrabble-style levels: Any dictionary word is valid
+    /// </summary>
+    private bool IsWordValidForCurrentMode(string word)
+    {
+        if (string.IsNullOrEmpty(word)) return false;
+        
+        LevelData currentLevel = LevelManager.Instance?.CurrentLevel;
+        
+        // For Wordle-style levels, only target words are valid
+        if (currentLevel?.IsWordleStyle == true)
+        {
+            bool isTargetWord = currentLevel.IsTargetWord(word);
+            if (isTargetWord)
+            {
+                Debug.Log($"🎯 [Wordle Mode] Target word found: '{word}'");
+            }
+            return isTargetWord;
+        }
+        
+        // For Scrabble-style levels, use the general dictionary
+        return validWordsDictionary.Contains(word.ToUpperInvariant());
     }
 
     // Main filtering pipeline
@@ -726,4 +783,224 @@ public class WordValidator : MonoBehaviour
 
         return charArray;
     }
+    
+    #region Wordle-Style Validation Methods
+    
+    /// <summary>
+    /// Validate a word for Wordle-style gameplay with letter feedback
+    /// </summary>
+    public WordValidationResult ValidateWordWithFeedback(string word, List<Vector2Int> coordinates)
+    {
+        if (string.IsNullOrEmpty(word) || coordinates == null || coordinates.Count == 0)
+        {
+            return new WordValidationResult(word, false, false, null, coordinates);
+        }
+        
+        // Check if word is valid using the current mode validation
+        bool isValid = IsWordValidForCurrentMode(word);
+        
+        // Check if word is a target word (for Wordle-style levels)
+        LevelData currentLevel = LevelManager.Instance?.CurrentLevel;
+        bool isTargetWord = currentLevel?.IsTargetWord(word) ?? false;
+        
+        Debug.Log($"🔍 ValidateWordWithFeedback: Word='{word}', Valid={isValid}, IsTarget={isTargetWord}");
+        Debug.Log($"🔍 Current Level: {currentLevel != null}, IsWordleStyle={currentLevel?.IsWordleStyle}");
+        if (currentLevel != null && currentLevel.TargetWords != null)
+        {
+            Debug.Log($"🔍 Target Words: [{string.Join(", ", currentLevel.TargetWords)}]");
+        }
+        
+        // Generate letter feedback for Wordle-style gameplay
+        LetterFeedback[] feedbacks = null;
+        if (currentLevel?.IsWordleStyle == true)
+        {
+            feedbacks = GenerateLetterFeedback(word, currentLevel.TargetWords);
+            if (feedbacks != null)
+            {
+                Debug.Log($"🔍 Generated feedbacks: [{string.Join(", ", feedbacks)}]");
+            }
+        }
+        else
+        {
+            Debug.Log($"🔍 No feedback generated - not Wordle style or no current level");
+        }
+        
+        return new WordValidationResult(word, isValid, isTargetWord, feedbacks, coordinates);
+    }
+    
+    /// <summary>
+    /// Generate letter feedback for Wordle-style gameplay
+    /// </summary>
+    private LetterFeedback[] GenerateLetterFeedback(string word, string[] targetWords)
+    {
+        if (string.IsNullOrEmpty(word) || targetWords == null)
+        {
+            Debug.LogWarning($"🔍 GenerateLetterFeedback: Invalid input - word='{word}', targetWords={targetWords != null}");
+            return new LetterFeedback[word?.Length ?? 0];
+        }
+        
+        LetterFeedback[] feedbacks = new LetterFeedback[word.Length];
+        Debug.Log($"🔍 GenerateLetterFeedback: Analyzing word '{word}' against targets [{string.Join(", ", targetWords)}]");
+        
+        // Initialize all feedbacks to None
+        for (int i = 0; i < feedbacks.Length; i++)
+        {
+            feedbacks[i] = LetterFeedback.None;
+        }
+        
+        // Check each letter against all target words
+        for (int i = 0; i < word.Length; i++)
+        {
+            char letter = char.ToUpper(word[i]);
+            Debug.Log($"🔍 Checking letter '{letter}' at position {i}");
+            
+            bool isCorrectPosition = false;
+            bool isPresentInTargets = false;
+            
+            // Check against all target words
+            foreach (string targetWord in targetWords)
+            {
+                if (string.IsNullOrEmpty(targetWord)) continue;
+                
+                string upperTarget = targetWord.ToUpper();
+                
+                // Check if letter is in correct position
+                if (i < upperTarget.Length && upperTarget[i] == letter)
+                {
+                    isCorrectPosition = true;
+                    Debug.Log($"🔍   → Correct position in '{targetWord}'");
+                    break; // Correct position takes priority
+                }
+                
+                // Check if letter exists elsewhere in this target word
+                if (upperTarget.Contains(letter))
+                {
+                    isPresentInTargets = true;
+                    Debug.Log($"🔍   → Present in '{targetWord}' but wrong position");
+                }
+            }
+            
+            // Assign feedback based on findings
+            if (isCorrectPosition)
+            {
+                feedbacks[i] = LetterFeedback.Correct;
+                Debug.Log($"🔍   Final: '{letter}' = Correct (Green)");
+            }
+            else if (isPresentInTargets)
+            {
+                feedbacks[i] = LetterFeedback.Present;
+                Debug.Log($"🔍   Final: '{letter}' = Present (Yellow)");
+            }
+            else
+            {
+                feedbacks[i] = LetterFeedback.None;
+                Debug.Log($"🔍   Final: '{letter}' = None (Gray)");
+            }
+        }
+        
+        Debug.Log($"🔍 Final feedbacks for '{word}': [{string.Join(", ", feedbacks)}]");
+        return feedbacks;
+    }
+    
+    /// <summary>
+    /// Check if all target words have been found for Wordle-style levels
+    /// </summary>
+    public bool AreAllTargetWordsFound()
+    {
+        LevelData currentLevel = LevelManager.Instance?.CurrentLevel;
+        if (currentLevel == null || !currentLevel.IsWordleStyle)
+        {
+            return false;
+        }
+        
+        return currentLevel.AreAllTargetWordsFound(wordsFoundThisSession);
+    }
+    
+    /// <summary>
+    /// Get the count of target words found so far
+    /// </summary>
+    public int GetTargetWordsFoundCount()
+    {
+        LevelData currentLevel = LevelManager.Instance?.CurrentLevel;
+        if (currentLevel == null || !currentLevel.IsWordleStyle)
+        {
+            return 0;
+        }
+        
+        int count = 0;
+        foreach (string targetWord in currentLevel.TargetWords)
+        {
+            if (IsWordFoundThisSession(targetWord))
+            {
+                count++;
+            }
+        }
+        
+        return count;
+    }
+    
+    /// <summary>
+    /// Get feedback color for UI display
+    /// </summary>
+    public static Color GetFeedbackColor(LetterFeedback feedback)
+    {
+        switch (feedback)
+        {
+            case LetterFeedback.Correct:
+                return Color.green;      // Correct position
+            case LetterFeedback.Present:
+                return Color.yellow;     // Present but wrong position
+            case LetterFeedback.None:
+            default:
+                return Color.gray;       // Not in target word
+        }
+    }
+    
+    /// <summary>
+    /// Check if center row only mode should be enabled based on game mode
+    /// </summary>
+    public void UpdateValidationModeForLevel()
+    {
+        LevelData currentLevel = LevelManager.Instance?.CurrentLevel;
+        if (currentLevel != null)
+        {
+            // Enable center row only mode for Wordle-style levels
+            SetCenterRowOnlyMode(currentLevel.IsWordleStyle);
+            Debug.Log($"🎯 Validation mode updated: Center row only = {centerRowOnlyMode} (Wordle Style: {currentLevel.IsWordleStyle})");
+            
+            // Debug target words for Wordle-style levels
+            if (currentLevel.IsWordleStyle && currentLevel.TargetWords != null)
+            {
+                Debug.Log($"🎯 Target words for this level: [{string.Join(", ", currentLevel.TargetWords)}]");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Debug method to show current validation settings and target words
+    /// </summary>
+    [System.Diagnostics.Conditional("UNITY_EDITOR")]
+    public void DebugValidationSettings()
+    {
+        LevelData currentLevel = LevelManager.Instance?.CurrentLevel;
+        Debug.Log("=== WORD VALIDATION DEBUG ===");
+        Debug.Log($"🔧 Current Level: {(currentLevel != null ? currentLevel.name : "null")}");
+        Debug.Log($"🔧 Is Wordle Style: {currentLevel?.IsWordleStyle}");
+        Debug.Log($"🔧 Center Row Only Mode: {centerRowOnlyMode}");
+        Debug.Log($"🔧 Min Word Length: {minWordLength}, Max Word Length: {maxWordLength}");
+        Debug.Log($"🔧 Dictionary Size: {validWordsDictionary.Count} words");
+        
+        if (currentLevel?.IsWordleStyle == true && currentLevel.TargetWords != null)
+        {
+            Debug.Log($"🎯 Target Words ({currentLevel.TargetWords.Length}): [{string.Join(", ", currentLevel.TargetWords)}]");
+        }
+        else if (currentLevel?.IsWordleStyle == true)
+        {
+            Debug.LogWarning("🎯 Wordle-style level but no target words defined!");
+        }
+        
+        Debug.Log("=== END DEBUG ===");
+    }
+    
+    #endregion
 }

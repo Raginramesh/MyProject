@@ -30,6 +30,9 @@ public class LevelCompleteUI : MonoBehaviour
     
     private bool canAdvance = false;
     
+    // Helper property to reduce redundant level manager access
+    private LevelManager levelManager => LevelManager.Instance;
+    
     void OnEnable()
     {
         // Subscribe to level events
@@ -77,7 +80,7 @@ public class LevelCompleteUI : MonoBehaviour
             if (targetScoreText != null)
                 targetScoreText.text = $"Target: {level.TargetScore:N0}";
             if (movesUsedText != null)
-                movesUsedText.text = $"Moves Used: {LevelManager.Instance.CurrentMoves}";
+                movesUsedText.text = $"Moves Used: {levelManager.CurrentMoves}";
             
             // Update star display
             UpdateStarDisplay(stars);
@@ -101,7 +104,7 @@ public class LevelCompleteUI : MonoBehaviour
             levelFailedPanel.SetActive(true);
             
             if (failedScoreText != null)
-                failedScoreText.text = $"Score: {LevelManager.Instance.CurrentScore:N0}";
+                failedScoreText.text = $"Score: {levelManager.CurrentScore:N0}";
             if (failedTargetText != null)
                 failedTargetText.text = $"Target: {level.TargetScore:N0}";
         }
@@ -138,9 +141,9 @@ public class LevelCompleteUI : MonoBehaviour
         
         CancelInvoke(); // Cancel auto advance
         
-        if (LevelManager.Instance != null)
+        if (levelManager != null)
         {
-            bool hasNextLevel = LevelManager.Instance.StartNextLevel();
+            bool hasNextLevel = levelManager.StartNextLevel();
             if (hasNextLevel)
             {
                 HidePanels();

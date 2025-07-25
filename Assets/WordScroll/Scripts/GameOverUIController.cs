@@ -27,6 +27,9 @@ public class GameOverUIController : MonoBehaviour
     
     private bool canAdvance = false;
     private bool isUsingLevelSystem = false;
+    
+    // Helper property to reduce redundant level manager access
+    private LevelManager levelManager => LevelManager.Instance;
 
     void OnEnable()
     {
@@ -110,14 +113,14 @@ public class GameOverUIController : MonoBehaviour
         if (levelSystemPanel != null)
             levelSystemPanel.SetActive(true);
             
-        if (LevelManager.Instance == null)
+        if (levelManager == null)
         {
             Debug.LogError("GameOverUIController: LevelManager instance not found!");
             ShowTraditionalGameOverUI();
             return;
         }
         
-        LevelData currentLevel = LevelManager.Instance.CurrentLevel;
+        LevelData currentLevel = levelManager.CurrentLevel;
         if (currentLevel == null)
         {
             Debug.LogError("GameOverUIController: No current level found!");
@@ -125,8 +128,8 @@ public class GameOverUIController : MonoBehaviour
             return;
         }
         
-        int finalScore = LevelManager.Instance.CurrentScore;
-        int movesUsed = LevelManager.Instance.CurrentMoves;
+        int finalScore = levelManager.CurrentScore;
+        int movesUsed = levelManager.CurrentMoves;
         int starsEarned = currentLevel.GetStarRating(finalScore);
         bool levelCompleted = currentLevel.IsLevelCompletedByMoves(movesUsed);
         float scorePercentage = currentLevel.GetScorePercentage(finalScore);
@@ -203,9 +206,9 @@ public class GameOverUIController : MonoBehaviour
         
         CancelInvoke(); // Cancel auto advance
         
-        if (LevelManager.Instance != null)
+        if (levelManager != null)
         {
-            bool hasNextLevel = LevelManager.Instance.StartNextLevel();
+            bool hasNextLevel = levelManager.StartNextLevel();
             if (hasNextLevel)
             {
                 // Hide the game over panel and let the game continue
@@ -243,9 +246,9 @@ public class GameOverUIController : MonoBehaviour
         if (isUsingLevelSystem)
         {
             // In level system, retry means restart current level
-            if (LevelManager.Instance != null && LevelManager.Instance.CurrentLevel != null)
+            if (levelManager != null && levelManager.CurrentLevel != null)
             {
-                LevelManager.Instance.StartLevel(LevelManager.Instance.CurrentLevel);
+                levelManager.StartLevel(levelManager.CurrentLevel);
                 gameObject.SetActive(false);
             }
         }

@@ -8,6 +8,9 @@ public class MovesDisplayDebugger : MonoBehaviour
     [Header("Manual Testing")]
     [SerializeField] private bool debugMoves = true;
     
+    // Helper property to reduce redundant level manager access
+    private LevelManager levelManager => LevelManager.Instance;
+    
     void Update()
     {
         if (debugMoves && Input.GetKeyDown(KeyCode.M))
@@ -51,15 +54,15 @@ public class MovesDisplayDebugger : MonoBehaviour
         }
         
         // Check LevelManager
-        if (LevelManager.Instance != null)
+        if (levelManager != null)
         {
             Debug.Log($"LevelManager Found: ✅");
-            Debug.Log($"CurrentLevel: {(LevelManager.Instance.CurrentLevel != null ? LevelManager.Instance.CurrentLevel.LevelName : "NULL")}");
-            if (LevelManager.Instance.CurrentLevel != null)
+            Debug.Log($"CurrentLevel: {(levelManager.CurrentLevel != null ? levelManager.CurrentLevel.LevelName : "NULL")}");
+            if (levelManager.CurrentLevel != null)
             {
-                Debug.Log($"Level MaxMoves: {LevelManager.Instance.CurrentLevel.MaxMoves}");
-                Debug.Log($"Level CurrentMoves: {LevelManager.Instance.CurrentMoves}");
-                Debug.Log($"Level RemainingMoves: {LevelManager.Instance.CurrentLevel.GetRemainingMoves(LevelManager.Instance.CurrentMoves)}");
+                Debug.Log($"Level MaxMoves: {levelManager.CurrentLevel.MaxMoves}");
+                Debug.Log($"Level CurrentMoves: {levelManager.CurrentMoves}");
+                Debug.Log($"Level RemainingMoves: {levelManager.CurrentLevel.GetRemainingMoves(levelManager.CurrentMoves)}");
             }
         }
         else
@@ -98,14 +101,14 @@ public class MovesDisplayDebugger : MonoBehaviour
         }
         
         // Check LevelManager
-        if (LevelManager.Instance != null)
+        if (levelManager != null)
         {
             Debug.Log($"LevelManager Found: ✅");
-            Debug.Log($"LevelManager.CurrentScore: {LevelManager.Instance.CurrentScore}");
-            Debug.Log($"CurrentLevel: {(LevelManager.Instance.CurrentLevel != null ? LevelManager.Instance.CurrentLevel.LevelName : "NULL")}");
-            if (LevelManager.Instance.CurrentLevel != null)
+            Debug.Log($"LevelManager.CurrentScore: {levelManager.CurrentScore}");
+            Debug.Log($"CurrentLevel: {(levelManager.CurrentLevel != null ? levelManager.CurrentLevel.LevelName : "NULL")}");
+            if (levelManager.CurrentLevel != null)
             {
-                Debug.Log($"Level TargetScore: {LevelManager.Instance.CurrentLevel.TargetScore}");
+                Debug.Log($"Level TargetScore: {levelManager.CurrentLevel.TargetScore}");
             }
         }
         else
@@ -146,9 +149,9 @@ public class MovesDisplayDebugger : MonoBehaviour
     [ContextMenu("Start Level 0")]
     void StartFirstLevel()
     {
-        if (LevelManager.Instance != null)
+        if (levelManager != null)
         {
-            bool started = LevelManager.Instance.StartLevel(0);
+            bool started = levelManager.StartLevel(0);
             Debug.Log($"🎮 StartLevel(0) result: {started}");
             
             // Refresh UI after starting level

@@ -181,6 +181,17 @@ public class LevelManager : MonoBehaviour
     }
     
     /// <summary>
+    /// Check if level should complete based on Wordle-style conditions (all target words found)
+    /// </summary>
+    public void CheckWordleCompletion()
+    {
+        if (!IsLevelActive || currentLevel == null || !currentLevel.IsWordleStyle) return;
+        
+        // For Wordle-style levels, complete when all target words are found
+        CompleteLevel();
+    }
+    
+    /// <summary>
     /// Complete the current level
     /// </summary>
     private void CompleteLevel()

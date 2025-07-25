@@ -8,6 +8,9 @@ public class LevelSystemDebugger : MonoBehaviour
     [SerializeField] private bool testLevelFailure = false;
     [SerializeField] private int testScore = 100;
     
+    // Helper property to reduce redundant level manager access
+    private LevelManager levelManager => LevelManager.Instance;
+    
     void Update()
     {
         if (testLevelCompletion)
@@ -26,10 +29,10 @@ public class LevelSystemDebugger : MonoBehaviour
     [ContextMenu("Test Level Complete")]
     public void TestLevelComplete()
     {
-        if (LevelManager.Instance != null && LevelManager.Instance.CurrentLevel != null)
+        if (levelManager != null && levelManager.CurrentLevel != null)
         {
             // Simulate level completion
-            LevelManager.Instance.AddScore(testScore);
+            levelManager.AddScore(testScore);
             Debug.Log($"🧪 Testing level completion with score {testScore}");
         }
         else
@@ -41,7 +44,7 @@ public class LevelSystemDebugger : MonoBehaviour
     [ContextMenu("Test Level Fail")]  
     public void TestLevelFail()
     {
-        if (LevelManager.Instance != null)
+        if (levelManager != null)
         {
             Debug.Log("🧪 Testing level failure");
             // This would trigger when moves run out or other failure condition
@@ -58,12 +61,12 @@ public class LevelSystemDebugger : MonoBehaviour
         Debug.Log("=== LEVEL SYSTEM STATUS ===");
         
         // Check LevelManager
-        if (LevelManager.Instance != null)
+        if (levelManager != null)
         {
             Debug.Log($"✅ LevelManager found");
-            Debug.Log($"📊 Current Level: {LevelManager.Instance.CurrentLevel?.LevelName ?? "None"}");
-            Debug.Log($"🎯 Score: {LevelManager.Instance.CurrentScore}/{LevelManager.Instance.CurrentLevel?.TargetScore}");
-            Debug.Log($"🎮 Moves: {LevelManager.Instance.CurrentMoves}/{LevelManager.Instance.CurrentLevel?.MaxMoves}");
+            Debug.Log($"📊 Current Level: {levelManager.CurrentLevel?.LevelName ?? "None"}");
+            Debug.Log($"🎯 Score: {levelManager.CurrentScore}/{levelManager.CurrentLevel?.TargetScore}");
+            Debug.Log($"🎮 Moves: {levelManager.CurrentMoves}/{levelManager.CurrentLevel?.MaxMoves}");
         }
         else
         {
