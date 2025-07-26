@@ -4831,10 +4831,10 @@ RectTransform:
   - {fileID: 580965798}
   m_Father: {fileID: 54221075}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 870}
-  m_SizeDelta: {x: 1080, y: 500}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: -227}
+  m_SizeDelta: {x: 0, y: 500}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1979694442
 GameObject:
@@ -5129,7 +5129,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   wordGridManager: {fileID: 593137150}
-  gameManager: {fileID: 0}
+  gameManager: {fileID: 1480404336}
   gridPanelRect: {fileID: 0}
   uiCamera: {fileID: 0}
   dragInitiationThreshold: 10
