@@ -192,6 +192,17 @@ public class LevelManager : MonoBehaviour
     }
     
     /// <summary>
+    /// Force level completion (used for timer expiry or other forced completion conditions)
+    /// </summary>
+    public void ForceCompleteLevel()
+    {
+        if (!IsLevelActive || currentLevel == null) return;
+        
+        Debug.Log("🏁 Force completing level due to external condition (timer, etc.)");
+        CompleteLevel();
+    }
+    
+    /// <summary>
     /// Complete the current level
     /// </summary>
     private void CompleteLevel()

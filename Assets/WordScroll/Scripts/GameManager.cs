@@ -437,9 +437,11 @@ public class GameManager : MonoBehaviour
                 
                 if (currentDisplayMode == DisplayMode.Timer) 
                 { 
-                    currentTimeRemaining = gameTimeLimit; 
+                    // Use TimeLimit from level data if available, otherwise fall back to gameTimeLimit
+                    float timeLimit = GetCurrentTimeLimit();
+                    currentTimeRemaining = timeLimit; 
                     UpdateTimerUI(); 
-                    Debug.Log($"⏰ Timer Mode: Time={currentTimeRemaining}, gameTimeLimit={gameTimeLimit}");
+                    Debug.Log($"⏰ Timer Mode: Set currentTimeRemaining={currentTimeRemaining} (from {(IsUsingLevelSystem && hasValidLevelData ? "level data" : "fallback gameTimeLimit")})");
                     Debug.Log($"⏰ Timer Mode: timerText.text=\"{(timerText != null ? timerText.text : "NULL")}\"");
                 }
                 else if (currentDisplayMode == DisplayMode.Moves) 
@@ -1420,16 +1422,29 @@ public class GameManager : MonoBehaviour
         
         if (totalMoveReduction > 0)
         {
-            currentMovesRemaining = Mathf.Max(0, currentMovesRemaining - totalMoveReduction);
-            UpdateMovesUI();
-            
-            Debug.Log($"🎯 Total move reduction applied: -{totalMoveReduction} moves (Remaining: {currentMovesRemaining})");
-            
-            // Check if we've run out of moves
-            if (currentMovesRemaining <= 0)
+            if (IsUsingLevelSystem)
             {
-                currentMovesRemaining = 0;
-                PlayerLoses();
+                // For level system, add extra moves to LevelManager instead of reducing currentMovesRemaining
+                for (int i = 0; i < totalMoveReduction; i++)
+                {
+                    levelManager?.AddMove();
+                }
+                Debug.Log($"🎯 Level System: Added {totalMoveReduction} extra moves due to modifiers");
+            }
+            else
+            {
+                // Traditional mode: reduce moves directly
+                currentMovesRemaining = Mathf.Max(0, currentMovesRemaining - totalMoveReduction);
+                UpdateMovesUI();
+                
+                Debug.Log($"🎯 Traditional Mode: Total move reduction applied: -{totalMoveReduction} moves (Remaining: {currentMovesRemaining})");
+                
+                // Check if we've run out of moves
+                if (currentMovesRemaining <= 0)
+                {
+                    currentMovesRemaining = 0;
+                    PlayerLoses();
+                }
             }
         }
         else
@@ -1697,7 +1712,19 @@ public class GameManager : MonoBehaviour
             if (currentTimeRemaining <= 0f)
             {
                 currentTimeRemaining = 0f;
-                PlayerLoses(); // Time's up!
+                
+                // Handle level system integration
+                if (IsUsingLevelSystem && levelManager != null)
+                {
+                    // For level system, let LevelManager handle completion
+                    Debug.Log("⏰ Timer expired - triggering level completion via LevelManager");
+                    levelManager.ForceCompleteLevel();
+                }
+                else
+                {
+                    // Traditional mode - call PlayerLoses directly
+                    PlayerLoses(); // Time's up!
+                }
             }
         }
     }
@@ -1837,13 +1864,25 @@ public class GameManager : MonoBehaviour
     }
     
     /// <summary>
+    /// Get the appropriate time limit based on current game state
+    /// </summary>
+    private float GetCurrentTimeLimit()
+    {
+        if (IsUsingLevelSystem && hasValidLevelData && currentLevelData != null)
+        {
+            return currentLevelData.TimeLimit;
+        }
+        return gameTimeLimit; // Fallback for traditional mode
+    }
+    
+    /// <summary>
     /// Force switch to timer mode for testing
     /// </summary>
     public void ForceTimerMode()
     {
         Debug.Log($"🔧 Force switching to Timer Mode");
         currentDisplayMode = DisplayMode.Timer;
-        currentTimeRemaining = gameTimeLimit;
+        currentTimeRemaining = GetCurrentTimeLimit();
         
         // Update UI elements
         if (statusDisplayGroup != null)
@@ -1917,7 +1956,7 @@ public class GameManager : MonoBehaviour
         
         // Simulate a time-based level being started
         currentDisplayMode = DisplayMode.Timer;
-        currentTimeRemaining = gameTimeLimit;
+        currentTimeRemaining = GetCurrentTimeLimit();
         
         // Update UI to show timer
         if (statusDisplayGroup != null)
@@ -1990,9 +2029,9 @@ public class GameManager : MonoBehaviour
         // Re-initialize based on new mode
         if (currentDisplayMode == DisplayMode.Timer)
         {
-            currentTimeRemaining = gameTimeLimit;
+            currentTimeRemaining = GetCurrentTimeLimit();
             UpdateTimerUI();
-            Debug.Log($"⏰ Timer Mode: Initialized with {gameTimeLimit}s");
+            Debug.Log($"⏰ Timer Mode: Initialized with {currentTimeRemaining}s");
         }
         else
         {

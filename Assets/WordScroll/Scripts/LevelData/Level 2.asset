@@ -9,24 +9,33 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1784eb126c7ba462796d654ccd0fc98b, type: 3}
+  m_Script: {fileID: 11500000, guid: adb394a5a5b8c46a98a85ddf0184369a, type: 3}
   m_Name: Level 2
   m_EditorClassIdentifier: 
-  levelNumber: 2
-  levelName: Level 2
+  levelNumber: 1
+  levelName: Level 1
   levelDescription: Complete the level by reaching the target score within the move
     limit.
-  targetScore: 65
-  oneStarScore: 50
-  twoStarScore: 75
-  threeStarScore: 100
-  maxMoves: 15
+  gameMode: 0
+  gridSize: 4
+  targetScore: 100
+  oneStarPercentage: 50
+  twoStarPercentage: 75
+  threeStarPercentage: 100
+  targetWords:
+  - DROP
+  - POTS
+  winConditionType: 1
+  maxMoves: 10
   unlimitedMoves: 0
-  gridSize: 5
+  timeLimit: 300
+  threeStarEfficiencyPercentage: 10
+  twoStarEfficiencyPercentage: 50
+  oneStarEfficiencyPercentage: 90
   customLetterSet: 
   timeBonus: 1
   scoreMultiplier: 1
   enableSpecialTiles: 0
-  nextLevel: {fileID: 11400000, guid: f1a76ed2b9946484ea484499f0f81ee9, type: 2}
-  isUnlocked: 1
+  nextLevel: {fileID: 0}
+  isUnlocked: 0
   isTutorialLevel: 0

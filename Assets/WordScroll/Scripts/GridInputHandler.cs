@@ -767,13 +767,40 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         float adjustedX = localPosition.x + gridCenterOffsetX;
         float adjustedY = -localPosition.y + gridCenterOffsetY;
 
-        int col = Mathf.FloorToInt(adjustedX / cDimWithSpacing);
-        int row = Mathf.FloorToInt(adjustedY / cDimWithSpacing);
+        // Use RoundToInt instead of FloorToInt for center-based cell detection
+        // This makes cell boundaries at 0.5, 1.5, 2.5, etc., putting the cell center 
+        // at the actual visual center of each cell for more accurate touch detection
+        int col = Mathf.RoundToInt(adjustedX / cDimWithSpacing);
+        int row = Mathf.RoundToInt(adjustedY / cDimWithSpacing);
+
+        // Debug logging for touch accuracy (can be removed in production)
+        if (Application.isEditor)
+        {
+            float cellFractionalX = (adjustedX / cDimWithSpacing) - col;
+            float cellFractionalY = (adjustedY / cDimWithSpacing) - row;
+            Debug.Log($"🎯 Touch Detection: LocalPos({localPosition.x:F1},{localPosition.y:F1}) → Cell({row},{col}) | CellFraction({cellFractionalY:F2},{cellFractionalX:F2})");
+        }
 
         if (row >= 0 && row < wordGridManager.gridSize && col >= 0 && col < wordGridManager.gridSize)
         {
             return new Vector2Int(row, col);
         }
+        
+        // If rounded coordinates are out of bounds, try fallback with floor-based detection
+        // This handles edge cases near grid boundaries
+        int fallbackCol = Mathf.FloorToInt(adjustedX / cDimWithSpacing);
+        int fallbackRow = Mathf.FloorToInt(adjustedY / cDimWithSpacing);
+        
+        if (fallbackRow >= 0 && fallbackRow < wordGridManager.gridSize && 
+            fallbackCol >= 0 && fallbackCol < wordGridManager.gridSize)
+        {
+            if (Application.isEditor)
+            {
+                Debug.Log($"🎯 Using fallback detection: ({fallbackRow},{fallbackCol}) instead of ({row},{col})");
+            }
+            return new Vector2Int(fallbackRow, fallbackCol);
+        }
+        
         return new Vector2Int(-1, -1);
     }
 
