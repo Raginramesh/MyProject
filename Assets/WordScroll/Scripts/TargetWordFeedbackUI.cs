@@ -11,11 +11,7 @@ using System.Collections.Generic;
 public class TargetWordFeedbackUI : MonoBehaviour
 {
     [Header("Target Word Display")]
-    [SerializeField] private GameObject feedbackPanel;
-    [SerializeField] private CanvasGroup panelCanvasGroup;
     [SerializeField] private TextMeshProUGUI targetWordText;
-    [SerializeField] private TextMeshProUGUI feedbackMessageText;
-    [SerializeField] private RectTransform targetWordTransform;
     
     [Header("Letter Discovery Settings")]
     [SerializeField] private bool enableLetterDiscovery = true;
@@ -26,8 +22,6 @@ public class TargetWordFeedbackUI : MonoBehaviour
     [SerializeField] private GameObject letterFeedbackPrefab; // Prefab for individual letter feedback
     
     [Header("Animation Settings")]
-    [SerializeField] private float wordPopScale = 1.2f;
-    [SerializeField] private float wordPopDuration = 0.5f;
     [SerializeField] private float letterAnimationDelay = 0.1f;
     [SerializeField] private float feedbackDisplayDuration = 2.0f;
     
@@ -50,14 +44,8 @@ public class TargetWordFeedbackUI : MonoBehaviour
     
     private void Awake()
     {
-        if (panelCanvasGroup == null)
-            panelCanvasGroup = feedbackPanel.GetComponent<CanvasGroup>();
-            
         if (audioSource == null)
             audioSource = GetComponent<AudioSource>();
-            
-        // Start hidden
-        SetPanelVisible(false, false);
     }
     
     /// <summary>
@@ -99,12 +87,8 @@ public class TargetWordFeedbackUI : MonoBehaviour
     /// </summary>
     public void ShowProgressUpdate(int foundCount, int totalCount)
     {
-        if (isAnimating)
-        {
-            return; // Don't interrupt other animations for progress updates
-        }
-        
-        StartCoroutine(AnimateProgressUpdate(foundCount, totalCount));
+        // Simple progress log without UI interference
+        Debug.Log($"🎯 PROGRESS: {foundCount}/{totalCount} target words found");
     }
     
     private IEnumerator AnimateTargetWordFound(string word)
@@ -114,25 +98,19 @@ public class TargetWordFeedbackUI : MonoBehaviour
         // Set up display
         targetWordText.text = word.ToUpper();
         targetWordText.color = targetWordFoundColor;
-        feedbackMessageText.text = "TARGET WORD FOUND!";
-        feedbackMessageText.color = targetWordFoundColor;
         
-        // Show panel
-        SetPanelVisible(true, true);
-        yield return new WaitForSeconds(0.2f);
-        
-        // Animate word discovery
-        yield return StartCoroutine(AnimateWordPop());
+        // Simple scale animation for target word text
+        if (targetWordText != null)
+        {
+            targetWordText.transform.localScale = Vector3.one * 0.8f;
+            targetWordText.transform.DOScale(Vector3.one, 0.3f).SetEase(Ease.OutBack);
+        }
         
         // Play sound
         PlayTargetWordFoundSound();
         
         // Hold display
         yield return new WaitForSeconds(feedbackDisplayDuration);
-        
-        // Hide panel
-        SetPanelVisible(false, true);
-        yield return new WaitForSeconds(0.3f);
         
         isAnimating = false;
     }
@@ -147,12 +125,6 @@ public class TargetWordFeedbackUI : MonoBehaviour
         // Set up display
         targetWordText.text = word.ToUpper();
         targetWordText.color = Color.white;
-        feedbackMessageText.text = "Letter Feedback";
-        feedbackMessageText.color = Color.white;
-        
-        // Show panel
-        SetPanelVisible(true, true);
-        yield return new WaitForSeconds(0.2f);
         
         // Create and animate letter feedback
         yield return StartCoroutine(AnimateLetterByLetter(word, feedbacks));
@@ -160,56 +132,7 @@ public class TargetWordFeedbackUI : MonoBehaviour
         // Hold display
         yield return new WaitForSeconds(feedbackDisplayDuration);
         
-        // Hide panel
-        SetPanelVisible(false, true);
-        yield return new WaitForSeconds(0.3f);
-        
         isAnimating = false;
-    }
-    
-    private IEnumerator AnimateProgressUpdate(int foundCount, int totalCount)
-    {
-        // Quick progress notification without blocking other UI
-        if (feedbackMessageText != null)
-        {
-            string originalText = feedbackMessageText.text;
-            Color originalColor = feedbackMessageText.color;
-            
-            feedbackMessageText.text = $"Progress: {foundCount}/{totalCount} Words";
-            feedbackMessageText.color = Color.cyan;
-            
-            // Quick flash animation
-            feedbackMessageText.transform.DOScale(1.1f, 0.2f)
-                .SetEase(Ease.OutQuad)
-                .OnComplete(() => {
-                    feedbackMessageText.transform.DOScale(1f, 0.2f)
-                        .SetEase(Ease.InQuad);
-                });
-            
-            yield return new WaitForSeconds(1f);
-            
-            // Restore original text
-            feedbackMessageText.text = originalText;
-            feedbackMessageText.color = originalColor;
-        }
-    }
-    
-    private IEnumerator AnimateWordPop()
-    {
-        if (targetWordTransform == null) yield break;
-        
-        // Scale animation
-        targetWordTransform.localScale = Vector3.zero;
-        targetWordTransform.DOScale(wordPopScale, wordPopDuration * 0.6f)
-            .SetEase(Ease.OutBounce);
-        
-        yield return new WaitForSeconds(wordPopDuration * 0.6f);
-        
-        // Scale back to normal
-        targetWordTransform.DOScale(1f, wordPopDuration * 0.4f)
-            .SetEase(Ease.InOutQuad);
-        
-        yield return new WaitForSeconds(wordPopDuration * 0.4f);
     }
     
     private IEnumerator AnimateLetterByLetter(string word, LetterFeedback[] feedbacks)
@@ -278,24 +201,6 @@ public class TargetWordFeedbackUI : MonoBehaviour
         {
             if (child != null)
                 Destroy(child.gameObject);
-        }
-    }
-    
-    private void SetPanelVisible(bool visible, bool animate)
-    {
-        if (feedbackPanel != null)
-            feedbackPanel.SetActive(visible);
-        
-        if (panelCanvasGroup != null)
-        {
-            if (animate)
-            {
-                panelCanvasGroup.DOFade(visible ? 1f : 0f, 0.3f);
-            }
-            else
-            {
-                panelCanvasGroup.alpha = visible ? 1f : 0f;
-            }
         }
     }
     

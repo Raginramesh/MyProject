@@ -825,7 +825,7 @@ public class WordGridManager : MonoBehaviour
                     feedbackName = "Correct (Green)";
                     
                     // Track discovered letter
-                    NotifyLetterDiscovered(currentLetter);
+                    NotifyLetterDiscovered(currentLetter, c);
                 }
                 else if (targetWord.Contains(currentLetter))
                 {
@@ -1156,7 +1156,7 @@ public class WordGridManager : MonoBehaviour
                 // Track discovered letters for dominant word display
                 if (feedbackColors[c] == correctLetterColor)
                 {
-                    NotifyLetterDiscovered(currentLetter);
+                    NotifyLetterDiscovered(currentLetter, c);
                 }
             }
         }
@@ -2429,14 +2429,14 @@ public class WordGridManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Notifies GameManager that a letter has been discovered (turned green)
+    /// Notifies GameManager that a letter has been discovered (turned green) at a specific position
     /// </summary>
-    private void NotifyLetterDiscovered(char letter)
+    private void NotifyLetterDiscovered(char letter, int position)
     {
         if (GameManager.instance != null)
         {
-            Debug.Log($"🎯 LETTER DISCOVERED: Notifying GameManager about letter '{letter}'");
-            GameManager.instance.OnLetterDiscovered(letter);
+            Debug.Log($"🎯 LETTER DISCOVERED: Notifying GameManager about letter '{letter}' at position {position}");
+            GameManager.instance.OnLetterDiscovered(letter, position);
         }
     }
 }

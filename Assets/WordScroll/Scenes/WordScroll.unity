@@ -1903,16 +1903,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a418981fedd884457af46524a27f6c36, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  feedbackPanel: {fileID: 0}
-  panelCanvasGroup: {fileID: 0}
   targetWordText: {fileID: 1490566784}
+  enableLetterDiscovery: 1
+  feedbackPanel: {fileID: 580965797}
+  panelCanvasGroup: {fileID: 0}
   feedbackMessageText: {fileID: 0}
-  targetWordTransform: {fileID: 1490566782}
-  enableLetterDiscovery: 0
   letterFeedbackContainer: {fileID: 580965798}
   letterFeedbackPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
-  wordPopScale: 1.2
-  wordPopDuration: 0.5
   letterAnimationDelay: 0.1
   feedbackDisplayDuration: 2
   correctLetterColor: {r: 0, g: 1, b: 0, a: 1}

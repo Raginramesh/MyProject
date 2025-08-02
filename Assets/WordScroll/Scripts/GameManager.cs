@@ -175,9 +175,10 @@ public class GameManager : MonoBehaviour
     private string currentDominantWord = "";
     private bool isDominantWordDisplayInitialized = false;
     
-    // Letter discovery tracking for dominant word display
-    private HashSet<char> discoveredLetters = new HashSet<char>();
-    private Dictionary<string, HashSet<char>> wordDiscoveredLetters = new Dictionary<string, HashSet<char>>();
+    // Letter discovery tracking for dominant word display - word-specific position tracking
+    private HashSet<char> discoveredLetters = new HashSet<char>(); // Global discovered letters (for reference)
+    private HashSet<int> discoveredPositions = new HashSet<int>(); // Current word positions
+    private Dictionary<string, HashSet<int>> wordDiscoveredPositions = new Dictionary<string, HashSet<int>>();
 
 
     void Awake()
@@ -2240,12 +2241,29 @@ public class GameManager : MonoBehaviour
         bool isWordleStyle = IsUsingLevelSystem && hasValidLevelData && currentLevelData.IsWordleStyle;
         if (!isWordleStyle) return;
 
-        // Skip if the word hasn't changed
-        if (currentDominantWord == dominantWord) return;
-
+        // Check if the word has changed
+        bool wordChanged = currentDominantWord != dominantWord;
+        
         Debug.Log($"🎯 DOMINANT WORD: Updating display from '{currentDominantWord}' to '{dominantWord}'");
         
         currentDominantWord = dominantWord;
+
+        // If the word changed, update current word position tracking
+        if (wordChanged)
+        {
+            // Set discoveredPositions to match the new word's discovered positions
+            string newWordKey = dominantWord.ToUpper();
+            if (wordDiscoveredPositions.ContainsKey(newWordKey))
+            {
+                discoveredPositions = new HashSet<int>(wordDiscoveredPositions[newWordKey]);
+                Debug.Log($"🎯 WORD SWITCH: Loaded {discoveredPositions.Count} discovered positions for word '{dominantWord}'");
+            }
+            else
+            {
+                discoveredPositions.Clear();
+                Debug.Log($"🎯 WORD SWITCH: No discovered positions for new word '{dominantWord}'");
+            }
+        }
 
         // Use the discovery system to show the word with appropriate reveals
         RefreshDominantWordDisplay();
@@ -2330,17 +2348,26 @@ public class GameManager : MonoBehaviour
 
     /// <summary>
     /// Creates a display version of the dominant word with dashes for undiscovered letters
+    /// Only shows letters that were discovered in this specific word's positions
     /// </summary>
     private string CreateDominantWordDisplay(string word)
     {
         if (string.IsNullOrEmpty(word)) return "";
         
         StringBuilder displayWord = new StringBuilder();
+        string wordKey = word.ToUpper();
+        
+        // Get discovered positions for this specific word
+        HashSet<int> wordPositions = wordDiscoveredPositions.ContainsKey(wordKey) 
+            ? wordDiscoveredPositions[wordKey] 
+            : new HashSet<int>();
         
         for (int i = 0; i < word.Length; i++)
         {
             char letter = char.ToUpper(word[i]);
-            if (discoveredLetters.Contains(letter))
+            
+            // Only reveal letters at positions that were discovered for this specific word
+            if (wordPositions.Contains(i))
             {
                 displayWord.Append(letter);
             }
@@ -2398,31 +2425,50 @@ public class GameManager : MonoBehaviour
     private void ResetDiscoveredLetters()
     {
         discoveredLetters.Clear();
-        wordDiscoveredLetters.Clear();
-        Debug.Log($"🎯 LETTERS: Reset discovered letters tracking");
+        discoveredPositions.Clear();
+        wordDiscoveredPositions.Clear();
+        Debug.Log($"🎯 LETTERS: Reset all discovered letters and positions tracking (new level started)");
     }
 
     /// <summary>
-    /// Called by WordGridManager when a letter is discovered (turned green)
+    /// Called by WordGridManager when a letter is discovered (turned green) at a specific position
     /// </summary>
-    public void OnLetterDiscovered(char letter)
+    public void OnLetterDiscovered(char letter, int position)
     {
         // Check if letter discovery is enabled
         if (targetWordFeedbackUI != null && !targetWordFeedbackUI.IsLetterDiscoveryEnabled)
         {
-            Debug.Log($"🎯 LETTER DISCOVERY: Skipped tracking '{letter}' - discovery is disabled");
+            Debug.Log($"🎯 LETTER DISCOVERY: Skipped tracking '{letter}' at position {position} - discovery is disabled");
+            return;
+        }
+        
+        if (string.IsNullOrEmpty(currentDominantWord))
+        {
+            Debug.Log($"🎯 LETTER DISCOVERY: No current dominant word - skipping");
             return;
         }
         
         char upperLetter = char.ToUpper(letter);
-        bool wasNewDiscovery = !discoveredLetters.Contains(upperLetter);
+        string wordKey = currentDominantWord.ToUpper();
         
-        if (wasNewDiscovery)
+        // Ensure we have a position set for this word
+        if (!wordDiscoveredPositions.ContainsKey(wordKey))
         {
-            discoveredLetters.Add(upperLetter);
-            Debug.Log($"🎯 LETTER DISCOVERED: '{upperLetter}' - Total discovered: {discoveredLetters.Count}");
+            wordDiscoveredPositions[wordKey] = new HashSet<int>();
+        }
+        
+        bool wasNewPositionDiscovery = !wordDiscoveredPositions[wordKey].Contains(position);
+        
+        // Track the position for this specific word
+        if (wasNewPositionDiscovery)
+        {
+            wordDiscoveredPositions[wordKey].Add(position);
+            discoveredPositions.Add(position); // Keep for current word context
+            discoveredLetters.Add(upperLetter); // Keep for reference
             
-            // Refresh the dominant word display with new discovery
+            Debug.Log($"🎯 LETTER DISCOVERED: '{upperLetter}' at position {position} in word '{currentDominantWord}' - Word positions: {wordDiscoveredPositions[wordKey].Count}");
+            
+            // Refresh the dominant word display
             RefreshDominantWordDisplay();
         }
     }
