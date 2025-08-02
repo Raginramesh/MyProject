@@ -30,6 +30,12 @@ namespace MoreMountains.Tools
 			public Vector2 StartPosition;
 			/// if this is false, this layer won't move
 			public bool Active = true;
+			
+			/// if this is true, will force the z position of this layer to ForcedZPosition 
+			public bool ForceZPosition = true;
+			/// the z position at which to force this layer to be
+			[MMCondition("ForceZPosition", true)]
+			public float ForcedZPosition = 0f;
 		}
         
 		/// the possible modes used to pilot this parallax rig
@@ -102,7 +108,17 @@ namespace MoreMountains.Tools
 					_newPosition.y = Mathf.Lerp(layer.Rect.position.y, layer.StartPosition.y + _referencePosition.y * layer.Amplitude * AmplitudeMultiplier, layer.Speed * SpeedMultiplier * Time.deltaTime);
 					_newPosition.z = 0;
 
-					layer.Rect.position = _newPosition;    
+					layer.Rect.position = _newPosition;
+
+					if (layer.ForceZPosition)
+					{
+						Vector3 pos = layer.Rect.localPosition;
+						if (pos.z != 0f)
+						{
+							pos.z = 0f;
+							layer.Rect.localPosition = pos;
+						}	
+					}
 				}
 			}
 		}

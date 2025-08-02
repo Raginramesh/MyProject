@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using DG.Tweening;
 using System.Linq;
 using System; // Required for System.Guid
+using System.Text; // Required for StringBuilder
 using WordScroll.Modifiers; // Required for ModifierManager and ModifierEffectType
 
 public class GameManager : MonoBehaviour
@@ -73,6 +74,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject scrabbleUIGroup; // Contains score-related UI elements
     [SerializeField] private GameObject wordleUIGroup; // Contains target word progress UI elements
     [SerializeField] private TextMeshProUGUI targetWordProgressText; // Shows "X/Y words found"
+    [SerializeField] private TextMeshProUGUI dominantWordDisplayText; // Shows current dominant word
 
     [Header("Component References")]
     [SerializeField] private WordGridManager wordGridManager;
@@ -169,6 +171,14 @@ public class GameManager : MonoBehaviour
     private List<FoundWordData> currentPotentialWords = new List<FoundWordData>();
     private Dictionary<System.Guid, Color> currentAppliedHighlightColors = new Dictionary<System.Guid, Color>();
 
+    // Dominant word display tracking
+    private string currentDominantWord = "";
+    private bool isDominantWordDisplayInitialized = false;
+    
+    // Letter discovery tracking for dominant word display
+    private HashSet<char> discoveredLetters = new HashSet<char>();
+    private Dictionary<string, HashSet<char>> wordDiscoveredLetters = new Dictionary<string, HashSet<char>>();
+
 
     void Awake()
     {
@@ -200,6 +210,12 @@ public class GameManager : MonoBehaviour
 
         if (wordValidator != null) wordValidator.SetGameManager(this);
         if (wordGridManager != null) wordGridManager.SetGameManager(this);
+        
+        // Subscribe to dominant word changes from WordGridManager
+        if (wordGridManager != null)
+        {
+            Debug.Log("🎯 DOMINANT WORD: GameManager ready to receive dominant word updates from WordGridManager");
+        }
     }
 
     void InitializeScrabbleValues()
@@ -388,6 +404,8 @@ public class GameManager : MonoBehaviour
         UpdateScoreUI();
         UpdateRoundScoreUI(); // Initialize round score UI
         InitializeDualModeUI(); // Initialize UI based on game mode
+        ResetDiscoveredLetters(); // Reset letter discovery tracking for new level
+        InitializeDominantWordDisplay(); // Initialize dominant word display
         
         // DEBUG: Ensure main score elements are visible
         #if UNITY_EDITOR
@@ -556,9 +574,23 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void ShowNumericalScore(List<FoundWordData> words)
     {
-        if (numericalScoreUI != null && words != null && words.Count > 0)
+        // For Wordle-style levels, skip numerical score UI (not relevant for word-finding gameplay)
+        bool isWordleStyle = IsUsingLevelSystem && hasValidLevelData && currentLevelData.IsWordleStyle;
+        
+        if (numericalScoreUI != null && words != null && words.Count > 0 && !isWordleStyle)
         {
+            // Ensure the numerical score UI GameObject is active before starting coroutine
+            if (!numericalScoreUI.gameObject.activeInHierarchy)
+            {
+                numericalScoreUI.gameObject.SetActive(true);
+                Debug.Log("🔧 Activated NumericalScorePanel for ShowNumericalScore");
+            }
+            
             numericalScoreUI.ShowNumericalScore(words);
+        }
+        else if (isWordleStyle)
+        {
+            Debug.Log("🎯 Wordle-style level: Skipping numerical score UI in ShowNumericalScore");
         }
     }
     
@@ -569,6 +601,10 @@ public class GameManager : MonoBehaviour
     {
         get
         {
+            // For Wordle-style levels, numerical score UI is not used
+            bool isWordleStyle = IsUsingLevelSystem && hasValidLevelData && currentLevelData.IsWordleStyle;
+            if (isWordleStyle) return false;
+            
             return numericalScoreUI != null && numericalScoreUI.IsAnimating;
         }
     }
@@ -1000,11 +1036,25 @@ public class GameManager : MonoBehaviour
         // Start the complete animated scoring sequence
         if (animatedScoringSystem != null)
         {
-            // Start both systems simultaneously for parallel execution
+            // For Wordle-style levels, skip numerical score UI (not relevant for word-finding gameplay)
+            bool isWordleStyle = IsUsingLevelSystem && hasValidLevelData && currentLevelData.IsWordleStyle;
+            
+            // Start both systems simultaneously for parallel execution (skip numerical UI for Wordle)
             Coroutine numericalUICoroutine = null;
-            if (numericalScoreUI != null)
+            if (numericalScoreUI != null && !isWordleStyle)
             {
+                // Ensure the numerical score UI GameObject is active before starting coroutine
+                if (!numericalScoreUI.gameObject.activeInHierarchy)
+                {
+                    numericalScoreUI.gameObject.SetActive(true);
+                    Debug.Log("🔧 Activated NumericalScorePanel for coroutine execution");
+                }
+                
                 numericalUICoroutine = StartCoroutine(numericalScoreUI.ShowNumericalScoreParallel(words));
+            }
+            else if (isWordleStyle)
+            {
+                Debug.Log("🎯 Wordle-style level: Skipping numerical score UI");
             }
             
             // Start cell animation system
@@ -1064,10 +1114,24 @@ public class GameManager : MonoBehaviour
             // Fallback to instant scoring if animated system not available
             Debug.LogWarning("[GameManager] AnimatedScoringSystem not found. Using instant scoring.");
             
-            // Still show numerical score breakdown even without animated system
-            if (numericalScoreUI != null)
+            // For Wordle-style levels, skip numerical score UI (not relevant for word-finding gameplay)
+            bool isWordleStyle = IsUsingLevelSystem && hasValidLevelData && currentLevelData.IsWordleStyle;
+            
+            // Still show numerical score breakdown even without animated system (skip for Wordle)
+            if (numericalScoreUI != null && !isWordleStyle)
             {
+                // Ensure the numerical score UI GameObject is active before starting coroutine
+                if (!numericalScoreUI.gameObject.activeInHierarchy)
+                {
+                    numericalScoreUI.gameObject.SetActive(true);
+                    Debug.Log("🔧 Activated NumericalScorePanel for fallback coroutine execution");
+                }
+                
                 yield return StartCoroutine(numericalScoreUI.ShowNumericalScoreParallel(words));
+            }
+            else if (isWordleStyle)
+            {
+                Debug.Log("🎯 Wordle-style level: Skipping numerical score UI in fallback");
             }
             
             ApplyFinalScore(scoringData.finalScore);
@@ -2165,6 +2229,202 @@ public class GameManager : MonoBehaviour
         yield return new WaitForEndOfFrame();
         isLevelRestarting = false;
         Debug.Log($"🎮 Level restart flag cleared");
+    }
+
+    /// <summary>
+    /// Updates the dominant word display when the dominant word changes
+    /// </summary>
+    public void UpdateDominantWordDisplay(string dominantWord)
+    {
+        // Only update for Wordle-style levels
+        bool isWordleStyle = IsUsingLevelSystem && hasValidLevelData && currentLevelData.IsWordleStyle;
+        if (!isWordleStyle) return;
+
+        // Skip if the word hasn't changed
+        if (currentDominantWord == dominantWord) return;
+
+        Debug.Log($"🎯 DOMINANT WORD: Updating display from '{currentDominantWord}' to '{dominantWord}'");
+        
+        currentDominantWord = dominantWord;
+
+        // Use the discovery system to show the word with appropriate reveals
+        RefreshDominantWordDisplay();
+    }
+
+    /// <summary>
+    /// Animates the dominant word change using TargetWordFeedbackUI
+    /// </summary>
+    private IEnumerator AnimateDominantWordChange(string newWord)
+    {
+        if (targetWordFeedbackUI == null) yield break;
+
+        // If this is the first time, just set it without animation
+        if (!isDominantWordDisplayInitialized)
+        {
+            isDominantWordDisplayInitialized = true;
+            targetWordFeedbackUI.ShowDominantWord(newWord);
+            yield break;
+        }
+
+        // Simple fade out/in animation
+        targetWordFeedbackUI.HideDominantWord();
+        yield return new WaitForSeconds(0.2f); // Short delay for fade out
+        
+        if (string.IsNullOrEmpty(newWord))
+        {
+            // Keep it hidden if no dominant word
+            yield break;
+        }
+        
+        targetWordFeedbackUI.ShowDominantWord(newWord);
+    }
+
+    /// <summary>
+    /// Fallback animation using direct text component
+    /// </summary>
+    private IEnumerator AnimateDominantWordTextChange(string newWord)
+    {
+        if (dominantWordDisplayText == null) yield break;
+
+        // Simple fade animation using DOTween
+        if (!string.IsNullOrEmpty(currentDominantWord))
+        {
+            // Fade out current text
+            dominantWordDisplayText.DOFade(0f, 0.15f);
+            yield return new WaitForSeconds(0.15f);
+        }
+
+        // Update text
+        if (string.IsNullOrEmpty(newWord))
+        {
+            dominantWordDisplayText.text = "";
+            dominantWordDisplayText.color = new Color(dominantWordDisplayText.color.r, dominantWordDisplayText.color.g, dominantWordDisplayText.color.b, 0f);
+        }
+        else
+        {
+            dominantWordDisplayText.text = newWord.ToUpper();
+            // Fade in new text
+            dominantWordDisplayText.DOFade(1f, 0.15f);
+        }
+    }
+
+    /// <summary>
+    /// Initializes the dominant word display for the current level
+    /// </summary>
+    private void InitializeDominantWordDisplay()
+    {
+        currentDominantWord = "";
+        isDominantWordDisplayInitialized = false;
+        
+        // Clear any existing display
+        if (targetWordFeedbackUI != null)
+        {
+            targetWordFeedbackUI.HideDominantWord();
+        }
+        else if (dominantWordDisplayText != null)
+        {
+            dominantWordDisplayText.text = "";
+            dominantWordDisplayText.color = new Color(dominantWordDisplayText.color.r, dominantWordDisplayText.color.g, dominantWordDisplayText.color.b, 0f);
+        }
+    }
+
+    /// <summary>
+    /// Creates a display version of the dominant word with dashes for undiscovered letters
+    /// </summary>
+    private string CreateDominantWordDisplay(string word)
+    {
+        if (string.IsNullOrEmpty(word)) return "";
+        
+        StringBuilder displayWord = new StringBuilder();
+        
+        for (int i = 0; i < word.Length; i++)
+        {
+            char letter = char.ToUpper(word[i]);
+            if (discoveredLetters.Contains(letter))
+            {
+                displayWord.Append(letter);
+            }
+            else
+            {
+                displayWord.Append('_');
+            }
+            
+            // Add space between letters for better readability
+            if (i < word.Length - 1)
+            {
+                displayWord.Append(' ');
+            }
+        }
+        
+        return displayWord.ToString();
+    }
+
+    /// <summary>
+    /// Refreshes the dominant word display with current discovery state
+    /// </summary>
+    private void RefreshDominantWordDisplay()
+    {
+        if (string.IsNullOrEmpty(currentDominantWord)) return;
+        
+        if (targetWordFeedbackUI != null)
+        {
+            // Check if letter discovery is enabled in the UI component
+            if (targetWordFeedbackUI.IsLetterDiscoveryEnabled)
+            {
+                // Use discovery system with dashes and progressive reveal
+                string displayText = CreateDominantWordDisplay(currentDominantWord);
+                targetWordFeedbackUI.ShowDominantWordWithDiscovery(displayText);
+                Debug.Log($"🎯 DOMINANT DISPLAY: Updated '{currentDominantWord}' → '{displayText}' (Discovery Mode)");
+            }
+            else
+            {
+                // Discovery disabled - hide the display completely
+                targetWordFeedbackUI.HideDominantWord();
+                Debug.Log($"🎯 DOMINANT DISPLAY: Hidden display - discovery is disabled");
+            }
+        }
+        else if (dominantWordDisplayText != null)
+        {
+            // Fallback to direct text display (always show with discovery format for fallback)
+            string displayText = CreateDominantWordDisplay(currentDominantWord);
+            dominantWordDisplayText.text = displayText;
+            Debug.Log($"🎯 DOMINANT DISPLAY: Updated '{currentDominantWord}' → '{displayText}' (Fallback)");
+        }
+    }
+
+    /// <summary>
+    /// Resets discovered letters tracking (called when starting a new level)
+    /// </summary>
+    private void ResetDiscoveredLetters()
+    {
+        discoveredLetters.Clear();
+        wordDiscoveredLetters.Clear();
+        Debug.Log($"🎯 LETTERS: Reset discovered letters tracking");
+    }
+
+    /// <summary>
+    /// Called by WordGridManager when a letter is discovered (turned green)
+    /// </summary>
+    public void OnLetterDiscovered(char letter)
+    {
+        // Check if letter discovery is enabled
+        if (targetWordFeedbackUI != null && !targetWordFeedbackUI.IsLetterDiscoveryEnabled)
+        {
+            Debug.Log($"🎯 LETTER DISCOVERY: Skipped tracking '{letter}' - discovery is disabled");
+            return;
+        }
+        
+        char upperLetter = char.ToUpper(letter);
+        bool wasNewDiscovery = !discoveredLetters.Contains(upperLetter);
+        
+        if (wasNewDiscovery)
+        {
+            discoveredLetters.Add(upperLetter);
+            Debug.Log($"🎯 LETTER DISCOVERED: '{upperLetter}' - Total discovered: {discoveredLetters.Count}");
+            
+            // Refresh the dominant word display with new discovery
+            RefreshDominantWordDisplay();
+        }
     }
 
     void OnDestroy()

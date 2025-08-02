@@ -55,6 +55,10 @@ namespace MoreMountains.FeedbacksForThirdParty
 		/// </summary>
 		void Update()
 		{
+			if (FocusTargetID < 0 || FocusTargetID >= FocusTargets.Length)
+			{
+				return;
+			}
 			float distance = Vector3.Distance(CameraTransform.position, FocusTargets[Mathf.FloorToInt(FocusTargetID)].position);
 			_depthOfField.focusDistance.Override(distance);
 			_depthOfField.aperture.Override(Aperture);

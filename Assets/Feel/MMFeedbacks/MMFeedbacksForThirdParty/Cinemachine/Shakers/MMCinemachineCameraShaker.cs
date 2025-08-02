@@ -6,6 +6,7 @@ using Cinemachine;
 using Unity.Cinemachine;
 #endif
 using MoreMountains.Feedbacks;
+using MoreMountains.Tools;
 
 namespace MoreMountains.FeedbacksForThirdParty
 {
@@ -176,7 +177,7 @@ namespace MoreMountains.FeedbacksForThirdParty
 			_timescaleMode = useUnscaledTime ? TimescaleModes.Unscaled : TimescaleModes.Scaled;
 			if (!infinite)
 			{
-				yield return new WaitForSeconds(duration);
+				yield return MMCoroutine.WaitFor(duration);
 				CameraReset();
 			}                        
 		}

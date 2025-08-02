@@ -231,6 +231,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -432,7 +435,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 0
         AnimateScaleTarget: {fileID: 2076029460}
+        MovementMode: 0
         AnimateScaleDuration: 0.3
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 1
         Offset: 0
@@ -740,7 +745,9 @@ MonoBehaviour:
         Mode: 1
         Space: 0
         RandomizeRemap: 0
+        MovementMode: 0
         AnimatePositionDuration: 2
+        AnimatePositionSpeed: 1
         AnimatePositionTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 4
@@ -1213,7 +1220,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 0
         AnimateScaleTarget: {fileID: 1579498608}
+        MovementMode: 0
         AnimateScaleDuration: 2
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 1
         Offset: 0
@@ -1878,7 +1887,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 0
         AnimateScaleTarget: {fileID: 2076029460}
+        MovementMode: 0
         AnimateScaleDuration: 0.5
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 1
         Offset: 0
@@ -2349,6 +2360,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -2705,6 +2719,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -2906,6 +2923,7 @@ MonoBehaviour:
         NormalizedTime: 0.5
         FixedTime: 0
         LayerIndex: -1
+        LayerName: 
         SetLayerWeight: 0
         TargetLayerIndex: 1
         NewWeight: 0.5
@@ -4785,6 +4803,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -4985,6 +5006,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -5282,7 +5304,8 @@ MonoBehaviour:
           EnumConditions: 0000000000000000000000000000000000000000000000000000000000000000
         RemapZero: 0
         RemapOne: 12
-        InstantFontSize: 0
+        InstantSpacing: 0
+        DestinationSpacing: 0
     - rid: 5
       type: {class: MMF_HoldingPause, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -5441,6 +5464,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -8448,6 +8472,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -9084,6 +9111,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -9284,6 +9314,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 1855939571}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -9599,6 +9630,7 @@ MonoBehaviour:
         RemapZero: 0
         RemapOne: 10
         InstantFontSize: 0
+        DestinationFontSize: 0
     - rid: 5
       type: {class: MMF_HoldingPause, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -9757,6 +9789,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 1855939571}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -9878,6 +9911,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -10368,6 +10404,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -10567,6 +10606,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 366288791}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -10988,6 +11028,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 366288791}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -13099,6 +13140,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -13505,6 +13549,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -17124,6 +17171,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -17466,6 +17516,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -17666,6 +17719,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 930333314}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -18121,6 +18175,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 930333314}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -18236,6 +18291,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -18437,6 +18495,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 366288791}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -18814,6 +18873,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 366288791}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -18935,6 +18995,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -19137,7 +19200,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 0
         AnimateScaleTarget: {fileID: 2076029460}
+        MovementMode: 0
         AnimateScaleDuration: 0.3
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 1
         Offset: 0
@@ -19652,7 +19717,9 @@ MonoBehaviour:
         Mode: 1
         Space: 0
         RandomizeRemap: 0
+        MovementMode: 0
         AnimatePositionDuration: 0.2
+        AnimatePositionSpeed: 1
         AnimatePositionTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 4
@@ -20107,7 +20174,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 1
         AnimateScaleTarget: {fileID: 1579498608}
+        MovementMode: 0
         AnimateScaleDuration: 0.2
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 0.75
         Offset: 0
@@ -20517,6 +20586,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -21033,6 +21105,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -22670,6 +22745,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -23025,6 +23103,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -24098,6 +24179,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -26139,6 +26223,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -26723,6 +26810,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -29065,6 +29155,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -29436,6 +29529,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -30022,6 +30118,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -32396,6 +32495,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -32597,7 +32699,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 0
         AnimateScaleTarget: {fileID: 2076029460}
+        MovementMode: 0
         AnimateScaleDuration: 0.3
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 1
         Offset: 0
@@ -32905,7 +33009,9 @@ MonoBehaviour:
         Mode: 1
         Space: 0
         RandomizeRemap: 0
+        MovementMode: 0
         AnimatePositionDuration: 2
+        AnimatePositionSpeed: 1
         AnimatePositionTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 4
@@ -33378,7 +33484,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 0
         AnimateScaleTarget: {fileID: 1579498608}
+        MovementMode: 0
         AnimateScaleDuration: 2
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 1
         Offset: 0
@@ -34043,7 +34151,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 0
         AnimateScaleTarget: {fileID: 2076029460}
+        MovementMode: 0
         AnimateScaleDuration: 0.5
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 1
         Offset: 0
@@ -35700,6 +35810,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -54114,6 +54227,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -54229,7 +54345,9 @@ MonoBehaviour:
           ButtonText: Automatic Shaker Setup
         Owner: {fileID: 470329277}
         DebugActive: 0
+        Source: 0
         Sfx: {fileID: 8300000, guid: e99b6c5ad04e7474d98b5d3425dd7f82, type: 3}
+        AudioResourceToPlay: {fileID: 0}
         RandomSfx: []
         SequentialOrder: 0
         SequentialOrderHoldLast: 0
@@ -55288,6 +55406,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -55622,6 +55743,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -58090,6 +58214,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -58900,6 +59027,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -67691,6 +67821,7 @@ Transform:
   - {fileID: 35386169}
   - {fileID: 195450219}
   - {fileID: 2041884600}
+  - {fileID: 639944940}
   m_Father: {fileID: 999639631}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &563486796
@@ -69047,6 +69178,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -69618,6 +69752,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -69731,7 +69868,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 0
         AnimateScaleTarget: {fileID: 1579498608}
+        MovementMode: 0
         AnimateScaleDuration: 0.75
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 1
         Offset: 0
@@ -72892,6 +73031,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -74142,6 +74284,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -74572,6 +74717,501 @@ RectTransform:
     type: 3}
   m_PrefabInstance: {fileID: 797730521}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &639944939
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 639944940}
+  - component: {fileID: 639944941}
+  m_Layer: 0
+  m_Name: SpriteSheetAnimation
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &639944940
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 639944939}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 562921500}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &639944941
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 639944939}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6da43522623d4704e979466dc7650b65, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Feedbacks: []
+  InitializationMode: 2
+  AutoInitialization: 1
+  SafeMode: 3
+  Direction: 0
+  AutoChangeDirectionOnEnd: 0
+  AutoPlayOnStart: 0
+  AutoPlayOnEnable: 0
+  ForceTimescaleMode: 0
+  ForcedTimescaleMode: 1
+  DurationMultiplier: 1
+  TimescaleMultiplier: 1
+  RandomizeDuration: 0
+  RandomDurationMultiplier: {x: 0.5, y: 1.5}
+  DisplayFullDurationDetails: 0
+  PlayerTimescaleMode: 1
+  OnlyPlayIfWithinRange: 0
+  RangeCenter: {fileID: 0}
+  RangeDistance: 5
+  UseRangeFalloff: 0
+  RangeFalloff:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  RemapRangeFalloff: {x: 0, y: 1}
+  IgnoreRangeEvents: 0
+  CooldownDuration: 0
+  InitialDelay: 0
+  CanPlay: 1
+  CanPlayWhileAlreadyPlaying: 1
+  ChanceToPlay: 100
+  FeedbacksIntensity: 1
+  Events:
+    TriggerMMFeedbacksEvents: 0
+    TriggerUnityEvents: 1
+    OnPlay:
+      m_PersistentCalls:
+        m_Calls: []
+    OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
+    OnResume:
+      m_PersistentCalls:
+        m_Calls: []
+    OnChangeDirection:
+      m_PersistentCalls:
+        m_Calls: []
+    OnComplete:
+      m_PersistentCalls:
+        m_Calls: []
+    OnRestoreInitialValues:
+      m_PersistentCalls:
+        m_Calls: []
+    OnSkipToTheEnd:
+      m_PersistentCalls:
+        m_Calls: []
+    OnInitializationComplete:
+      m_PersistentCalls:
+        m_Calls: []
+    OnEnable:
+      m_PersistentCalls:
+        m_Calls: []
+    OnDisable:
+      m_PersistentCalls:
+        m_Calls: []
+  DebugActive: 0
+  InScriptDrivenPause: 0
+  FeedbacksList:
+  - rid: 0
+  - rid: 6095433565684367430
+  - rid: 6095433565684367431
+  - rid: 6095433565684367432
+  KeepPlayModeChanges: 0
+  PerformanceMode: 0
+  RestoreInitialValuesOnDisable: 0
+  StopFeedbacksOnDisable: 0
+  PlayCount: 0
+  references:
+    version: 2
+    RefIds:
+    - rid: 0
+      type: {class: MMF_AudioSource, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
+      data:
+        Active: 1
+        UniqueID: -1626501411
+        Label: AudioSource
+        OriginalLabel: AudioSource
+        ChannelMode: 0
+        Channel: 0
+        MMChannelDefinition: {fileID: 0}
+        Chance: 100
+        Timing:
+          TimescaleMode: 0
+          ExcludeFromHoldingPauses: 0
+          ContributeToTotalDuration: 1
+          InitialDelay: 0
+          CooldownDuration: 0
+          InterruptsOnStop: 1
+          NumberOfRepeats: 0
+          RepeatForever: 0
+          DelayBetweenRepeats: 1
+          PlayCount: 14
+          LimitPlayCount: 0
+          MaxPlayCount: 3
+          SetPlayCountToZeroOnReset: 0
+          MMFeedbacksDirectionCondition: 0
+          PlayDirection: 0
+          ConstantIntensity: 0
+          UseIntensityInterval: 0
+          IntensityIntervalMin: 0
+          IntensityIntervalMax: 0
+          Sequence: {fileID: 0}
+          TrackID: 0
+          Quantized: 0
+          TargetBPM: 120
+        AutomatedTargetAcquisition:
+          Mode: 0
+          ChildIndex: 0
+        RandomizeOutput: 0
+        RandomMultiplier: {x: 0, y: 0}
+        RandomizeDuration: 0
+        RandomDurationMultiplier: {x: 0.5, y: 2}
+        UseRange: 0
+        RangeDistance: 5
+        UseRangeFalloff: 0
+        RangeFalloff:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        RemapRangeFalloff: {x: 0, y: 1}
+        AutomaticShakerSetupButton:
+          ButtonText: 
+        Owner: {fileID: 639944941}
+        DebugActive: 0
+        TargetAudioSource: {fileID: 478010195}
+        Mode: 0
+        RandomSfx: []
+        MinVolume: 1
+        MaxVolume: 1
+        MinPitch: 1
+        MaxPitch: 1
+        SfxAudioMixerGroup: {fileID: 0}
+    - rid: 6095433565684367430
+      type: {class: MMF_SpriteSheetAnimation, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
+      data:
+        Active: 1
+        UniqueID: 87607713
+        Label: Sprite Sheet Animation
+        OriginalLabel: Sprite Sheet Animation
+        ChannelMode: 0
+        Channel: 0
+        MMChannelDefinition: {fileID: 0}
+        Chance: 100
+        Timing:
+          TimescaleMode: 0
+          ExcludeFromHoldingPauses: 0
+          ContributeToTotalDuration: 1
+          InitialDelay: 0
+          CooldownDuration: 0
+          InterruptsOnStop: 1
+          NumberOfRepeats: 0
+          RepeatForever: 0
+          DelayBetweenRepeats: 1
+          PlayCount: 0
+          LimitPlayCount: 0
+          MaxPlayCount: 3
+          SetPlayCountToZeroOnReset: 0
+          MMFeedbacksDirectionCondition: 0
+          PlayDirection: 0
+          ConstantIntensity: 0
+          UseIntensityInterval: 0
+          IntensityIntervalMin: 0
+          IntensityIntervalMax: 0
+          Sequence: {fileID: 0}
+          TrackID: 0
+          Quantized: 0
+          TargetBPM: 120
+        AutomatedTargetAcquisition:
+          Mode: 0
+          ChildIndex: 0
+        RandomizeOutput: 0
+        RandomMultiplier: {x: 0.8, y: 1}
+        RandomizeDuration: 0
+        RandomDurationMultiplier: {x: 0.5, y: 2}
+        UseRange: 0
+        RangeDistance: 5
+        UseRangeFalloff: 0
+        RangeFalloff:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        RemapRangeFalloff: {x: 0, y: 1}
+        AutomaticShakerSetupButton:
+          ButtonText: 
+        Owner: {fileID: 639944941}
+        DebugActive: 0
+        TargetSpriteRenderers:
+        - {fileID: 1352294454}
+        TargetImages: []
+        AnimationSprites:
+        - {fileID: 21300000, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300002, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300004, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300006, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300008, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300010, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300012, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300014, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300016, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300018, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300020, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300022, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300024, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300026, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300028, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300030, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300032, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300034, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300036, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300038, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300040, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300042, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300044, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300046, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        - {fileID: 21300048, guid: bad6c0f0bf6c3aa4690d400a757fa284, type: 3}
+        FrameRate: 12
+        RandomOffset: {x: 0, y: 0}
+        Loop: 0
+    - rid: 6095433565684367431
+      type: {class: MMF_HoldingPause, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
+      data:
+        Active: 1
+        UniqueID: 883760326
+        Label: Holding Pause
+        OriginalLabel: Holding Pause
+        ChannelMode: 0
+        Channel: 0
+        MMChannelDefinition: {fileID: 0}
+        Chance: 100
+        Timing:
+          TimescaleMode: 0
+          ExcludeFromHoldingPauses: 0
+          ContributeToTotalDuration: 1
+          InitialDelay: 0
+          CooldownDuration: 0
+          InterruptsOnStop: 1
+          NumberOfRepeats: 0
+          RepeatForever: 0
+          DelayBetweenRepeats: 1
+          PlayCount: 0
+          LimitPlayCount: 0
+          MaxPlayCount: 3
+          SetPlayCountToZeroOnReset: 0
+          MMFeedbacksDirectionCondition: 0
+          PlayDirection: 0
+          ConstantIntensity: 0
+          UseIntensityInterval: 0
+          IntensityIntervalMin: 0
+          IntensityIntervalMax: 0
+          Sequence: {fileID: 0}
+          TrackID: 0
+          Quantized: 0
+          TargetBPM: 120
+        AutomatedTargetAcquisition:
+          Mode: 0
+          ChildIndex: 0
+        RandomizeOutput: 0
+        RandomMultiplier: {x: 0.8, y: 1}
+        RandomizeDuration: 0
+        RandomDurationMultiplier: {x: 0.5, y: 2}
+        UseRange: 0
+        RangeDistance: 5
+        UseRangeFalloff: 0
+        RangeFalloff:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        RemapRangeFalloff: {x: 0, y: 1}
+        AutomaticShakerSetupButton:
+          ButtonText: 
+        Owner: {fileID: 639944941}
+        DebugActive: 0
+        PauseDuration: 0.5
+        RandomizePauseDuration: 0
+        MinPauseDuration: 1
+        MaxPauseDuration: 3
+        RandomizeOnEachPlay: 1
+        ScriptDriven: 0
+        AutoResume: 0
+        AutoResumeAfter: 0.25
+    - rid: 6095433565684367432
+      type: {class: MMF_PlayerControl, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
+      data:
+        Active: 1
+        UniqueID: 213101728
+        Label: MMF Player Control
+        OriginalLabel: MMF Player Control
+        ChannelMode: 0
+        Channel: 0
+        MMChannelDefinition: {fileID: 0}
+        Chance: 100
+        Timing:
+          TimescaleMode: 0
+          ExcludeFromHoldingPauses: 0
+          ContributeToTotalDuration: 1
+          InitialDelay: 0
+          CooldownDuration: 0
+          InterruptsOnStop: 1
+          NumberOfRepeats: 0
+          RepeatForever: 0
+          DelayBetweenRepeats: 1
+          PlayCount: 0
+          LimitPlayCount: 0
+          MaxPlayCount: 3
+          SetPlayCountToZeroOnReset: 0
+          MMFeedbacksDirectionCondition: 0
+          PlayDirection: 0
+          ConstantIntensity: 0
+          UseIntensityInterval: 0
+          IntensityIntervalMin: 0
+          IntensityIntervalMax: 0
+          Sequence: {fileID: 0}
+          TrackID: 0
+          Quantized: 0
+          TargetBPM: 120
+        AutomatedTargetAcquisition:
+          Mode: 0
+          ChildIndex: 0
+        RandomizeOutput: 0
+        RandomMultiplier: {x: 0.8, y: 1}
+        RandomizeDuration: 0
+        RandomDurationMultiplier: {x: 0.5, y: 2}
+        UseRange: 0
+        RangeDistance: 5
+        UseRangeFalloff: 0
+        RangeFalloff:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        RemapRangeFalloff: {x: 0, y: 1}
+        AutomaticShakerSetupButton:
+          ButtonText: 
+        Owner: {fileID: 639944941}
+        DebugActive: 0
+        TargetPlayers:
+        - {fileID: 639944941}
+        WaitForTargetPlayersToFinish: 0
+        Mode: 12
 --- !u!1 &651972206
 GameObject:
   m_ObjectHideFlags: 0
@@ -74675,6 +75315,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -77236,6 +77879,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -80466,6 +81112,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -80833,6 +81482,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -80947,7 +81599,9 @@ MonoBehaviour:
         AnimateRotationTarget: {fileID: 699640085}
         Mode: 0
         RotationSpace: 0
+        MovementMode: 0
         AnimateRotationDuration: 1
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 360
         AnimateX: 1
@@ -81086,6 +81740,7 @@ MonoBehaviour:
         DetermineRotationOnPlay: 0
         ToDestinationSpace: 0
         DestinationAngles: {x: 0, y: 180, z: 0}
+        ToDestinationTransform: {fileID: 0}
         ToDestinationTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 10
@@ -81447,6 +82102,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -82422,6 +83080,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -82655,6 +83316,7 @@ MonoBehaviour:
         PositionMode: 0
         TargetTransform: {fileID: 718426372}
         Direction: {x: 0, y: 0, z: 0}
+        AttachmentTransform: {fileID: 0}
 --- !u!1 &718426371
 GameObject:
   m_ObjectHideFlags: 0
@@ -84300,6 +84962,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -94699,6 +95364,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -95285,6 +95953,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -104767,6 +105438,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -108084,6 +108758,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -109888,6 +110565,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -110028,6 +110708,7 @@ MonoBehaviour:
         FloatIncrement: 1
         SetLayerWeight: 0
         TargetLayerIndex: 1
+        LayerName: 
         NewWeight: 0.5
     - rid: 1
       type: {class: MMF_AudioSource, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
@@ -110587,6 +111268,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -110891,6 +111575,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -113903,6 +114590,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -114462,6 +115152,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -114894,6 +115587,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -115174,6 +115870,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -115818,6 +116515,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -118564,6 +119262,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -118840,6 +119541,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -119213,6 +119915,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -121952,6 +122655,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -122062,7 +122768,9 @@ MonoBehaviour:
           ButtonText: Automatic Shaker Setup
         Owner: {fileID: 974289728}
         DebugActive: 0
+        Source: 0
         Sfx: {fileID: 8300000, guid: ab16ee0540fb44fa69eff0e4867ad114, type: 3}
+        AudioResourceToPlay: {fileID: 0}
         RandomSfx: []
         SequentialOrder: 0
         SequentialOrderHoldLast: 0
@@ -123174,6 +123882,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -123412,6 +124123,7 @@ MonoBehaviour:
           EnumConditionPropertyName: 
           EnumConditions: 0000000000000000000000000000000000000000000000000000000000000000
         Duration: 1
+        UpdateDestinationEveryFrame: 0
         AnimatePositionX: 1
         AnimatePositionY: 1
         AnimatePositionZ: 1
@@ -124386,6 +125098,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -124586,6 +125301,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 1855939571}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -125057,6 +125773,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 1855939571}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -127567,6 +128284,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -127767,6 +128487,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 1952722751}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -128096,6 +128817,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 1952722751}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -129747,6 +130469,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -140365,6 +141090,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -140835,6 +141563,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -141037,6 +141768,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -141166,6 +141898,7 @@ MonoBehaviour:
         RemapZero: 0
         RemapOne: 1
         InstantFontSize: 15
+        DestinationFontSize: 0
     - rid: 3
       type: {class: MMF_TMPText, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -141508,7 +142241,8 @@ MonoBehaviour:
           EnumConditions: 0000000000000000000000000000000000000000000000000000000000000000
         RemapZero: 0
         RemapOne: 50
-        InstantFontSize: 0
+        InstantParagraphSpacing: 0
+        DestinationParagraphSpacing: 0
     - rid: 6
       type: {class: MMF_HoldingPause, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -141708,6 +142442,7 @@ MonoBehaviour:
         RemapZero: 0
         RemapOne: 1
         InstantFontSize: 60
+        DestinationFontSize: 0
     - rid: 8
       type: {class: MMF_SetActive, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -141784,6 +142519,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -142442,6 +143178,676 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 1376881397}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1073327968
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1557570896}
+    m_Modifications:
+    - target: {fileID: 740943787560283421, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: Feedbacks.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 740943787560283421, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: 'Feedbacks.Array.data[0]'
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 740943787560283421, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: 'Feedbacks.Array.data[1]'
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_Pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_Pivot.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_RootOrder
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 256.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604939, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 639944941}
+    - target: {fileID: 2903879014986604939, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: PlayFeedbacks
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604939, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: MoreMountains.Feedbacks.MMF_Player, MoreMountains.Tools
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604939, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879014986604941, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_Name
+      value: Button - SpriteSheetAnimation
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879016059324462, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_Text
+      value: Sprite Sheet Animation
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879016059324462, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_Color.b
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879016059324462, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_Color.g
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2903879016059324462, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_Color.r
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: 'FeedbacksList.Array.data[0]'
+      value: MoreMountains.Feedbacks MoreMountains.Feedbacks.MMF_Animation
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: 'FeedbacksList.Array.data[1]'
+      value: MoreMountains.Feedbacks MoreMountains.Feedbacks.MMF_AudioSource
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Mode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Label
+      value: Animation
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Owner
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Label
+      value: AudioSource
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Owner
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Active
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Chance
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Active
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Chance
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Channel
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Channel
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].IntValue
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].UniqueID
+      value: -1324229046
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].MaxPitch
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].MinPitch
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].UniqueID
+      value: 930405588
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].MaxVolume
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].MinVolume
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].FloatValue
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].UpdateBool
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].DebugActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].IntValueMax
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].IntValueMin
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].TriggerMode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].DebugActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].IntIncrement
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].IntValueMode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].BoundAnimator
+      value: 
+      objectReference: {fileID: 2066439668}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].FloatValueMax
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].FloatValueMin
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].UpdateTrigger
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].DisplayColor.a
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].DisplayColor.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].DisplayColor.g
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].DisplayColor.r
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].FloatIncrement
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].FloatValueMode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.TrackID
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].DisplayColor.a
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].DisplayColor.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].DisplayColor.g
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].DisplayColor.r
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.TrackID
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.Sequence
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.Sequence
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].IntParameterName
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.Quantized
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.TargetBPM
+      value: 120
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].UpdateRandomBool
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.Quantized
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.TargetBPM
+      value: 120
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].BoolParameterName
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].RandomTriggerMode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].TargetAudioSource
+      value: 
+      objectReference: {fileID: 478010195}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].BoolParameterValue
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].FloatParameterName
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].SfxAudioMixerGroup
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.InitialDelay
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].UpdateRandomTrigger
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.InitialDelay
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.PlayDirection
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.RepeatForever
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.TimescaleMode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].TriggerParameterName
+      value: Jump
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].RandomSfx.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.PlayDirection
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.RepeatForever
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.TimescaleMode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.NumberOfRepeats
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.NumberOfRepeats
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.CooldownDuration
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.InterruptsOnStop
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.CooldownDuration
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.InterruptsOnStop
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].RandomBoolParameterValue
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.ConstantIntensity
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.ConstantIntensity
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.DelayBetweenRepeats
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.DelayBetweenRepeats
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.IntensityIntervalMax
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.IntensityIntervalMin
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.UseIntensityInterval
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.IntensityIntervalMax
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.IntensityIntervalMin
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.UseIntensityInterval
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.ExcludeFromHoldingPauses
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.ExcludeFromHoldingPauses
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.ContributeToTotalDuration
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.ContributeToTotalDuration
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].RandomBoolParameterNames.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].Timing.MMFeedbacksDirectionCondition
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[1].Timing.MMFeedbacksDirectionCondition
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5448448891795205863, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: FeedbacksList.Array.data[0].RandomTriggerParameterNames.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9167406172343059487, guid: a16c33a1240b8ce4f930161a7c85fae6,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents:
+    - {fileID: 740943787560283421, guid: a16c33a1240b8ce4f930161a7c85fae6, type: 3}
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: a16c33a1240b8ce4f930161a7c85fae6, type: 3}
+--- !u!224 &1073327969 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 2903879014986604938, guid: a16c33a1240b8ce4f930161a7c85fae6,
+    type: 3}
+  m_PrefabInstance: {fileID: 1073327968}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1074420531
 GameObject:
   m_ObjectHideFlags: 0
@@ -142545,6 +143951,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -144983,6 +146392,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -145299,6 +146711,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -145409,7 +146824,9 @@ MonoBehaviour:
           ButtonText: Automatic Shaker Setup
         Owner: {fileID: 1112567861}
         DebugActive: 0
+        Source: 0
         Sfx: {fileID: 8300000, guid: 98046261e6947b64eb462140e10a5b35, type: 3}
+        AudioResourceToPlay: {fileID: 0}
         RandomSfx: []
         SequentialOrder: 0
         SequentialOrderHoldLast: 0
@@ -145752,6 +147169,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -145952,6 +147372,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -146404,6 +147825,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -147918,6 +149340,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -149840,6 +151265,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -150296,6 +151724,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -152809,6 +154240,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -153399,6 +154833,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -162563,6 +164000,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -162839,6 +164279,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -163091,6 +164532,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -165806,6 +167248,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -170150,6 +171595,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -170706,6 +172154,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -171051,6 +172502,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -171419,6 +172873,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -174798,6 +176255,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -175318,6 +176778,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -177215,6 +178678,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -179182,6 +180648,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -179536,6 +181005,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -180091,7 +181563,9 @@ MonoBehaviour:
         Mode: 1
         Space: 0
         RandomizeRemap: 0
+        MovementMode: 0
         AnimatePositionDuration: 0.5
+        AnimatePositionSpeed: 1
         AnimatePositionTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 4
@@ -180629,7 +182103,9 @@ MonoBehaviour:
         AnimateRotationTarget: {fileID: 1579498608}
         Mode: 0
         RotationSpace: 0
+        MovementMode: 0
         AnimateRotationDuration: 0.5
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 360
         AnimateX: 1
@@ -180759,6 +182235,7 @@ MonoBehaviour:
         DetermineRotationOnPlay: 0
         ToDestinationSpace: 0
         DestinationAngles: {x: 0, y: 180, z: 0}
+        ToDestinationTransform: {fileID: 0}
         ToDestinationTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 10
@@ -181509,7 +182986,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 0
         AnimateScaleTarget: {fileID: 699640085}
+        MovementMode: 0
         AnimateScaleDuration: 0.2
+        AnimatePositionSpeed: 1
         RemapCurveZero: 1
         RemapCurveOne: 1.5
         Offset: 0
@@ -186247,6 +187726,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -186475,6 +187957,7 @@ MonoBehaviour:
         FloatIncrement: 1
         SetLayerWeight: 0
         TargetLayerIndex: 1
+        LayerName: 
         NewWeight: 0.5
     - rid: 2
       type: {class: MMF_Flicker, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
@@ -187291,6 +188774,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -196124,6 +197610,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -196324,6 +197813,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 930333314}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -196623,7 +198113,8 @@ MonoBehaviour:
           EnumConditions: 0000000000000000000000000000000000000000000000000000000000000000
         RemapZero: 0
         RemapOne: 1
-        InstantFontSize: 0
+        InstantOutlineWidth: 0
+        DestinationOutlineWidth: 0
     - rid: 5
       type: {class: MMF_HoldingPause, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -196782,6 +198273,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 930333314}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -207312,6 +208804,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -207593,6 +209088,7 @@ RectTransform:
   - {fileID: 1160888565}
   - {fileID: 2047979719}
   - {fileID: 1937080836}
+  - {fileID: 1073327969}
   - {fileID: 636691499}
   - {fileID: 1776384818}
   - {fileID: 1047230304}
@@ -207736,7 +209232,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -3039.9792}
+  m_AnchoredPosition: {x: 0, y: -3035.9983}
   m_SizeDelta: {x: 0, y: 6432.787}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1557570897
@@ -208646,6 +210142,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -208765,7 +210264,9 @@ MonoBehaviour:
         Mode: 2
         Space: 0
         RandomizeRemap: 0
+        MovementMode: 0
         AnimatePositionDuration: 0.1
+        AnimatePositionSpeed: 1
         AnimatePositionTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 4
@@ -209222,7 +210723,9 @@ MonoBehaviour:
         Mode: 2
         Space: 0
         RandomizeRemap: 0
+        MovementMode: 0
         AnimatePositionDuration: 0.1
+        AnimatePositionSpeed: 1
         AnimatePositionTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 4
@@ -209679,7 +211182,9 @@ MonoBehaviour:
         Mode: 2
         Space: 0
         RandomizeRemap: 0
+        MovementMode: 0
         AnimatePositionDuration: 0.1
+        AnimatePositionSpeed: 1
         AnimatePositionTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 4
@@ -210154,7 +211659,9 @@ MonoBehaviour:
         Mode: 2
         Space: 0
         RandomizeRemap: 0
+        MovementMode: 0
         AnimatePositionDuration: 0.1
+        AnimatePositionSpeed: 1
         AnimatePositionTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 4
@@ -210611,7 +212118,9 @@ MonoBehaviour:
         Mode: 2
         Space: 0
         RandomizeRemap: 0
+        MovementMode: 0
         AnimatePositionDuration: 0.1
+        AnimatePositionSpeed: 1
         AnimatePositionTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 4
@@ -214838,6 +216347,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -215424,6 +216936,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -215686,6 +217201,7 @@ MonoBehaviour:
         RemapZero: 0
         RemapOne: 2
         InstantChange: 0
+        DestinationValue: 0
 --- !u!4 &1595119958 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -4216859302048453862, guid: d84a1570448aba14ea2b1badb79fb4b3,
@@ -215795,6 +217311,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -215997,6 +217516,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -216294,7 +217814,8 @@ MonoBehaviour:
           EnumConditions: 0000000000000000000000000000000000000000000000000000000000000000
         RemapZero: 0
         RemapOne: 30
-        InstantFontSize: 0
+        InstantWordSpacing: 0
+        DestinationWordSpacing: 0
     - rid: 5
       type: {class: MMF_HoldingPause, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -216453,6 +217974,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -216568,6 +218090,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -216917,6 +218442,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -217118,7 +218646,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 0
         AnimateScaleTarget: {fileID: 2076029460}
+        MovementMode: 0
         AnimateScaleDuration: 0.3
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 1
         Offset: 0
@@ -217508,7 +219038,9 @@ MonoBehaviour:
         Mode: 1
         Space: 0
         RandomizeRemap: 0
+        MovementMode: 0
         AnimatePositionDuration: 0.2
+        AnimatePositionSpeed: 1
         AnimatePositionTween:
           MMTweenDefinitionType: 1
           MMTweenCurve: 4
@@ -218170,7 +219702,9 @@ MonoBehaviour:
         DebugActive: 0
         Mode: 1
         AnimateScaleTarget: {fileID: 1579498608}
+        MovementMode: 0
         AnimateScaleDuration: 0.2
+        AnimatePositionSpeed: 1
         RemapCurveZero: 0
         RemapCurveOne: 0.75
         Offset: 0
@@ -218595,6 +220129,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -220285,6 +221822,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -222841,6 +224381,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -223461,6 +225004,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -225513,6 +227059,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -225714,6 +227263,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 930333314}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -226018,7 +227568,8 @@ MonoBehaviour:
           EnumConditions: 0000000000000000000000000000000000000000000000000000000000000000
         RemapZero: 0
         RemapOne: 0.5
-        InstantFontSize: 0
+        InstantOutlineWidth: 0
+        DestinationOutlineWidth: 0
     - rid: 5
       type: {class: MMF_TMPOutlineColor, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -226324,6 +227875,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 930333314}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -226463,6 +228015,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -226966,6 +228521,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -227211,6 +228769,7 @@ MonoBehaviour:
         RemapZero: 0
         RemapOne: 1
         InstantAlpha: 0
+        DestinationAlpha: 0
 --- !u!1 &1801033051
 GameObject:
   m_ObjectHideFlags: 0
@@ -228277,6 +229836,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -229912,6 +231474,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -231493,6 +233058,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -231693,6 +233261,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 1855939571}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -232097,6 +233666,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 1855939571}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -232547,6 +234117,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -232747,6 +234320,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -233182,6 +234756,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -233448,6 +235023,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -234972,6 +236550,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -235172,6 +236753,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 930333314}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -235631,6 +237213,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 930333314}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -235731,6 +237314,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -236348,6 +237934,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -236548,6 +238137,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -237021,6 +238611,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -237136,6 +238727,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -237444,6 +239038,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -237643,6 +239240,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 366288791}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -238020,6 +239618,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 366288791}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -238260,6 +239859,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -238461,9 +240063,13 @@ MonoBehaviour:
         ParticlesPrefab: {fileID: 90387635257123723, guid: b5aa6eb09d3dc3847a751290d0edcfe9,
           type: 3}
         RandomParticlePrefabs: []
+        MainParticlesPrefabWeight: 1
+        RandomParticleWeights: 
         ForceSetActiveOnPlay: 0
         StopOnReset: 0
         DeclaredDuration: 0
+        ForceStopAction: 0
+        StopAction: 0
         PositionMode: 2
         InstantiateParticlesPosition: {fileID: 0}
         TargetWorldPosition: {x: 0, y: 6, z: 7}
@@ -238576,6 +240182,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -238780,6 +240389,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -238909,6 +240519,7 @@ MonoBehaviour:
         RemapZero: 0
         RemapOne: 1
         InstantFontSize: 40
+        DestinationFontSize: 0
     - rid: 3
       type: {class: MMF_TMPText, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -239263,7 +240874,8 @@ MonoBehaviour:
           EnumConditions: 0000000000000000000000000000000000000000000000000000000000000000
         RemapZero: 0
         RemapOne: 60
-        InstantFontSize: 0
+        InstantLineSpacing: 0
+        DestinationLineSpacing: 0
     - rid: 6
       type: {class: MMF_HoldingPause, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -239463,6 +241075,7 @@ MonoBehaviour:
         RemapZero: 0
         RemapOne: 1
         InstantFontSize: 60
+        DestinationFontSize: 0
     - rid: 8
       type: {class: MMF_SetActive, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -239539,6 +241152,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -239656,6 +241270,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -239769,6 +241386,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 1096839753}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -255695,6 +257313,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -255895,6 +257516,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -256193,6 +257815,7 @@ MonoBehaviour:
         RemapZero: 0
         RemapOne: 50
         InstantFontSize: 0
+        DestinationFontSize: 0
     - rid: 5
       type: {class: MMF_HoldingPause, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
@@ -256351,6 +257974,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 731678809}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -256703,6 +258327,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -257058,6 +258685,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -257886,6 +259516,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -264226,6 +265859,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -264558,6 +266194,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -264878,6 +266517,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -264921,7 +266563,7 @@ MonoBehaviour:
         Active: 1
         UniqueID: -1626501411
         Label: AudioSource
-        OriginalLabel: 
+        OriginalLabel: AudioSource
         ChannelMode: 0
         Channel: 0
         MMChannelDefinition: {fileID: 0}
@@ -265003,7 +266645,7 @@ MonoBehaviour:
         Active: 1
         UniqueID: -561409900
         Label: Animation Crossfade
-        OriginalLabel: 
+        OriginalLabel: Animation Crossfade
         ChannelMode: 0
         Channel: 0
         MMChannelDefinition: {fileID: 0}
@@ -265075,7 +266717,9 @@ MonoBehaviour:
         ExtraBoundAnimators: []
         DeclaredDuration: 0
         StateName: Standing Jump
+        RandomStateNames: []
         Layer: -1
+        LayerName: 
         Mode: 0
         TransitionDuration: 0.1
         TimeOffset: 0.7
@@ -268660,6 +270304,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -269260,6 +270907,9 @@ MonoBehaviour:
       m_PersistentCalls:
         m_Calls: []
     OnPause:
+      m_PersistentCalls:
+        m_Calls: []
+    OnStop:
       m_PersistentCalls:
         m_Calls: []
     OnResume:
@@ -273126,6 +274776,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -273322,7 +274975,7 @@ MonoBehaviour:
         TargetRenderer: {fileID: 1299312031}
         ExtraTargetRenderers: []
         MaterialID: 0
-        PropertyID: _EmissionForce
+        PropertyName: _EmissionForce
         PropertyType: 1
         NewColor: {r: 1, g: 0, b: 0, a: 1}
         NewFloat: 0.75
@@ -277039,6 +278692,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -277283,7 +278939,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1015468896}
   m_Direction: 2
   m_Value: 0.9684059
-  m_Size: 0.13198012
+  m_Size: 0.11239296
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -278348,6 +280004,9 @@ MonoBehaviour:
     OnPause:
       m_PersistentCalls:
         m_Calls: []
+    OnStop:
+      m_PersistentCalls:
+        m_Calls: []
     OnResume:
       m_PersistentCalls:
         m_Calls: []
@@ -278547,6 +280206,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 366288791}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1
@@ -278968,6 +280628,7 @@ MonoBehaviour:
         DebugActive: 0
         TargetGameObject: {fileID: 366288791}
         ExtraTargetGameObjects: []
+        IgnorePlayDirection: 0
         SetStateOnInit: 0
         StateOnInit: 1
         SetStateOnPlay: 1

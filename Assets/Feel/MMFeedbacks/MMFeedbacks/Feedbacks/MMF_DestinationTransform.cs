@@ -53,6 +53,9 @@ namespace MoreMountains.Feedbacks
 		/// the duration of the transition, in seconds
 		[Tooltip("the duration of the transition, in seconds")]
 		public float Duration = 0.2f;
+		/// if this is true, the destination will be updated every frame, allowing for dynamic changes to the destination transform, otherwise the destination will be cached on init and not updated after that
+		[Tooltip("if this is true, the destination will be updated every frame, allowing for dynamic changes to the destination transform, otherwise the destination will be cached on init and not updated after that")]
+		public bool UpdateDestinationEveryFrame = false;
 
 		[MMFInspectorGroup("Axis Locks", true, 64)]
         
@@ -161,33 +164,21 @@ namespace MoreMountains.Feedbacks
 			_initialPosition = TargetTransform.position;
 			_initialRotation = TargetTransform.rotation;
 			_initialScale = TargetTransform.localScale;
-			
+
 			_pointAPosition = ForceOrigin ? Origin.transform.position : TargetTransform.position;
-			_pointBPosition = Destination.transform.position;
-
-			if (!AnimatePositionX) { _pointAPosition.x = TargetTransform.position.x; _pointBPosition.x = _pointAPosition.x; }
-			if (!AnimatePositionY) { _pointAPosition.y = TargetTransform.position.y; _pointBPosition.y = _pointAPosition.y; }
-			if (!AnimatePositionZ) { _pointAPosition.z = TargetTransform.position.z; _pointBPosition.z = _pointAPosition.z; }
-            
 			_pointARotation = ForceOrigin ? Origin.transform.rotation : TargetTransform.rotation;
-			_pointBRotation = Destination.transform.rotation;
-            
-			if (!AnimateRotationX) { _pointARotation.x = TargetTransform.rotation.x; _pointBRotation.x = _pointARotation.x; }
-			if (!AnimateRotationY) { _pointARotation.y = TargetTransform.rotation.y; _pointBRotation.y = _pointARotation.y; }
-			if (!AnimateRotationZ) { _pointARotation.z = TargetTransform.rotation.z; _pointBRotation.z = _pointARotation.z; }
-			if (!AnimateRotationW) { _pointARotation.w = TargetTransform.rotation.w; _pointBRotation.w = _pointARotation.w; }
-
 			_pointAScale = ForceOrigin ? Origin.transform.localScale : TargetTransform.localScale;
-			_pointBScale = Destination.transform.localScale;
-            
-			if (!AnimateScaleX) { _pointAScale.x = TargetTransform.localScale.x; _pointBScale.x = _pointAScale.x; }
-			if (!AnimateScaleY) { _pointAScale.y = TargetTransform.localScale.y; _pointBScale.y = _pointAScale.y; }
-			if (!AnimateScaleZ) { _pointAScale.z = TargetTransform.localScale.z; _pointBScale.z = _pointAScale.z; }
+			
+			CacheDestinationValues();
 
 			IsPlaying = true;
 			float journey = NormalPlayDirection ? 0f : FeedbackDuration;
 			while ((journey >= 0) && (journey <= FeedbackDuration) && (FeedbackDuration > 0))
 			{
+				if (UpdateDestinationEveryFrame)
+				{
+					CacheDestinationValues();
+				}
 				float percent = Mathf.Clamp01(journey / FeedbackDuration);
 				ChangeTransformValues(percent);
 				journey += NormalPlayDirection ? FeedbackDeltaTime : -FeedbackDeltaTime;
@@ -200,6 +191,28 @@ namespace MoreMountains.Feedbacks
 			IsPlaying = false;
 			_coroutine = null;
 			yield break;
+		}
+
+		protected virtual void CacheDestinationValues()
+		{
+			_pointBPosition = Destination.transform.position;
+
+			if (!AnimatePositionX) { _pointAPosition.x = TargetTransform.position.x; _pointBPosition.x = _pointAPosition.x; }
+			if (!AnimatePositionY) { _pointAPosition.y = TargetTransform.position.y; _pointBPosition.y = _pointAPosition.y; }
+			if (!AnimatePositionZ) { _pointAPosition.z = TargetTransform.position.z; _pointBPosition.z = _pointAPosition.z; }
+            
+			_pointBRotation = Destination.transform.rotation;
+            
+			if (!AnimateRotationX) { _pointARotation.x = TargetTransform.rotation.x; _pointBRotation.x = _pointARotation.x; }
+			if (!AnimateRotationY) { _pointARotation.y = TargetTransform.rotation.y; _pointBRotation.y = _pointARotation.y; }
+			if (!AnimateRotationZ) { _pointARotation.z = TargetTransform.rotation.z; _pointBRotation.z = _pointARotation.z; }
+			if (!AnimateRotationW) { _pointARotation.w = TargetTransform.rotation.w; _pointBRotation.w = _pointARotation.w; }
+
+			_pointBScale = Destination.transform.localScale;
+            
+			if (!AnimateScaleX) { _pointAScale.x = TargetTransform.localScale.x; _pointBScale.x = _pointAScale.x; }
+			if (!AnimateScaleY) { _pointAScale.y = TargetTransform.localScale.y; _pointBScale.y = _pointAScale.y; }
+			if (!AnimateScaleZ) { _pointAScale.z = TargetTransform.localScale.z; _pointBScale.z = _pointAScale.z; }
 		}
 
 		/// <summary>

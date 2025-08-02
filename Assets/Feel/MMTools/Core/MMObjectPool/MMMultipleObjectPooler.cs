@@ -234,7 +234,22 @@ namespace MoreMountains.Tools
 			MMMultipleObjectPoolerObject searchedObject = GetPoolObject(Pool[_currentIndex].GameObjectToPool);
 
 			if (_currentIndex >= _objectPool.PooledGameObjects.Count) { return null; }
-			if (!searchedObject.Enabled) { _currentIndex++; return null; }
+
+			int searchIterations = 0;
+			while (!searchedObject.Enabled)
+			{
+				_currentIndex++;
+				searchIterations++;
+				if (_currentIndex >= Pool.Count)
+				{
+					ResetCurrentIndex ();
+				}
+				if (searchIterations > Pool.Count)
+				{
+					return null;
+				}
+				searchedObject = GetPoolObject(Pool[_currentIndex].GameObjectToPool);
+			}
 
 			// if the object is already active, we need to find another one
 			if (_objectPool.PooledGameObjects[_currentIndex].gameObject.activeInHierarchy)
@@ -285,7 +300,23 @@ namespace MoreMountains.Tools
 			MMMultipleObjectPoolerObject searchedObject = GetPoolObject(Pool[_currentIndex].GameObjectToPool);
 
 			if (_currentIndex >= _objectPool.PooledGameObjects.Count) { return null; }
-			if (!searchedObject.Enabled) { _currentIndex++; _currentCount = 0; return null; }
+			
+			int searchIterations = 0;
+			while (!searchedObject.Enabled)
+			{
+				_currentIndex++;
+				searchIterations++;
+				if (_currentIndex >= Pool.Count)
+				{
+					ResetCurrentIndex ();
+				}
+				if (searchIterations > Pool.Count)
+				{
+					_currentCount = 0;
+					return null;
+				}
+				searchedObject = GetPoolObject(Pool[_currentIndex].GameObjectToPool);
+			}
 
 
 			// if the object is already active, we need to find another one
@@ -412,6 +443,22 @@ namespace MoreMountains.Tools
 		{
 			// we pick one of the objects in the original pool at random
 			int randomIndex = UnityEngine.Random.Range(0, Pool.Count);
+			
+			int searchIterations = 0;
+			while (!PoolObjectEnabled(Pool[randomIndex].GameObjectToPool))
+			{
+				randomIndex++;
+				searchIterations++;
+				if (randomIndex >= Pool.Count)
+				{
+					randomIndex = 0;
+				}
+				if (searchIterations > Pool.Count)
+				{
+					_currentCount = 0;
+					return null;
+				}
+			}
 			
 			int overflowCounter=0;
 

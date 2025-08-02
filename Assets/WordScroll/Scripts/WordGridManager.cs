@@ -93,6 +93,10 @@ public class WordGridManager : MonoBehaviour
     // Note: WeightedLetters removed - now handled by CellTypeManager
     private Vector2 gridCenterOffset;
 
+    // Dominant word tracking for display
+    private string currentDominantWord = "";
+    private string lastNotifiedDominantWord = "";
+
     // Define the number of extra cells for wrap-around effect on each side
     private const int WRAP_COUNT = 2; 
     
@@ -539,6 +543,9 @@ public class WordGridManager : MonoBehaviour
             ResetAnimationFlag("InitializeGrid");
             TriggerValidationCheckAndHighlightUpdate();
             
+            // Initialize dominant word display
+            InitializeDominantWordDisplay();
+            
             // IMMEDIATE TEST: Force some cells to specific colors to test the highlighting system
             DOVirtual.DelayedCall(1f, () => {
                 TestHighlightingSystem();
@@ -749,6 +756,8 @@ public class WordGridManager : MonoBehaviour
         if (!isWordleStyle)
         {
             Debug.Log($"🎯 CENTER ROW: Not in Wordle mode, skipping center row feedback");
+            // Clear dominant word display when not in Wordle mode
+            UpdateDominantWordDisplay("");
             return;
         }
         
@@ -797,6 +806,9 @@ public class WordGridManager : MonoBehaviour
         
         Debug.Log($"🎯 SINGLE-WORD: Applying feedback against target word: '{targetWord}'");
         
+        // Update dominant word display - in single word mode, the target word is always dominant
+        UpdateDominantWordDisplay(targetWord);
+        
         // Apply traditional Wordle feedback
         for (int c = 0; c < gridSize && c < centerRowWord.Length; c++)
         {
@@ -811,6 +823,9 @@ public class WordGridManager : MonoBehaviour
                     // Correct position
                     feedbackColor = correctLetterColor;
                     feedbackName = "Correct (Green)";
+                    
+                    // Track discovered letter
+                    NotifyLetterDiscovered(currentLetter);
                 }
                 else if (targetWord.Contains(currentLetter))
                 {
@@ -857,10 +872,16 @@ public class WordGridManager : MonoBehaviour
         {
             Debug.Log($"🎯 MULTI-WORD: No clear dominant word found - applying neutral feedback");
             ApplyNeutralFeedback(centerRowWord, targetWords);
+            
+            // Update dominant word display to empty
+            UpdateDominantWordDisplay("");
             return;
         }
         
         Debug.Log($"🎯 MULTI-WORD: Dominant word determined: '{dominantWord.targetWord}'");
+        
+        // Update dominant word display
+        UpdateDominantWordDisplay(dominantWord.targetWord);
         
         // Apply feedback based on dominant word with interference detection
         ApplyDominantWordFeedback(centerRowWord, dominantWord, targetWords);
@@ -1123,7 +1144,7 @@ public class WordGridManager : MonoBehaviour
             }
         }
         
-        // Apply all feedback colors to cells
+        // Apply all feedback colors to cells and track discovered letters
         for (int c = 0; c < gridSize && c < centerRowUpper.Length; c++)
         {
             if (gridCells[centerRow, c] != null)
@@ -1131,6 +1152,12 @@ public class WordGridManager : MonoBehaviour
                 char currentLetter = centerRowUpper[c];
                 Debug.Log($"🎯 FINAL: Letter '{currentLetter}' at position {c} → {feedbackNames[c]}");
                 gridCells[centerRow, c].SetHighlightState(true, feedbackColors[c]);
+                
+                // Track discovered letters for dominant word display
+                if (feedbackColors[c] == correctLetterColor)
+                {
+                    NotifyLetterDiscovered(currentLetter);
+                }
             }
         }
     }
@@ -2350,5 +2377,66 @@ public class WordGridManager : MonoBehaviour
         
         // Force recalculation
         CalculateAdaptiveCellSize();
+    }
+
+    /// <summary>
+    /// Updates the dominant word display by notifying GameManager
+    /// </summary>
+    private void UpdateDominantWordDisplay(string dominantWord)
+    {
+        // Normalize the word (empty string if null)
+        dominantWord = dominantWord ?? "";
+        
+        // Store current dominant word
+        currentDominantWord = dominantWord;
+        
+        // Always notify GameManager to trigger discovery refresh
+        lastNotifiedDominantWord = currentDominantWord;
+        
+        Debug.Log($"🎯 DOMINANT WORD: Notifying GameManager of word '{dominantWord}' (will apply current discovery state)");
+        
+        // Notify GameManager about the dominant word (will apply discovery state)
+        if (gameManager != null)
+        {
+            gameManager.UpdateDominantWordDisplay(dominantWord);
+        }
+        else
+        {
+            Debug.LogWarning("🎯 DOMINANT WORD: GameManager reference is null, cannot update display");
+        }
+    }
+
+    /// <summary>
+    /// Gets the current dominant word (public accessor)
+    /// </summary>
+    public string GetCurrentDominantWord()
+    {
+        return currentDominantWord;
+    }
+
+    /// <summary>
+    /// Initializes the dominant word display tracking
+    /// </summary>
+    private void InitializeDominantWordDisplay()
+    {
+        currentDominantWord = "";
+        lastNotifiedDominantWord = "";
+        
+        Debug.Log($"🎯 DOMINANT WORD: Initialized display tracking");
+        
+        // Clear any existing display
+        UpdateDominantWordDisplay("");
+    }
+
+    /// <summary>
+    /// Notifies GameManager that a letter has been discovered (turned green)
+    /// </summary>
+    private void NotifyLetterDiscovered(char letter)
+    {
+        if (GameManager.instance != null)
+        {
+            Debug.Log($"🎯 LETTER DISCOVERED: Notifying GameManager about letter '{letter}'");
+            GameManager.instance.OnLetterDiscovered(letter);
+        }
     }
 }

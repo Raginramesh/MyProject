@@ -137,7 +137,7 @@ namespace MoreMountains.Tools
 
 			// we fade from black
 			MMFadeOutEvent.Trigger(StartFadeDuration, _tween);
-			yield return new WaitForSeconds(StartFadeDuration);
+			yield return MMCoroutine.WaitFor(StartFadeDuration);
             
 			// we start loading the scene
 			_asyncOperation = SceneManager.LoadSceneAsync(_sceneToLoad,LoadSceneMode.Single );
@@ -162,11 +162,11 @@ namespace MoreMountains.Tools
 
 			// the load is now complete, we replace the bar with the complete animation
 			LoadingComplete();
-			yield return new WaitForSeconds(LoadCompleteDelay);
+			yield return MMCoroutine.WaitFor(LoadCompleteDelay);
 
 			// we fade to black
 			MMFadeInEvent.Trigger(ExitFadeDuration, _tween);
-			yield return new WaitForSeconds(ExitFadeDuration);
+			yield return MMCoroutine.WaitFor(ExitFadeDuration);
 
 			// we switch to the new scene
 			_asyncOperation.allowSceneActivation = true;

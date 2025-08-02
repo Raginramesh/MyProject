@@ -17,6 +17,10 @@ public class TargetWordFeedbackUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI feedbackMessageText;
     [SerializeField] private RectTransform targetWordTransform;
     
+    [Header("Letter Discovery Settings")]
+    [SerializeField] private bool enableLetterDiscovery = true;
+    [Tooltip("When enabled, dominant words will start as dashes and reveal letters as they are discovered. When disabled, shows the full word immediately.")]
+    
     [Header("Letter Feedback Display")]
     [SerializeField] private Transform letterFeedbackContainer;
     [SerializeField] private GameObject letterFeedbackPrefab; // Prefab for individual letter feedback
@@ -42,6 +46,7 @@ public class TargetWordFeedbackUI : MonoBehaviour
     private bool isAnimating = false;
     
     public bool IsAnimating => isAnimating;
+    public bool IsLetterDiscoveryEnabled => enableLetterDiscovery;
     
     private void Awake()
     {
@@ -308,5 +313,64 @@ public class TargetWordFeedbackUI : MonoBehaviour
         {
             audioSource.PlayOneShot(letterRevealSound);
         }
+    }
+
+    /// <summary>
+    /// Shows the current dominant word (called from GameManager)
+    /// </summary>
+    public void ShowDominantWord(string dominantWord)
+    {
+        if (targetWordText == null) return;
+        
+        Debug.Log($"🎯 DOMINANT DISPLAY: Showing '{dominantWord}' (Discovery: {enableLetterDiscovery})");
+        
+        // Check if letter discovery is enabled
+        if (enableLetterDiscovery)
+        {
+            // Use discovery system - GameManager will call ShowDominantWordWithDiscovery instead
+            return;
+        }
+        
+        // Letter discovery is disabled - hide the display completely
+        HideDominantWord();
+    }
+
+    /// <summary>
+    /// Shows the dominant word with letter discovery state (called from GameManager)
+    /// </summary>
+    public void ShowDominantWordWithDiscovery(string displayText)
+    {
+        if (targetWordText == null) return;
+        
+        Debug.Log($"🎯 DOMINANT DISCOVERY: Showing '{displayText}'");
+        
+        // Set the text with discovery state (includes dashes and spaces)
+        targetWordText.text = string.IsNullOrEmpty(displayText) ? "" : displayText;
+        
+        // Ensure the target word text is visible
+        if (!string.IsNullOrEmpty(displayText))
+        {
+            targetWordText.color = new Color(targetWordText.color.r, targetWordText.color.g, targetWordText.color.b, 1f);
+            
+            // Simple fade in animation with a subtle scale effect
+            targetWordText.transform.localScale = Vector3.one * 0.9f;
+            targetWordText.transform.DOScale(Vector3.one, 0.25f).SetEase(Ease.OutQuad);
+            targetWordText.DOFade(1f, 0.2f);
+        }
+    }
+
+    /// <summary>
+    /// Hides the dominant word display (called from GameManager)
+    /// </summary>
+    public void HideDominantWord()
+    {
+        if (targetWordText == null) return;
+        
+        Debug.Log($"🎯 DOMINANT DISPLAY: Hiding dominant word");
+        
+        // Simple fade out animation
+        targetWordText.DOFade(0f, 0.15f).OnComplete(() => {
+            targetWordText.text = "";
+        });
     }
 }
