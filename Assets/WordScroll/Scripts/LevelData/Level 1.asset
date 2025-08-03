@@ -24,8 +24,6 @@ MonoBehaviour:
   threeStarPercentage: 100
   targetWords:
   - COW
-  - PAN
-  - DON
   winConditionType: 1
   maxMoves: 10
   unlimitedMoves: 0

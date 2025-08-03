@@ -112,6 +112,11 @@ public class GameManager : MonoBehaviour
     // Properties for level integration
     public bool IsUsingLevelSystem => useLevelSystem && LevelManager.Instance != null;
     
+    /// <summary>
+    /// Check if the current level is Wordle-style (hides letter scores)
+    /// </summary>
+    public bool IsWordleStyleLevel => IsUsingLevelSystem && hasValidLevelData && currentLevelData.IsWordleStyle;
+    
     // Get the target score based on current system
     private int targetScoreForLevel
     {
@@ -198,9 +203,11 @@ public class GameManager : MonoBehaviour
         if (instance == null)
         {
             instance = this;
+            Debug.Log("🎮 GameManager: Singleton instance set in Awake()");
         }
         else if (instance != this)
         {
+            Debug.LogWarning("🎮 GameManager: Duplicate instance found, destroying this one");
             Destroy(gameObject);
             return;
         }
@@ -261,6 +268,7 @@ public class GameManager : MonoBehaviour
             LevelManager.OnMovesChanged += OnLevelSystemMovesChanged;
             LevelManager.OnScoreChanged += OnLevelSystemScoreChanged;
             Debug.Log($"🎮 Level System Events: Subscribed to LevelManager events");
+            Debug.Log($"🎮 Level System: gameOverPanel reference = {(gameOverPanel != null ? gameOverPanel.name : "NULL")}");
         }
         else
         {
@@ -668,11 +676,21 @@ public class GameManager : MonoBehaviour
         currentAppliedHighlightColors.Clear();
         if (wordGridManager != null) wordGridManager.ClearAllCellHighlights();
 
-        if (gameOverPanel != null)
+        // Ensure this GameManager instance is still the active singleton before activating UI
+        if (gameOverPanel != null && instance == this)
         {
+            Debug.Log("🎮 GameManager: Activating game over panel");
             gameOverPanel.SetActive(true);
             // The script on gameOverPanel (e.g., GameOverUIController) should check GameManager.instance.HasWon
             // in its OnEnable() or Start() method to display the correct "You Win!" or "You Lose!" message.
+        }
+        else if (gameOverPanel == null)
+        {
+            Debug.LogError("🎮 GameManager: gameOverPanel is null in EndGame!");
+        }
+        else if (instance != this)
+        {
+            Debug.LogWarning("🎮 GameManager: Not activating gameOverPanel because this is not the active singleton instance");
         }
     }
 
@@ -2346,15 +2364,23 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void OnLevelSystemCompleted(LevelData level, int finalScore, int stars)
     {
+        Debug.Log($"🌟 Level System: {level.LevelName} completed with {stars} stars!");
         hasWon = true;
         SetState(GameState.GameOver);
         
-        if (gameOverPanel != null)
+        if (gameOverPanel != null && instance == this)
         {
+            Debug.Log("🎮 GameManager: Activating game over panel for level completion");
             gameOverPanel.SetActive(true);
         }
-        
-        Debug.Log($"🌟 Level System: {level.LevelName} completed with {stars} stars!");
+        else if (gameOverPanel == null)
+        {
+            Debug.LogError("� GameManager: gameOverPanel is null in OnLevelSystemCompleted!");
+        }
+        else if (instance != this)
+        {
+            Debug.LogWarning("🎮 GameManager: Not activating gameOverPanel because this is not the active singleton instance");
+        }
     }
     
     /// <summary>
@@ -2362,15 +2388,23 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void OnLevelSystemFailed(LevelData level)
     {
+        Debug.Log($"❌ Level System: {level.LevelName} failed!");
         hasWon = false;
         SetState(GameState.GameOver);
         
-        if (gameOverPanel != null)
+        if (gameOverPanel != null && instance == this)
         {
+            Debug.Log("🎮 GameManager: Activating game over panel for level failure");
             gameOverPanel.SetActive(true);
         }
-        
-        Debug.Log($"❌ Level System: {level.LevelName} failed!");
+        else if (gameOverPanel == null)
+        {
+            Debug.LogError("🎮 GameManager: gameOverPanel is null in OnLevelSystemFailed!");
+        }
+        else if (instance != this)
+        {
+            Debug.LogWarning("🎮 GameManager: Not activating gameOverPanel because this is not the active singleton instance");
+        }
     }
     
     /// <summary>

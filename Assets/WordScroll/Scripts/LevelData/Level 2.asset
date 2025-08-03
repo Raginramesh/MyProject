@@ -12,19 +12,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: adb394a5a5b8c46a98a85ddf0184369a, type: 3}
   m_Name: Level 2
   m_EditorClassIdentifier: 
-  levelNumber: 1
-  levelName: Level 1
+  levelNumber: 2
+  levelName: Level 2
   levelDescription: Complete the level by reaching the target score within the move
     limit.
-  gameMode: 0
-  gridSize: 4
+  gameMode: 1
+  gridSize: 3
   targetScore: 100
   oneStarPercentage: 50
   twoStarPercentage: 75
   threeStarPercentage: 100
   targetWords:
-  - DROP
-  - POTS
+  - DEW
+  - GUN
   winConditionType: 1
   maxMoves: 10
   unlimitedMoves: 0
@@ -37,5 +37,5 @@ MonoBehaviour:
   scoreMultiplier: 1
   enableSpecialTiles: 0
   nextLevel: {fileID: 0}
-  isUnlocked: 0
+  isUnlocked: 1
   isTutorialLevel: 0

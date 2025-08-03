@@ -97,23 +97,32 @@ public class CellController : MonoBehaviour
         {
             if (GameManager.instance != null)
             {
-                GameManager.ScoringMode currentMode = GameManager.instance.GetCurrentScoringModeSetting();
-                if (currentMode == GameManager.ScoringMode.ScrabbleBased)
+                // Hide scores in Wordle-style levels
+                if (GameManager.instance.IsWordleStyleLevel)
                 {
-                    int score = GameManager.instance.CalculateScoreValueForLetter(letter);
-                    if (score > 0)
-                    {
-                        letterScoreText.text = score.ToString();
-                        letterScoreText.gameObject.SetActive(true);
-                    }
-                    else
-                    {
-                        letterScoreText.gameObject.SetActive(false); // Hide if score is 0 (e.g. blank tile if you add them)
-                    }
+                    letterScoreText.gameObject.SetActive(false);
+                    // Debug.Log($"🔤 Wordle Mode: Hiding score for letter '{letter}' in cell {gameObject.name}");
                 }
-                else // LengthBased or other modes
+                else
                 {
-                    letterScoreText.gameObject.SetActive(false); // Hide score text
+                    GameManager.ScoringMode currentMode = GameManager.instance.GetCurrentScoringModeSetting();
+                    if (currentMode == GameManager.ScoringMode.ScrabbleBased)
+                    {
+                        int score = GameManager.instance.CalculateScoreValueForLetter(letter);
+                        if (score > 0)
+                        {
+                            letterScoreText.text = score.ToString();
+                            letterScoreText.gameObject.SetActive(true);
+                        }
+                        else
+                        {
+                            letterScoreText.gameObject.SetActive(false); // Hide if score is 0 (e.g. blank tile if you add them)
+                        }
+                    }
+                    else // LengthBased or other modes
+                    {
+                        letterScoreText.gameObject.SetActive(false); // Hide score text
+                    }
                 }
             }
             else
@@ -173,15 +182,24 @@ public class CellController : MonoBehaviour
                 // Show score for non-blank cells with positive scores
                 if (GameManager.instance != null)
                 {
-                    GameManager.ScoringMode currentMode = GameManager.instance.GetCurrentScoringModeSetting();
-                    if (currentMode == GameManager.ScoringMode.ScrabbleBased)
+                    // Hide scores in Wordle-style levels
+                    if (GameManager.instance.IsWordleStyleLevel)
                     {
-                        letterScoreText.text = cellData.scoreValue.ToString();
-                        letterScoreText.gameObject.SetActive(true);
+                        letterScoreText.gameObject.SetActive(false);
+                        // Debug.Log($"🔤 Wordle Mode: Hiding score for letter '{letter}' in cell {gameObject.name}");
                     }
                     else
                     {
-                        letterScoreText.gameObject.SetActive(false);
+                        GameManager.ScoringMode currentMode = GameManager.instance.GetCurrentScoringModeSetting();
+                        if (currentMode == GameManager.ScoringMode.ScrabbleBased)
+                        {
+                            letterScoreText.text = cellData.scoreValue.ToString();
+                            letterScoreText.gameObject.SetActive(true);
+                        }
+                        else
+                        {
+                            letterScoreText.gameObject.SetActive(false);
+                        }
                     }
                 }
                 else

@@ -4,13 +4,10 @@ using TMPro;
 
 public class GameOverUIController : MonoBehaviour
 {
-    [Header("Traditional Game Over")]
-    [SerializeField] private TextMeshProUGUI winLossMessageText; // Assign your TextMeshProUGUI component here in the Inspector
-    [SerializeField] private TextMeshProUGUI finalScoreText; // Assign your TextMeshProUGUI for the final score here
-    
-    [Header("Level System Integration")]
+    [Header("Level System UI")]
     [SerializeField] private GameObject levelSystemPanel; // Panel shown when using level system
     [SerializeField] private TextMeshProUGUI levelCompleteTitle;
+    [SerializeField] private TextMeshProUGUI finalScoreText;
     [SerializeField] private TextMeshProUGUI targetScoreText;
     [SerializeField] private TextMeshProUGUI movesUsedText;
     
@@ -26,82 +23,82 @@ public class GameOverUIController : MonoBehaviour
     [SerializeField] private float autoAdvanceDelay = 3f; // Auto advance to next level after 3 seconds
     
     private bool canAdvance = false;
-    private bool isUsingLevelSystem = false;
     
     // Helper property to reduce redundant level manager access
     private LevelManager levelManager => LevelManager.Instance;
 
     void OnEnable()
     {
-        // Check if we're using the level system
-        isUsingLevelSystem = GameManager.instance != null && GameManager.instance.IsUsingLevelSystem;
+        Debug.Log("🎮 GameOverUIController: OnEnable called - Level End UI triggered!");
         
-        if (isUsingLevelSystem)
+        // Wait for GameManager to be ready if it's not available yet
+        if (GameManager.instance == null)
         {
-            ShowLevelSystemUI();
+            Debug.Log("🎮 GameOverUIController: GameManager not ready, waiting...");
+            StartCoroutine(WaitForGameManagerAndInitialize());
+            return;
+        }
+        
+        Debug.Log("🎮 GameOverUIController: GameManager ready, showing level system UI");
+        // Always show level system UI (no traditional UI anymore)
+        ShowLevelSystemUI();
+        SetupButtons();
+    }
+    
+    /// <summary>
+    /// Wait for GameManager to be initialized before setting up UI
+    /// </summary>
+    private System.Collections.IEnumerator WaitForGameManagerAndInitialize()
+    {
+        int attempts = 0;
+        const int maxAttempts = 30; // Wait up to 3 seconds (30 frames at 60fps)
+        
+        while (GameManager.instance == null && attempts < maxAttempts)
+        {
+            attempts++;
+            yield return new WaitForEndOfFrame();
+        }
+        
+        if (GameManager.instance == null)
+        {
+            Debug.LogError("GameOverUIController: GameManager instance still not found after waiting. Using fallback behavior.");
+            ShowFallbackUI();
         }
         else
         {
-            ShowTraditionalGameOverUI();
+            Debug.Log("GameOverUIController: GameManager found. Showing level system UI.");
+            ShowLevelSystemUI();
+            SetupButtons();
         }
+    }
+    
+    /// <summary>
+    /// Show fallback UI when GameManager is not available
+    /// </summary>
+    private void ShowFallbackUI()
+    {
+        // Ensure level system panel is visible
+        if (levelSystemPanel != null)
+            levelSystemPanel.SetActive(true);
+            
+        // Show basic level completion message (assume win for fallback)
+        if (levelCompleteTitle != null)
+            levelCompleteTitle.text = "Level Complete";
+        if (finalScoreText != null)
+            finalScoreText.text = "Score: N/A";
+            
+        // Configure buttons for win state (fallback)
+        ConfigureButtons(true);
         
-        // Setup button listeners
+        // Setup basic button listeners
         SetupButtons();
     }
     
     void Start()
     {
-        // Hide level system panel initially if it exists
+        // Ensure level system panel is visible initially
         if (levelSystemPanel != null)
-            levelSystemPanel.SetActive(false);
-    }
-    
-    /// <summary>
-    /// Show traditional game over UI (non-level system)
-    /// </summary>
-    private void ShowTraditionalGameOverUI()
-    {
-        // Hide level system panel
-        if (levelSystemPanel != null)
-            levelSystemPanel.SetActive(false);
-            
-        if (winLossMessageText == null)
-        {
-            Debug.LogError("GameOverUIController: Win/Loss Message TextMeshProUGUI not assigned!");
-        }
-
-        if (finalScoreText == null)
-        {
-            Debug.LogError("GameOverUIController: Final Score TextMeshProUGUI not assigned!");
-        }
-
-        if (GameManager.instance == null)
-        {
-            Debug.LogError("GameOverUIController: GameManager instance not found!");
-            if (winLossMessageText != null) winLossMessageText.text = "Game Over"; 
-            if (finalScoreText != null) finalScoreText.text = "Score: N/A"; 
-            return;
-        }
-
-        // Update Win/Loss Message
-        if (winLossMessageText != null)
-        {
-            if (GameManager.instance.HasWon)
-            {
-                winLossMessageText.text = "You Win!";
-            }
-            else
-            {
-                winLossMessageText.text = "You Lose!";
-            }
-        }
-
-        // Update Final Score Text
-        if (finalScoreText != null)
-        {
-            // Use the new public property CurrentScore from GameManager
-            finalScoreText.text = "Final Score: " + GameManager.instance.CurrentScore.ToString();
-        }
+            levelSystemPanel.SetActive(true);
     }
     
     /// <summary>
@@ -115,16 +112,16 @@ public class GameOverUIController : MonoBehaviour
             
         if (levelManager == null)
         {
-            Debug.LogError("GameOverUIController: LevelManager instance not found!");
-            ShowTraditionalGameOverUI();
+            Debug.LogError("GameOverUIController: LevelManager instance not found! Showing fallback UI.");
+            ShowBasicLevelCompleteUI();
             return;
         }
         
         LevelData currentLevel = levelManager.CurrentLevel;
         if (currentLevel == null)
         {
-            Debug.LogError("GameOverUIController: No current level found!");
-            ShowTraditionalGameOverUI();
+            Debug.LogError("GameOverUIController: No current level found! Showing fallback UI.");
+            ShowBasicLevelCompleteUI();
             return;
         }
         
@@ -134,10 +131,22 @@ public class GameOverUIController : MonoBehaviour
         bool levelCompleted = currentLevel.IsLevelCompletedByMoves(movesUsed);
         float scorePercentage = currentLevel.GetScorePercentage(finalScore);
         
-        // Update title - level always completes when moves are exhausted
+        // Check if player won (from GameManager)
+        bool playerWon = GameManager.instance != null ? GameManager.instance.HasWon : levelCompleted;
+        
+        Debug.Log($"🎮 Level End State: PlayerWon={playerWon}, LevelCompleted={levelCompleted}, GameManager.HasWon={GameManager.instance?.HasWon}, Stars={starsEarned}");
+        
+        // Update title based on win/loss
         if (levelCompleteTitle != null)
         {
-            levelCompleteTitle.text = $"{currentLevel.LevelName} Complete! ({scorePercentage:F1}%)";
+            if (playerWon)
+            {
+                levelCompleteTitle.text = $"{currentLevel.LevelName} Complete! ({scorePercentage:F1}%)";
+            }
+            else
+            {
+                levelCompleteTitle.text = $"{currentLevel.LevelName} Failed";
+            }
         }
         
         // Update score displays with percentage info
@@ -151,17 +160,68 @@ public class GameOverUIController : MonoBehaviour
         // Update star display
         UpdateStarDisplay(starsEarned);
         
-        // Set navigation state
-        canAdvance = levelCompleted;
+        // Set navigation state and button visibility
+        canAdvance = playerWon;
+        ConfigureButtons(playerWon);
         
-        // Auto advance if level completed
-        if (levelCompleted && autoAdvanceDelay > 0)
+        // Auto advance if level completed and player won
+        if (playerWon && autoAdvanceDelay > 0)
         {
             Invoke(nameof(AutoAdvanceToNextLevel), autoAdvanceDelay);
         }
         
-        Debug.Log($"🎮 Game Over UI: Level {(levelCompleted ? "completed" : "failed")} with {starsEarned} stars");
+        Debug.Log($"🎮 Game Over UI: Level {(playerWon ? "won" : "lost")} with {starsEarned} stars");
         Debug.Log($"📊 Score: {finalScore} ({scorePercentage:F1}%) | {currentLevel.GetStarThresholdInfo()}");
+    }
+    
+    /// <summary>
+    /// Show basic level complete UI when level data is not available
+    /// </summary>
+    private void ShowBasicLevelCompleteUI()
+    {
+        // Check if player won (fallback)
+        bool playerWon = GameManager.instance != null ? GameManager.instance.HasWon : true;
+        
+        if (levelCompleteTitle != null)
+            levelCompleteTitle.text = playerWon ? "Level Complete!" : "Level Failed";
+        if (finalScoreText != null)
+            finalScoreText.text = GameManager.instance != null ? $"Score: {GameManager.instance.CurrentScore}" : "Score: N/A";
+        if (targetScoreText != null)
+            targetScoreText.text = "Target: N/A";
+        if (movesUsedText != null)
+            movesUsedText.text = "Moves: N/A";
+            
+        // Show 1 star as fallback
+        UpdateStarDisplay(playerWon ? 1 : 0);
+        canAdvance = playerWon;
+        ConfigureButtons(playerWon);
+    }
+    
+    /// <summary>
+    /// Configure button visibility based on win/loss state
+    /// </summary>
+    private void ConfigureButtons(bool playerWon)
+    {
+        // Next Level Button: Show only if player won
+        if (nextLevelButton != null)
+        {
+            nextLevelButton.gameObject.SetActive(playerWon);
+            Debug.Log($"🎮 Next Level Button: {(playerWon ? "Shown" : "Hidden")}");
+        }
+        
+        // Retry Button: Show only if player lost
+        if (retryButton != null)
+        {
+            retryButton.gameObject.SetActive(!playerWon);
+            Debug.Log($"🎮 Retry Button: {(!playerWon ? "Shown" : "Hidden")}");
+        }
+        
+        // Home Button: Always show
+        if (homeButton != null)
+        {
+            homeButton.gameObject.SetActive(true);
+            Debug.Log("🎮 Home Button: Always shown");
+        }
     }
     
     /// <summary>
@@ -202,7 +262,7 @@ public class GameOverUIController : MonoBehaviour
     /// </summary>
     private void GoToNextLevel()
     {
-        if (!isUsingLevelSystem || !canAdvance) return;
+        if (!canAdvance) return;
         
         CancelInvoke(); // Cancel auto advance
         
@@ -243,23 +303,17 @@ public class GameOverUIController : MonoBehaviour
     /// </summary>
     private void RetryLevel()
     {
-        if (isUsingLevelSystem)
+        // Always use level system retry since we removed traditional mode
+        if (levelManager != null && levelManager.CurrentLevel != null)
         {
-            // In level system, retry means restart current level
-            if (levelManager != null && levelManager.CurrentLevel != null)
-            {
-                levelManager.StartLevel(levelManager.CurrentLevel);
-                gameObject.SetActive(false);
-            }
+            levelManager.StartLevel(levelManager.CurrentLevel);
+            gameObject.SetActive(false);
         }
-        else
+        else if (GameManager.instance != null)
         {
-            // Traditional game restart
-            if (GameManager.instance != null)
-            {
-                GameManager.instance.RestartGame();
-                gameObject.SetActive(false);
-            }
+            // Fallback: restart the game if level manager is not available
+            GameManager.instance.RestartGame();
+            gameObject.SetActive(false);
         }
     }
     
