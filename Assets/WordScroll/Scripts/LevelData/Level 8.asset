@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: adb394a5a5b8c46a98a85ddf0184369a, type: 3}
-  m_Name: Level 4
+  m_Name: Level 8
   m_EditorClassIdentifier: 
   levelNumber: 3
   levelName: Level 3
@@ -37,6 +37,6 @@ MonoBehaviour:
   timeBonus: 1
   scoreMultiplier: 1
   enableSpecialTiles: 0
-  nextLevel: {fileID: 11400000, guid: 4bcd29eed47254f1eb25218b8aebf665, type: 2}
+  nextLevel: {fileID: 11400000, guid: 0a412a666787f4210a8efeb813df480a, type: 2}
   isUnlocked: 1
   isTutorialLevel: 0

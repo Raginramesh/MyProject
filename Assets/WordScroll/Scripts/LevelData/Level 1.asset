@@ -23,7 +23,7 @@ MonoBehaviour:
   twoStarPercentage: 75
   threeStarPercentage: 100
   targetWords:
-  - COW
+  - WOW
   winConditionType: 1
   maxMoves: 10
   unlimitedMoves: 0

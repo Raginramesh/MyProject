@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Linq;
 
 /// <summary>
 /// Game mode enumeration for level configuration
@@ -349,6 +350,8 @@ public class LevelData : ScriptableObject
         int totalCells = gridSize * gridSize;
         var letterFrequency = new System.Collections.Generic.Dictionary<char, int>();
         
+        UnityEngine.Debug.Log($"🎯 LETTER ANALYSIS for {targetWords.Length} target words: [{string.Join(", ", targetWords)}]");
+        
         // Count letter frequency across all target words
         foreach (string word in targetWords)
         {
@@ -360,6 +363,124 @@ public class LevelData : ScriptableObject
                     letterFrequency[letter] = 1;
             }
         }
+        
+        // Calculate maximum needed instances of each letter across all target words
+        var maxNeededPerLetter = new System.Collections.Generic.Dictionary<char, int>();
+        foreach (string word in targetWords)
+        {
+            var wordLetterCount = new System.Collections.Generic.Dictionary<char, int>();
+            foreach (char letter in word.ToUpper())
+            {
+                if (wordLetterCount.ContainsKey(letter))
+                    wordLetterCount[letter]++;
+                else
+                    wordLetterCount[letter] = 1;
+            }
+            
+            UnityEngine.Debug.Log($"🎯 Word '{word}' letter counts: {string.Join(", ", wordLetterCount.Select(kvp => $"{kvp.Key}×{kvp.Value}"))}");
+            
+            foreach (var kvp in wordLetterCount)
+            {
+                if (!maxNeededPerLetter.ContainsKey(kvp.Key) || maxNeededPerLetter[kvp.Key] < kvp.Value)
+                    maxNeededPerLetter[kvp.Key] = kvp.Value;
+            }
+        }
+        
+        UnityEngine.Debug.Log($"🎯 MAX NEEDED per letter: {string.Join(", ", maxNeededPerLetter.Select(kvp => $"{kvp.Key}×{kvp.Value}"))}");
+        
+        // Build optimized letter list
+        var optimizedLetters = new System.Collections.Generic.List<char>();
+        foreach (var kvp in maxNeededPerLetter)
+        {
+            for (int i = 0; i < kvp.Value; i++)
+            {
+                optimizedLetters.Add(kvp.Key);
+            }
+        }
+        
+        UnityEngine.Debug.Log($"🎯 OPTIMIZED LETTERS ({optimizedLetters.Count}): [{string.Join(", ", optimizedLetters)}]");
+        UnityEngine.Debug.Log($"🎯 GRID CAPACITY: {totalCells} cells in {gridSize}×{gridSize} grid");
+        
+        // If still too many letters, prioritize by frequency and trim
+        if (optimizedLetters.Count > totalCells)
+        {
+            int originalCount = optimizedLetters.Count;
+            UnityEngine.Debug.LogError($"🎯 ERROR: Need {originalCount} letters but only have {totalCells} grid cells!");
+            
+            // Sort by frequency (most common first) and take only what fits
+            optimizedLetters.Sort((a, b) => letterFrequency[b].CompareTo(letterFrequency[a]));
+            optimizedLetters = optimizedLetters.GetRange(0, totalCells);
+            
+            UnityEngine.Debug.LogWarning($"🎯 TRIMMED to {optimizedLetters.Count} letters: [{string.Join(", ", optimizedLetters)}]");
+            UnityEngine.Debug.LogWarning($"🎯 ⚠️  Some target words may not be completable after trimming!");
+        }
+        
+        // Validate that each target word can still be formed
+        ValidateTargetWordsCanBeFormed(optimizedLetters.ToArray());
+        
+        return optimizedLetters.ToArray();
+    }
+    
+    /// <summary>
+    /// Validate that all target words can be formed with the given letter set
+    /// </summary>
+    private void ValidateTargetWordsCanBeFormed(char[] availableLetters)
+    {
+        var letterCounts = new System.Collections.Generic.Dictionary<char, int>();
+        foreach (char letter in availableLetters)
+        {
+            if (letterCounts.ContainsKey(letter))
+                letterCounts[letter]++;
+            else
+                letterCounts[letter] = 1;
+        }
+        
+        UnityEngine.Debug.Log($"🔍 VALIDATION: Available letters: {string.Join(", ", letterCounts.Select(kvp => $"{kvp.Key}×{kvp.Value}"))}");
+        
+        foreach (string word in targetWords)
+        {
+            var wordLetterCounts = new System.Collections.Generic.Dictionary<char, int>();
+            foreach (char letter in word.ToUpper())
+            {
+                if (wordLetterCounts.ContainsKey(letter))
+                    wordLetterCounts[letter]++;
+                else
+                    wordLetterCounts[letter] = 1;
+            }
+            
+            bool canForm = true;
+            var missingLetters = new System.Collections.Generic.List<string>();
+            
+            foreach (var kvp in wordLetterCounts)
+            {
+                char letter = kvp.Key;
+                int needed = kvp.Value;
+                int available = letterCounts.ContainsKey(letter) ? letterCounts[letter] : 0;
+                
+                if (available < needed)
+                {
+                    canForm = false;
+                    missingLetters.Add($"{letter}×{needed - available}");
+                }
+            }
+            
+            if (canForm)
+            {
+                UnityEngine.Debug.Log($"✅ Word '{word}' can be formed");
+            }
+            else
+            {
+                UnityEngine.Debug.LogError($"❌ Word '{word}' CANNOT be formed! Missing: {string.Join(", ", missingLetters)}");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Helper method to calculate the minimum grid size needed for target words
+    /// </summary>
+    public int CalculateMinimumGridSize()
+    {
+        if (IsScrabbleStyle || targetWords == null || targetWords.Length == 0) return 3;
         
         // Calculate maximum needed instances of each letter
         var maxNeededPerLetter = new System.Collections.Generic.Dictionary<char, int>();
@@ -381,27 +502,14 @@ public class LevelData : ScriptableObject
             }
         }
         
-        // Build optimized letter list
-        var optimizedLetters = new System.Collections.Generic.List<char>();
-        foreach (var kvp in maxNeededPerLetter)
-        {
-            for (int i = 0; i < kvp.Value; i++)
-            {
-                optimizedLetters.Add(kvp.Key);
-            }
-        }
+        int totalLettersNeeded = maxNeededPerLetter.Values.Sum();
         
-        // If still too many letters, prioritize by frequency and trim
-        if (optimizedLetters.Count > totalCells)
-        {
-            int originalCount = optimizedLetters.Count;
-            // Sort by frequency (most common first) and take only what fits
-            optimizedLetters.Sort((a, b) => letterFrequency[b].CompareTo(letterFrequency[a]));
-            optimizedLetters = optimizedLetters.GetRange(0, totalCells);
-            UnityEngine.Debug.LogWarning($"🎯 Target letters optimized: Trimmed from {originalCount} to {optimizedLetters.Count} to fit {gridSize}x{gridSize} grid");
-        }
+        // Find minimum square grid size that can fit all letters
+        int minGridSize = Mathf.CeilToInt(Mathf.Sqrt(totalLettersNeeded));
         
-        return optimizedLetters.ToArray();
+        UnityEngine.Debug.Log($"🎯 Level '{levelName}' needs {totalLettersNeeded} letters, minimum grid size: {minGridSize}×{minGridSize} = {minGridSize * minGridSize} cells");
+        
+        return minGridSize;
     }
     
     /// <summary>

@@ -1263,18 +1263,21 @@ public class WordGridManager : MonoBehaviour
         
         Debug.Log($"🎯 Wordle Style Grid Population:");
         Debug.Log($"🎯 ↳ Target Words: [{string.Join(", ", levelData.TargetWords)}]");
-        Debug.Log($"🎯 ↳ Total target letters (with duplicates): {guaranteedLetters.Count}");
+        Debug.Log($"🎯 ↳ Total target letters (with required duplicates): {guaranteedLetters.Count}");
         Debug.Log($"🎯 ↳ Target letters: [{string.Join(", ", guaranteedLetters)}]");
-        Debug.Log($"🎯 ↳ Grid cells available: {totalCells}");
+        Debug.Log($"🎯 ↳ Grid cells available: {totalCells} ({gridSize}×{gridSize})");
         Debug.Log($"🎯 ↳ Remaining cells for random letters: {totalCells - guaranteedLetters.Count}");
         
-        // Check if we have enough space for all target letters
+        // Critical validation: Check if we have enough space for all target letters
         if (guaranteedLetters.Count > totalCells)
         {
-            Debug.LogError($"🎯 ERROR: Not enough grid space! Need {guaranteedLetters.Count} cells for target letters but only have {totalCells} total cells.");
-            // Fallback: trim excess letters
+            Debug.LogError($"🎯 CRITICAL ERROR: Not enough grid space! Need {guaranteedLetters.Count} cells for target letters but only have {totalCells} total cells.");
+            Debug.LogError($"🎯 ↳ This will make some target words impossible to complete!");
+            Debug.LogError($"🎯 ↳ Solutions: 1) Increase grid size, 2) Reduce target words, 3) Choose target words with more shared letters");
+            
+            // Emergency fallback: trim excess letters but warn loudly
             guaranteedLetters = guaranteedLetters.GetRange(0, totalCells);
-            Debug.LogWarning($"🎯 Trimmed to {guaranteedLetters.Count} letters to fit grid.");
+            Debug.LogWarning($"🎯 EMERGENCY: Trimmed to {guaranteedLetters.Count} letters to fit grid. Some words may be unwinnable!");
         }
         
         // Create list of positions to fill
@@ -1287,7 +1290,7 @@ public class WordGridManager : MonoBehaviour
             }
         }
         
-        // Shuffle positions for random placement
+        // Shuffle positions for random placement of target letters
         for (int i = 0; i < positions.Count; i++)
         {
             var temp = positions[i];
@@ -1298,26 +1301,103 @@ public class WordGridManager : MonoBehaviour
         
         int positionIndex = 0;
         
-        // First, place ALL guaranteed target letters (including duplicates)
+        // First, place ALL guaranteed target letters (including duplicates needed for multiple words)
+        Debug.Log($"🎯 Placing {guaranteedLetters.Count} target letters...");
         foreach (char letter in guaranteedLetters)
         {
             if (positionIndex < positions.Count)
             {
                 Vector2Int pos = positions[positionIndex];
                 gridData[pos.y, pos.x] = CellData.CreateLetterCell(letter);
+                Debug.Log($"🎯 Placed target letter '{letter}' at position ({pos.x}, {pos.y})");
                 positionIndex++;
             }
         }
         
         // Fill remaining positions with random letters from the letter set
+        int randomLettersPlaced = 0;
         for (int i = positionIndex; i < positions.Count; i++)
         {
             Vector2Int pos = positions[i];
             char randomLetter = letterSet[UnityEngine.Random.Range(0, letterSet.Length)];
             gridData[pos.y, pos.x] = CellData.CreateLetterCell(randomLetter);
+            randomLettersPlaced++;
         }
         
-        Debug.Log($"🎯 Grid populated: {guaranteedLetters.Count} target letters + {totalCells - guaranteedLetters.Count} random letters = {totalCells} total");
+        Debug.Log($"🎯 Grid population complete:");
+        Debug.Log($"🎯 ↳ Target letters placed: {guaranteedLetters.Count}");
+        Debug.Log($"🎯 ↳ Random letters placed: {randomLettersPlaced}");
+        Debug.Log($"🎯 ↳ Total letters: {guaranteedLetters.Count + randomLettersPlaced} = {totalCells}");
+        
+        // Final validation: Verify the grid contains all necessary letters for target words
+        ValidateGridContainsTargetWords(levelData.TargetWords);
+    }
+    
+    /// <summary>
+    /// Validate that the populated grid contains all letters needed for target words
+    /// </summary>
+    private void ValidateGridContainsTargetWords(string[] targetWords)
+    {
+        if (targetWords == null) return;
+        
+        // Count all letters in the grid
+        var gridLetterCounts = new System.Collections.Generic.Dictionary<char, int>();
+        for (int r = 0; r < gridSize; r++)
+        {
+            for (int c = 0; c < gridSize; c++)
+            {
+                CellData cellData = gridData[r, c];
+                if (!cellData.IsBlank && cellData.letterValue != '\0')
+                {
+                    char letter = cellData.letterValue;
+                    if (gridLetterCounts.ContainsKey(letter))
+                        gridLetterCounts[letter]++;
+                    else
+                        gridLetterCounts[letter] = 1;
+                }
+            }
+        }
+        
+        Debug.Log($"🔍 GRID VALIDATION: Grid contains: {string.Join(", ", gridLetterCounts.Select(kvp => $"{kvp.Key}×{kvp.Value}"))}");
+        
+        // Check each target word
+        foreach (string word in targetWords)
+        {
+            var wordLetterCounts = new System.Collections.Generic.Dictionary<char, int>();
+            foreach (char letter in word.ToUpper())
+            {
+                if (wordLetterCounts.ContainsKey(letter))
+                    wordLetterCounts[letter]++;
+                else
+                    wordLetterCounts[letter] = 1;
+            }
+            
+            bool canForm = true;
+            var missingLetters = new System.Collections.Generic.List<string>();
+            
+            foreach (var kvp in wordLetterCounts)
+            {
+                char letter = kvp.Key;
+                int needed = kvp.Value;
+                int available = gridLetterCounts.ContainsKey(letter) ? gridLetterCounts[letter] : 0;
+                
+                if (available < needed)
+                {
+                    canForm = false;
+                    missingLetters.Add($"{letter}×{needed - available}");
+                }
+            }
+            
+            if (canForm)
+            {
+                Debug.Log($"✅ Target word '{word}' can be formed from grid");
+            }
+            else
+            {
+                Debug.LogError($"❌ Target word '{word}' CANNOT be formed from grid! Missing: {string.Join(", ", missingLetters)}");
+                Debug.LogError($"🎯 This is a critical bug - the level is unwinnable!");
+            }
+        }
     }
 
     /// <summary>

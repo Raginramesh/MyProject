@@ -23,8 +23,8 @@ MonoBehaviour:
   twoStarPercentage: 75
   threeStarPercentage: 100
   targetWords:
-  - DEW
-  - GUN
+  - BOX
+  - POP
   winConditionType: 1
   maxMoves: 10
   unlimitedMoves: 0
@@ -36,6 +36,6 @@ MonoBehaviour:
   timeBonus: 1
   scoreMultiplier: 1
   enableSpecialTiles: 0
-  nextLevel: {fileID: 0}
+  nextLevel: {fileID: 11400000, guid: 8459dd188ddfc45dfbf2a584708b143f, type: 2}
   isUnlocked: 1
   isTutorialLevel: 0
