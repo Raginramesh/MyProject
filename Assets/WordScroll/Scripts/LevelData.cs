@@ -49,6 +49,10 @@ public class LevelData : ScriptableObject
     [SerializeField] private string[] targetWords = new string[0];
     [SerializeField] private LevelWinConditionType winConditionType = LevelWinConditionType.MoveBased;
     
+    // Dynamic list of remaining target words (not serialized, managed at runtime)
+    private System.Collections.Generic.List<string> remainingTargetWords;
+    private bool hasRemainingTargetWordsBeenInitialized = false;
+    
     [Header("Win Condition - Move Based")]
     [SerializeField] private int maxMoves = 10;
     [SerializeField] private bool unlimitedMoves = false;
@@ -123,6 +127,7 @@ public class LevelData : ScriptableObject
     public bool UsesTimer => IsWordleStyle && winConditionType == LevelWinConditionType.TimeBased;
     public bool UsesMoves => IsScrabbleStyle || (IsWordleStyle && winConditionType == LevelWinConditionType.MoveBased);
     public int TargetWordCount => targetWords?.Length ?? 0;
+    public int RemainingTargetWordCount => GetRemainingTargetWords().Count;
     
     /// <summary>
     /// Calculate star rating based on achieved score (Scrabble Style only)
@@ -217,13 +222,74 @@ public class LevelData : ScriptableObject
     }
     
     /// <summary>
+    /// Initialize the remaining target words list (call when level starts)
+    /// </summary>
+    public void InitializeRemainingTargetWords()
+    {
+        if (targetWords == null) 
+        {
+            remainingTargetWords = new System.Collections.Generic.List<string>();
+        }
+        else
+        {
+            remainingTargetWords = new System.Collections.Generic.List<string>(targetWords);
+        }
+        hasRemainingTargetWordsBeenInitialized = true;
+    }
+    
+    /// <summary>
+    /// Get the list of remaining target words (not yet found)
+    /// </summary>
+    public System.Collections.Generic.List<string> GetRemainingTargetWords()
+    {
+        if (!hasRemainingTargetWordsBeenInitialized)
+        {
+            InitializeRemainingTargetWords();
+        }
+        return remainingTargetWords;
+    }
+    
+    /// <summary>
+    /// Remove a target word from the remaining list (called when word is found)
+    /// </summary>
+    public bool RemoveTargetWord(string word)
+    {
+        if (!hasRemainingTargetWordsBeenInitialized)
+        {
+            InitializeRemainingTargetWords();
+        }
+        
+        for (int i = remainingTargetWords.Count - 1; i >= 0; i--)
+        {
+            if (string.Equals(remainingTargetWords[i], word, System.StringComparison.OrdinalIgnoreCase))
+            {
+                remainingTargetWords.RemoveAt(i);
+                Debug.Log($"Target word '{word}' removed from remaining list. Remaining count: {remainingTargetWords.Count}");
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /// <summary>
+    /// Reset the remaining target words to the full list (for level restart)
+    /// </summary>
+    public void ResetRemainingTargetWords()
+    {
+        InitializeRemainingTargetWords();
+        Debug.Log($"Remaining target words reset. Count: {remainingTargetWords.Count}");
+    }
+    
+    /// <summary>
     /// Check if a word is a target word for this level (Wordle Style only)
+    /// Now checks against remaining target words (words that haven't been found yet)
     /// </summary>
     public bool IsTargetWord(string word)
     {
         if (IsScrabbleStyle || targetWords == null) return false;
         
-        foreach (string targetWord in targetWords)
+        var remainingWords = GetRemainingTargetWords();
+        foreach (string targetWord in remainingWords)
         {
             if (string.Equals(word, targetWord, System.StringComparison.OrdinalIgnoreCase))
                 return true;
@@ -270,6 +336,72 @@ public class LevelData : ScriptableObject
         var result = new char[letters.Count];
         letters.CopyTo(result);
         return result;
+    }
+
+    /// <summary>
+    /// Get optimized target letters that fit within grid constraints
+    /// This method ensures target words can be formed while respecting grid size limits
+    /// </summary>
+    public char[] GetOptimizedTargetLetters(int gridSize)
+    {
+        if (IsScrabbleStyle || targetWords == null) return new char[0];
+        
+        int totalCells = gridSize * gridSize;
+        var letterFrequency = new System.Collections.Generic.Dictionary<char, int>();
+        
+        // Count letter frequency across all target words
+        foreach (string word in targetWords)
+        {
+            foreach (char letter in word.ToUpper())
+            {
+                if (letterFrequency.ContainsKey(letter))
+                    letterFrequency[letter]++;
+                else
+                    letterFrequency[letter] = 1;
+            }
+        }
+        
+        // Calculate maximum needed instances of each letter
+        var maxNeededPerLetter = new System.Collections.Generic.Dictionary<char, int>();
+        foreach (string word in targetWords)
+        {
+            var wordLetterCount = new System.Collections.Generic.Dictionary<char, int>();
+            foreach (char letter in word.ToUpper())
+            {
+                if (wordLetterCount.ContainsKey(letter))
+                    wordLetterCount[letter]++;
+                else
+                    wordLetterCount[letter] = 1;
+            }
+            
+            foreach (var kvp in wordLetterCount)
+            {
+                if (!maxNeededPerLetter.ContainsKey(kvp.Key) || maxNeededPerLetter[kvp.Key] < kvp.Value)
+                    maxNeededPerLetter[kvp.Key] = kvp.Value;
+            }
+        }
+        
+        // Build optimized letter list
+        var optimizedLetters = new System.Collections.Generic.List<char>();
+        foreach (var kvp in maxNeededPerLetter)
+        {
+            for (int i = 0; i < kvp.Value; i++)
+            {
+                optimizedLetters.Add(kvp.Key);
+            }
+        }
+        
+        // If still too many letters, prioritize by frequency and trim
+        if (optimizedLetters.Count > totalCells)
+        {
+            int originalCount = optimizedLetters.Count;
+            // Sort by frequency (most common first) and take only what fits
+            optimizedLetters.Sort((a, b) => letterFrequency[b].CompareTo(letterFrequency[a]));
+            optimizedLetters = optimizedLetters.GetRange(0, totalCells);
+            UnityEngine.Debug.LogWarning($"🎯 Target letters optimized: Trimmed from {originalCount} to {optimizedLetters.Count} to fit {gridSize}x{gridSize} grid");
+        }
+        
+        return optimizedLetters.ToArray();
     }
     
     /// <summary>
@@ -336,25 +468,14 @@ public class LevelData : ScriptableObject
     
     /// <summary>
     /// Check if all target words have been found (Wordle Style win condition)
+    /// Now simply checks if the remaining target words list is empty
     /// </summary>
-    public bool AreAllTargetWordsFound(System.Collections.Generic.HashSet<string> foundWords)
+    public bool AreAllTargetWordsFound(System.Collections.Generic.HashSet<string> foundWords = null)
     {
         if (IsScrabbleStyle || targetWords == null) return false;
         
-        foreach (string targetWord in targetWords)
-        {
-            bool found = false;
-            foreach (string foundWord in foundWords)
-            {
-                if (string.Equals(targetWord, foundWord, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) return false;
-        }
-        return true;
+        // Simple check: if no remaining target words, all have been found
+        return GetRemainingTargetWords().Count == 0;
     }
     
     /// <summary>

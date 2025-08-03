@@ -1252,8 +1252,8 @@ public class WordGridManager : MonoBehaviour
         
         int totalCells = gridSize * gridSize;
         
-        // Get ALL target word letters (including duplicates) that must be guaranteed in the grid
-        char[] targetLetters = levelData.GetTargetWordLetters();
+        // Get optimized target word letters that fit within grid space
+        char[] targetLetters = levelData.GetOptimizedTargetLetters(gridSize);
         List<char> guaranteedLetters = new List<char>(targetLetters);
         
         // Use custom letter set if defined, otherwise use default alphabet
@@ -1321,10 +1321,22 @@ public class WordGridManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Get random letter (now delegates to CellTypeManager for consistency)
+    /// Get a letter prioritizing those needed for remaining target words
     /// </summary>
     char GetRandomLetter()
     {
+        // For Wordle-style levels, prioritize letters needed for remaining target words
+        if (currentLevelData?.IsWordleStyle == true)
+        {
+            char priorityLetter = GetPriorityLetterForRemainingWords();
+            if (priorityLetter != '\0')
+            {
+                Debug.Log($"📝 Prioritizing letter '{priorityLetter}' for remaining target words");
+                return priorityLetter;
+            }
+        }
+        
+        // Fallback to normal random letter generation
         if (cellTypeManager != null)
         {
             return cellTypeManager.GetRandomLetter();
@@ -1332,6 +1344,106 @@ public class WordGridManager : MonoBehaviour
         
         // Ultimate fallback if no CellTypeManager is assigned
         return (char)('A' + UnityEngine.Random.Range(0, 26));
+    }
+
+    /// <summary>
+    /// Get a letter that is needed for remaining unfound target words
+    /// </summary>
+    char GetPriorityLetterForRemainingWords()
+    {
+        if (currentLevelData?.TargetWords == null || gameManager == null) 
+            return '\0';
+        
+        // Get letters that are currently on the grid
+        Dictionary<char, int> currentGridLetters = GetCurrentGridLetterCounts();
+        
+        // Get letters needed for remaining (unfound) target words
+        Dictionary<char, int> neededLetters = GetNeededLettersForRemainingWords();
+        
+        if (neededLetters.Count == 0)
+        {
+            Debug.Log("📝 No specific letters needed - all target words can be formed");
+            return '\0'; // All target words can be formed with current letters
+        }
+        
+        // Find letters that are needed but not available on grid
+        List<char> missingLetters = new List<char>();
+        foreach (var kvp in neededLetters)
+        {
+            char letter = kvp.Key;
+            int needed = kvp.Value;
+            int available = currentGridLetters.GetValueOrDefault(letter, 0);
+            
+            if (available < needed)
+            {
+                // Add this letter multiple times based on how many more we need
+                for (int i = 0; i < (needed - available); i++)
+                {
+                    missingLetters.Add(letter);
+                }
+            }
+        }
+        
+        if (missingLetters.Count > 0)
+        {
+            // Randomly select from missing letters to avoid predictable patterns
+            char selectedLetter = missingLetters[UnityEngine.Random.Range(0, missingLetters.Count)];
+            Debug.Log($"📝 Selected missing letter '{selectedLetter}' (needed: {neededLetters.GetValueOrDefault(selectedLetter, 0)}, available: {currentGridLetters.GetValueOrDefault(selectedLetter, 0)})");
+            return selectedLetter;
+        }
+        
+        return '\0'; // No specific priority needed
+    }
+
+    /// <summary>
+    /// Get count of each letter currently on the grid
+    /// </summary>
+    Dictionary<char, int> GetCurrentGridLetterCounts()
+    {
+        Dictionary<char, int> letterCounts = new Dictionary<char, int>();
+        
+        for (int x = 0; x < gridSize; x++)
+        {
+            for (int y = 0; y < gridSize; y++)
+            {
+                if (gridData[x, y].cellType == CellType.Letter && gridData[x, y].letterValue != '\0')
+                {
+                    char letter = gridData[x, y].letterValue;
+                    letterCounts[letter] = letterCounts.GetValueOrDefault(letter, 0) + 1;
+                }
+            }
+        }
+        
+        return letterCounts;
+    }
+
+    /// <summary>
+    /// Get letters needed for remaining unfound target words
+    /// </summary>
+    Dictionary<char, int> GetNeededLettersForRemainingWords()
+    {
+        Dictionary<char, int> neededLetters = new Dictionary<char, int>();
+        
+        if (currentLevelData?.TargetWords == null) 
+            return neededLetters;
+        
+        foreach (string targetWord in currentLevelData.TargetWords)
+        {
+            // Skip words that have already been found this session
+            if (gameManager != null && gameManager.IsWordFoundThisSession(targetWord))
+            {
+                continue; // This word is already found, skip it
+            }
+            
+            // Count letters needed for this unfound word
+            foreach (char letter in targetWord.ToUpperInvariant())
+            {
+                neededLetters[letter] = neededLetters.GetValueOrDefault(letter, 0) + 1;
+            }
+        }
+        
+        Debug.Log($"📝 Letters needed for remaining words: [{string.Join(", ", neededLetters.Select(kvp => $"{kvp.Key}:{kvp.Value}"))}]");
+        return neededLetters;
     }
 
     /// <summary>

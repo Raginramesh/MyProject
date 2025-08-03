@@ -1905,9 +1905,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetWordText: {fileID: 1490566784}
   enableLetterDiscovery: 1
-  feedbackPanel: {fileID: 580965797}
-  panelCanvasGroup: {fileID: 0}
-  feedbackMessageText: {fileID: 0}
   letterFeedbackContainer: {fileID: 580965798}
   letterFeedbackPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
   letterAnimationDelay: 0.1
@@ -2138,8 +2135,8 @@ MonoBehaviour:
   wordGridManager: {fileID: 593137150}
   gameManager: {fileID: 1480404336}
   wordListFile: {fileID: 4900000, guid: 18e3f9beda31baa46be256b20b84d7fc, type: 3}
-  minWordLength: 4
-  maxWordLength: 5
+  minWordLength: 3
+  maxWordLength: 10
   centerRowOnlyMode: 1
 --- !u!1 &633469390
 GameObject:
@@ -3810,6 +3807,9 @@ MonoBehaviour:
   traditionalStartingMoves: 20
   traditionalTargetScore: 50
   homeSceneName: HomeScene
+  enableAutoValidation: 1
+  autoValidationDelay: 0.5
+  minAutoValidationLength: 3
   currentScoringMode: 1
   pointsPerLetter: 10
   scoreText: {fileID: 1345162615}

@@ -88,7 +88,14 @@ public class WordValidator : MonoBehaviour
         if (wordGridManager == null) wordGridManager = FindFirstObjectByType<WordGridManager>();
 
         if (wordGridManager == null) { Debug.LogError("WV: WordGridManager missing!", this); enabled = false; return; }
-        if (wordListFile == null) { Debug.LogError("WV: Word List File missing!", this); enabled = false; return; }
+        
+        // For Wordle-style levels, word list file is not required since we only use Level Data target words
+        if (!IsWordleStyleLevel() && wordListFile == null) 
+        { 
+            Debug.LogError("WV: Word List File missing for Scrabble-style gameplay!", this); 
+            enabled = false; 
+            return; 
+        }
 
         ConfigureScoring(); // Fetch scoring settings from GameManager
 
@@ -100,7 +107,7 @@ public class WordValidator : MonoBehaviour
         int effectiveGridSize = (wordGridManager != null && wordGridManager.gridSize > 0) ? wordGridManager.gridSize : 10;
         if (maxWordLength <= 0) maxWordLength = effectiveGridSize;
 
-        LoadWordList();
+        LoadWordList(); // This will now check game mode before loading
     }
 
     public void SetGameManager(GameManager manager)
@@ -168,6 +175,15 @@ public class WordValidator : MonoBehaviour
     void LoadWordList()
     {
         validWordsDictionary.Clear();
+        
+        // For Wordle-style levels, skip loading word list - only use Level Data target words
+        if (IsWordleStyleLevel())
+        {
+            Debug.Log("🎯 [Wordle Mode] Skipping word list loading - using Level Data target words only");
+            return;
+        }
+        
+        // For Scrabble-style levels, load the word list dictionary
         if (wordListFile != null)
         {
             string[] lines = wordListFile.text.Split(new[] { "\r\n", "\r", "\n" }, System.StringSplitOptions.RemoveEmptyEntries);
@@ -179,7 +195,21 @@ public class WordValidator : MonoBehaviour
                     validWordsDictionary.Add(word);
                 }
             }
+            Debug.Log($"🔧 [Scrabble Mode] Loaded {validWordsDictionary.Count} words from word list");
         }
+        else
+        {
+            Debug.LogWarning("🔧 [Scrabble Mode] Word list file is missing - no dictionary words available");
+        }
+    }
+
+    /// <summary>
+    /// Check if the current level is Wordle-style
+    /// </summary>
+    private bool IsWordleStyleLevel()
+    {
+        LevelData currentLevel = LevelManager.Instance?.CurrentLevel;
+        return currentLevel?.IsWordleStyle == true;
     }
 
     public void ResetFoundWordsList() => wordsFoundThisSession.Clear();
@@ -213,15 +243,15 @@ public class WordValidator : MonoBehaviour
     }
     
     /// <summary>
-    /// Option A: Strict Grid-Size Validation
-    /// Validates that sequences match the expected length based on grid size
-    /// 5x5: accepts 5-letter, 4-letter+1blank, 3-letter+2blanks
-    /// 3x3: accepts 3-letter, 2-letter+1blank  
+    /// Enhanced Grid-Size Validation (Updated for Auto-Validation Support)
+    /// Allows flexible word lengths instead of requiring exact grid size matches
+    /// 5x5: accepts 3-5 letter words | 4x4: accepts 3-4 letter words | 3x3: accepts 2-3 letter words  
     /// </summary>
     private bool IsValidGridSizeSequence(string sequence, int sequenceLength, int gridSize)
     {
-        // Only validate sequences that match the exact grid size
-        if (sequenceLength != gridSize)
+        // Enhanced: Allow sequences of various lengths for better auto-validation on smaller grids
+        // Instead of requiring exact grid size match, allow reasonable word lengths
+        if (sequenceLength < minWordLength || sequenceLength > gridSize)
             return false;
             
         // Check if sequence has valid structure (letters + trailing blanks only)
@@ -239,25 +269,38 @@ public class WordValidator : MonoBehaviour
     
     /// <summary>
     /// Validates specific word + blank combinations for different grid sizes
+    /// Updated to be more flexible for auto-validation on smaller grids
     /// </summary>
     private bool IsValidWordBlankCombination(int wordLength, int blankCount, int gridSize)
     {
+        // First check: word must meet minimum length requirements
+        if (wordLength < minWordLength)
+            return false;
+            
         switch (gridSize)
         {
             case 3:
-                // 3x3 grid: 3-letter OR 2-letter+1blank
+                // 3x3 grid: Allow 3-letter words OR shorter words (2-3 letters) for flexibility
                 return (wordLength == 3 && blankCount == 0) || 
-                       (wordLength == 2 && blankCount == 1);
+                       (wordLength == 2 && blankCount == 1) ||
+                       (wordLength >= 2 && wordLength <= 3); // More flexible for auto-validation
+                       
+            case 4:
+                // 4x4 grid: Allow 3-4 letter words for better auto-validation
+                return (wordLength == 4 && blankCount == 0) || 
+                       (wordLength == 3 && blankCount == 1) ||
+                       (wordLength >= 3 && wordLength <= 4); // More flexible for auto-validation
                        
             case 5:
-                // 5x5 grid: 5-letter OR 4-letter+1blank OR 3-letter+2blanks
+                // 5x5 grid: 5-letter OR 4-letter+1blank OR 3-letter+2blanks OR 3-5 letter words
                 return (wordLength == 5 && blankCount == 0) || 
                        (wordLength == 4 && blankCount == 1) || 
-                       (wordLength == 3 && blankCount == 2);
+                       (wordLength == 3 && blankCount == 2) ||
+                       (wordLength >= 3 && wordLength <= 5); // More flexible for auto-validation
                        
             default:
-                // For other grid sizes, use flexible rule: word + blanks = grid size
-                return (wordLength + blankCount == gridSize) && (wordLength >= minWordLength);
+                // For other grid sizes, use flexible rule: allow words of reasonable length
+                return (wordLength >= minWordLength && wordLength <= gridSize);
         }
     }
     
@@ -467,7 +510,7 @@ public class WordValidator : MonoBehaviour
                     string wordForValidation = ExtractWordFromSequence(sequence);
                     
                     if (!string.IsNullOrEmpty(wordForValidation) && 
-                        IsWordValidForCurrentMode(wordForValidation) && 
+                        IsWordValidForCurrentMode(wordForValidation, true) && // Allow dictionary words for auto-validation
                         !IsWordFoundThisSession(wordForValidation))
                     {
                         List<Vector2Int> wordCoords = CalculateCoordinates(lineIndex, start, len, isRow, currentGridSize);
@@ -489,23 +532,61 @@ public class WordValidator : MonoBehaviour
     /// </summary>
     private bool IsWordValidForCurrentMode(string word)
     {
+        return IsWordValidForCurrentMode(word, false);
+    }
+
+    /// <summary>
+    /// Check if a word is valid for the current game mode with auto-validation options
+    /// For Wordle-style levels: Target words are always valid, dictionary words are valid only for auto-validation
+    /// For Scrabble-style levels: Any dictionary word is valid
+    /// </summary>
+    private bool IsWordValidForCurrentMode(string word, bool allowDictionaryForAutoValidation)
+    {
         if (string.IsNullOrEmpty(word)) return false;
         
         LevelData currentLevel = LevelManager.Instance?.CurrentLevel;
         
-        // For Wordle-style levels, only target words are valid
-        if (currentLevel?.IsWordleStyle == true)
+        // For Wordle-style levels, ONLY use Level Data target words (ignore word list settings)
+        if (IsWordleStyleLevel())
         {
             bool isTargetWord = currentLevel.IsTargetWord(word);
             if (isTargetWord)
             {
                 Debug.Log($"🎯 [Wordle Mode] Target word found: '{word}'");
+                return true;
             }
-            return isTargetWord;
+            
+            // For auto-validation in Wordle mode, we can optionally allow dictionary words
+            // This enables auto-validation for common words that aren't target words
+            if (allowDictionaryForAutoValidation && validWordsDictionary.Count > 0)
+            {
+                bool isDictionaryWord = validWordsDictionary.Contains(word.ToUpperInvariant());
+                if (isDictionaryWord)
+                {
+                    Debug.Log($"🔄 [Wordle Mode - Auto-validation] Dictionary word allowed for auto-validation: '{word}'");
+                }
+                return isDictionaryWord;
+            }
+            
+            return false; // Not a target word and dictionary words not allowed for this context
         }
         
-        // For Scrabble-style levels, use the general dictionary
-        return validWordsDictionary.Contains(word.ToUpperInvariant());
+        // For Scrabble-style levels, use the general dictionary from word list settings
+        bool isValidInDictionary = validWordsDictionary.Contains(word.ToUpperInvariant());
+        if (isValidInDictionary)
+        {
+            Debug.Log($"🔧 [Scrabble Mode] Dictionary word found: '{word}'");
+        }
+        return isValidInDictionary;
+    }
+
+    /// <summary>
+    /// Call this when the level changes to reload word settings appropriately
+    /// </summary>
+    public void OnLevelChanged()
+    {
+        Debug.Log($"🔄 Level changed - reloading word settings for {(IsWordleStyleLevel() ? "Wordle" : "Scrabble")} mode");
+        LoadWordList(); // This will check the mode and load appropriately
     }
 
     // Main filtering pipeline
@@ -814,10 +895,13 @@ public class WordValidator : MonoBehaviour
         LetterFeedback[] feedbacks = null;
         if (currentLevel?.IsWordleStyle == true)
         {
-            feedbacks = GenerateLetterFeedback(word, currentLevel.TargetWords);
+            // Use remaining target words instead of all target words
+            var remainingTargetWords = currentLevel.GetRemainingTargetWords();
+            feedbacks = GenerateLetterFeedback(word, remainingTargetWords.ToArray());
             if (feedbacks != null)
             {
                 Debug.Log($"🔍 Generated feedbacks: [{string.Join(", ", feedbacks)}]");
+                Debug.Log($"🔍 Using remaining target words: [{string.Join(", ", remainingTargetWords)}]");
             }
         }
         else

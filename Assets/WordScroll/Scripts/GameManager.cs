@@ -48,6 +48,14 @@ public class GameManager : MonoBehaviour
     [Header("Scene Navigation")]
     [SerializeField] private string homeSceneName = "HomeScreen";
 
+    [Header("Auto Validation")]
+    [Tooltip("When enabled, words are automatically validated as soon as they are formed on the grid, without requiring a tap to confirm")]
+    [SerializeField] private bool enableAutoValidation = true;
+    [Tooltip("Delay in seconds before auto-validating a word (to avoid validating partial words during rapid input)")]
+    [SerializeField] private float autoValidationDelay = 0.5f;
+    [Tooltip("Minimum word length to auto-validate (shorter words require manual validation)")]
+    [SerializeField] private int minAutoValidationLength = 3;
+
     [Header("Scoring")]
     [SerializeField] private ScoringMode currentScoringMode = ScoringMode.LengthBased;
     public ScoringMode GetCurrentScoringModeSetting() => currentScoringMode;
@@ -180,6 +188,10 @@ public class GameManager : MonoBehaviour
     private HashSet<int> discoveredPositions = new HashSet<int>(); // Current word positions
     private Dictionary<string, HashSet<int>> wordDiscoveredPositions = new Dictionary<string, HashSet<int>>();
 
+    // Auto-validation tracking
+    private Coroutine autoValidationCoroutine;
+    private List<FoundWordData> lastPotentialWords = new List<FoundWordData>();
+
 
     void Awake()
     {
@@ -293,6 +305,14 @@ public class GameManager : MonoBehaviour
             {
                 animatedScoringSystem.ClearAllAnimations();
             }
+            
+            // Cancel any pending auto-validation when leaving playing state
+            if (autoValidationCoroutine != null)
+            {
+                StopCoroutine(autoValidationCoroutine);
+                autoValidationCoroutine = null;
+                Debug.Log("🔄 State change - cancelled pending auto-validation");
+            }
         }
         isProcessingSequentialWords = false;
 
@@ -377,6 +397,13 @@ public class GameManager : MonoBehaviour
             currentRoundScore = 0;
             Debug.Log($"🎮 Level System: Current level is {currentLevelData?.LevelName ?? "Unknown Level"}");
             Debug.Log($"🎮 Level System: LevelManager score is {levelManager?.CurrentScore ?? 0}");
+            
+            // Initialize remaining target words for Wordle-style levels
+            if (hasValidLevelData && currentLevelData.IsWordleStyle)
+            {
+                currentLevelData.InitializeRemainingTargetWords();
+                Debug.Log($"🎯 Target words initialized. Remaining count: {currentLevelData.RemainingTargetWordCount}");
+            }
             
             // Ensure we have a current level - if not, start the first level
             if (levelManager != null && currentLevelData == null)
@@ -660,6 +687,197 @@ public class GameManager : MonoBehaviour
         }
         currentPotentialWords = potentialWordsFromValidator ?? new List<FoundWordData>();
         currentAppliedHighlightColors = appliedColors ?? new Dictionary<System.Guid, Color>();
+
+        // Trigger auto-validation if enabled
+        if (enableAutoValidation && currentState == GameState.Playing)
+        {
+            Debug.Log($"🔄 Auto-validation triggered: {currentPotentialWords.Count} potential words detected");
+            TriggerAutoValidation();
+        }
+        else if (!enableAutoValidation)
+        {
+            Debug.Log($"🔄 Auto-validation disabled - {currentPotentialWords.Count} words available for manual validation");
+        }
+    }
+
+    /// <summary>
+    /// Triggers automatic word validation after a delay to avoid validating partial words
+    /// </summary>
+    private void TriggerAutoValidation()
+    {
+        // Cancel any existing auto-validation
+        if (autoValidationCoroutine != null)
+        {
+            StopCoroutine(autoValidationCoroutine);
+        }
+
+        // Start new auto-validation coroutine
+        autoValidationCoroutine = StartCoroutine(AutoValidateWordsAfterDelay());
+    }
+
+    /// <summary>
+    /// Coroutine that waits for the specified delay then auto-validates words
+    /// </summary>
+    private System.Collections.IEnumerator AutoValidateWordsAfterDelay()
+    {
+        // Wait for the specified delay
+        yield return new WaitForSeconds(autoValidationDelay);
+
+        // Check if we're still in playing state and have words to validate
+        if (currentState != GameState.Playing || IsAnyAnimationPlaying)
+        {
+            yield break;
+        }
+
+        // Find newly formed words that haven't been validated yet
+        List<FoundWordData> wordsToAutoValidate = GetWordsForAutoValidation();
+        
+        // Enhanced debugging for smaller grids
+        int gridSize = wordGridManager?.gridSize ?? 0;
+        int adaptiveMinLength = GetAdaptiveMinAutoValidationLength();
+        Debug.Log($"🔄 Auto-validation check: Grid size {gridSize}x{gridSize}, Adaptive min length: {adaptiveMinLength}, Found {currentPotentialWords.Count} potential words, {wordsToAutoValidate.Count} qualify for auto-validation");
+        
+        if (wordsToAutoValidate.Count > 0)
+        {
+            Debug.Log($"🔄 Auto-validating {wordsToAutoValidate.Count} words: [{string.Join(", ", wordsToAutoValidate.Select(w => $"{w.Word}({w.Word.Length})"))}]");
+            
+            // Auto-validate the words
+            yield return StartCoroutine(ProcessWordsSequentially(wordsToAutoValidate));
+        }
+        else
+        {
+            if (currentPotentialWords.Count > 0)
+            {
+                Debug.Log($"🔄 No words qualify for auto-validation. Potential words: [{string.Join(", ", currentPotentialWords.Select(w => $"{w.Word}({w.Word.Length})"))}]");
+                int currentAdaptiveMinLength = GetAdaptiveMinAutoValidationLength();
+                Debug.Log($"🔄 Auto-validation requirements: Base min length {minAutoValidationLength}, Adaptive min length {currentAdaptiveMinLength}, not found in session");
+            }
+            else
+            {
+                Debug.Log("🔄 No potential words detected on grid");
+            }
+        }
+
+        autoValidationCoroutine = null;
+    }
+
+    /// <summary>
+    /// Gets words that should be auto-validated (new valid words not yet found in session)
+    /// </summary>
+    private List<FoundWordData> GetWordsForAutoValidation()
+    {
+        List<FoundWordData> wordsToValidate = new List<FoundWordData>();
+        
+        // Get adaptive minimum length based on grid size
+        int adaptiveMinLength = GetAdaptiveMinAutoValidationLength();
+
+        foreach (var word in currentPotentialWords)
+        {
+            bool alreadyFound = wordValidator.IsWordFoundThisSession(word.Word);
+            bool meetsLength = word.Word.Length >= adaptiveMinLength;
+            
+            Debug.Log($"🔍 Evaluating '{word.Word}' (length {word.Word.Length}): " +
+                     $"Already found={alreadyFound}, Meets adaptive min length ({adaptiveMinLength})={meetsLength}");
+            
+            // Only validate words that:
+            // 1. Haven't been found in this session already
+            // 2. Meet the minimum length requirement for auto-validation
+            // 3. Are actually complete words (not partial formations)
+            if (!alreadyFound && meetsLength)
+            {
+                wordsToValidate.Add(word);
+                Debug.Log($"🔍 ✅ Added '{word.Word}' to auto-validation queue");
+            }
+            else
+            {
+                Debug.Log($"🔍 ❌ Skipped '{word.Word}' - {(alreadyFound ? "already found" : "too short")}");
+            }
+        }
+
+        // Prioritize longer words first (more likely to be intentional)
+        wordsToValidate.Sort((a, b) => b.Word.Length.CompareTo(a.Word.Length));
+
+        return wordsToValidate;
+    }
+
+    /// <summary>
+    /// Get adaptive minimum word length for auto-validation based on grid size
+    /// </summary>
+    private int GetAdaptiveMinAutoValidationLength()
+    {
+        int gridSize = wordGridManager?.gridSize ?? 5;
+        
+        switch (gridSize)
+        {
+            case 3:
+                // 3x3 grids: Auto-validate 2+ letter words
+                return Mathf.Min(minAutoValidationLength, 2);
+            case 4:
+                // 4x4 grids: Auto-validate 3+ letter words (but allow 2 if setting is lower)
+                return Mathf.Min(minAutoValidationLength, 3);
+            case 5:
+            default:
+                // 5x5 grids and larger: Use the configured minimum
+                return minAutoValidationLength;
+        }
+    }
+
+    /// <summary>
+    /// Enable or disable auto-validation at runtime
+    /// </summary>
+    public void SetAutoValidationEnabled(bool enabled)
+    {
+        enableAutoValidation = enabled;
+        
+        // Cancel any pending auto-validation if disabled
+        if (!enabled && autoValidationCoroutine != null)
+        {
+            StopCoroutine(autoValidationCoroutine);
+            autoValidationCoroutine = null;
+            Debug.Log("🔄 Auto-validation disabled - cancelled pending validation");
+        }
+        
+        Debug.Log($"🔄 Auto-validation {(enabled ? "enabled" : "disabled")}");
+    }
+
+    /// <summary>
+    /// Check if a word has been found in this session
+    /// </summary>
+    public bool IsWordFoundThisSession(string word)
+    {
+        return wordValidator?.IsWordFoundThisSession(word) ?? false;
+    }
+
+    /// <summary>
+    /// Get the current auto-validation state
+    /// </summary>
+    public bool IsAutoValidationEnabled()
+    {
+        return enableAutoValidation;
+    }
+
+    /// <summary>
+    /// Set the auto-validation delay at runtime
+    /// </summary>
+    public void SetAutoValidationDelay(float delay)
+    {
+        autoValidationDelay = Mathf.Max(0f, delay);
+        Debug.Log($"🔄 Auto-validation delay set to {autoValidationDelay}s");
+    }
+
+    /// <summary>
+    /// Debug method to get info about current auto-validation state
+    /// </summary>
+    public string GetAutoValidationDebugInfo()
+    {
+        int gridSize = wordGridManager?.gridSize ?? 0;
+        int adaptiveMinLength = GetAdaptiveMinAutoValidationLength();
+        return $"Auto-validation: {(enableAutoValidation ? "ENABLED" : "DISABLED")}, " +
+               $"Delay: {autoValidationDelay}s, " +
+               $"Grid: {gridSize}x{gridSize}, " +
+               $"Min Length: {minAutoValidationLength} (Adaptive: {adaptiveMinLength}), " +
+               $"Pending: {(autoValidationCoroutine != null ? "YES" : "NO")}, " +
+               $"Potential Words: {currentPotentialWords.Count}";
     }
 
     public int GetPointsForActualScoring(char letter)
@@ -724,6 +942,14 @@ public class GameManager : MonoBehaviour
         if (currentState != GameState.Playing || IsAnyAnimationPlaying)
         {
             return false;
+        }
+
+        // Cancel any pending auto-validation when user manually validates
+        if (autoValidationCoroutine != null)
+        {
+            StopCoroutine(autoValidationCoroutine);
+            autoValidationCoroutine = null;
+            Debug.Log("🔄 Manual validation - cancelled pending auto-validation");
         }
 
         List<FoundWordData> initialCandidatesFromTap = new List<FoundWordData>();
@@ -1190,6 +1416,9 @@ public class GameManager : MonoBehaviour
                 targetWordsFound++;
                 newTargetWordsFound.Add(word.Word);
                 Debug.Log($"🎯 Target word found: '{word.Word}'");
+                
+                // Remove the found target word from the remaining list
+                currentLevelData.RemoveTargetWord(word.Word);
             }
         }
         
@@ -2185,6 +2414,16 @@ public class GameManager : MonoBehaviour
         isLevelRestarting = true;
         Debug.Log($"🎮 Level System: {level.LevelName} started - allowing score reset");
         
+        // Notify WordValidator that the level has changed so it can update word settings
+        if (wordValidator != null)
+        {
+            wordValidator.OnLevelChanged();
+        }
+        else
+        {
+            Debug.LogWarning("🎮 WordValidator not found - cannot update word settings for level change");
+        }
+        
         // Update display mode based on the actual level that started - use win condition type
         if (level.IsWordleStyle && level.WinConditionType == LevelWinConditionType.TimeBased)
         {
@@ -2213,6 +2452,13 @@ public class GameManager : MonoBehaviour
             // Fallback
             currentDisplayMode = DisplayMode.Moves;
             Debug.LogWarning($"🎮 Level Started: Unexpected level configuration, defaulting to Moves display mode");
+        }
+        
+        // Initialize remaining target words for Wordle-style levels
+        if (level.IsWordleStyle)
+        {
+            level.InitializeRemainingTargetWords();
+            Debug.Log($"🎯 Target words initialized for {level.LevelName}. Remaining count: {level.RemainingTargetWordCount}");
         }
         
         // Refresh UI when level starts to ensure proper display
@@ -2483,6 +2729,13 @@ public class GameManager : MonoBehaviour
             LevelManager.OnLevelFailed -= OnLevelSystemFailed;
             LevelManager.OnMovesChanged -= OnLevelSystemMovesChanged;
             LevelManager.OnScoreChanged -= OnLevelSystemScoreChanged;
+        }
+        
+        // Clean up auto-validation coroutine
+        if (autoValidationCoroutine != null)
+        {
+            StopCoroutine(autoValidationCoroutine);
+            autoValidationCoroutine = null;
         }
     }
 }
