@@ -546,15 +546,8 @@ public class WordGridManager : MonoBehaviour
             // Initialize dominant word display
             InitializeDominantWordDisplay();
             
-            // IMMEDIATE TEST: Force some cells to specific colors to test the highlighting system
-            DOVirtual.DelayedCall(1f, () => {
-                TestHighlightingSystem();
-            });
-            
-            // ADDITIONAL TEST: Test center row feedback after 3 seconds
-            DOVirtual.DelayedCall(3f, () => {
-                TestCenterRowWordleFeedback();
-            });
+            // Check center row for target letter matches after grid population
+            CheckCenterRowWordleFeedback();
         }, false);
     }
     
@@ -763,6 +756,15 @@ public class WordGridManager : MonoBehaviour
         
         int centerRow = gridSize / 2;
         Debug.Log($"🎯 MULTI-WORD: Analyzing center row {centerRow} for multi-word feedback");
+        
+        // Clear any existing highlights in center row before applying new ones
+        for (int c = 0; c < gridSize; c++)
+        {
+            if (gridCells[centerRow, c] != null)
+            {
+                gridCells[centerRow, c].SetHighlightState(false, Color.white);
+            }
+        }
         
         // Get the letters in the center row
         string centerRowWord = "";

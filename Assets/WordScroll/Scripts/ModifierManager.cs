@@ -23,6 +23,27 @@ namespace WordScroll.Modifiers
         [Tooltip("The current selection of modifiers offered to the player.")]
         private List<ModifierCardData> currentOfferedModifiers = new List<ModifierCardData>();
 
+        [Header("System Toggle Control")]
+        [Tooltip("Master toggle for the entire modifier system. When disabled, no modifiers will be offered and UI can be hidden.")]
+        public bool enableModifierSystem = true;
+
+        [Tooltip("UI elements to hide/show when modifier system is toggled (optional)")]
+        public GameObject[] modifierUIElements;
+
+        [Header("Context Restrictions (Optional)")]
+        [Tooltip("Only allow modifiers in Wordle-style levels")]
+        public bool restrictToWordleMode = false;
+        
+        [Tooltip("Only allow modifiers in Scrabble-style levels")]
+        public bool restrictToScrabbleMode = false;
+
+        // Events for other systems to listen to
+        public static System.Action<bool> OnModifierSystemToggled;
+        public static System.Action<bool> OnModifierAvailabilityChanged;
+
+        // Public property to check if modifiers should be available
+        public bool IsModifierSystemEnabled => enableModifierSystem && ShouldModifiersBeAvailableInCurrentContext();
+
         private void Awake()
         {
             // Singleton pattern with scene persistence
@@ -50,6 +71,14 @@ namespace WordScroll.Modifiers
         public List<ModifierCardData> GetNewModifierOffer()
         {
             currentOfferedModifiers.Clear();
+            
+            // Check if modifier system is enabled
+            if (!IsModifierSystemEnabled)
+            {
+                Debug.Log("ModifierManager: Modifier system is disabled or not available in current context. No modifiers offered.");
+                return currentOfferedModifiers;
+            }
+            
             List<ModifierCardData> potentialModifiers = allAvailableModifierCards
                 .Where(card => card.cardType == CardTypeTag.Modifier) // Only offer 'Modifier' type cards for now
                 .ToList();
@@ -220,6 +249,142 @@ namespace WordScroll.Modifiers
             // Create a list with just this modifier for logging
             var modifiers = new List<ModifierCardData> { modifier };
             global::DebugSystemHelper.SendMessageToDebugSystem("LogModifierApplication", modifiers);
+        }
+
+        // --- Modifier System Toggle Methods ---
+
+        /// <summary>
+        /// Toggle the modifier system on/off
+        /// </summary>
+        public void ToggleModifierSystem()
+        {
+            SetModifierSystemEnabled(!enableModifierSystem);
+        }
+
+        /// <summary>
+        /// Enable or disable the modifier system
+        /// </summary>
+        /// <param name="enabled">Whether to enable the modifier system</param>
+        public void SetModifierSystemEnabled(bool enabled)
+        {
+            bool wasEnabled = enableModifierSystem;
+            enableModifierSystem = enabled;
+
+            // Update UI visibility
+            UpdateModifierUI();
+
+            // Clear active modifiers if disabling the system
+            if (!enabled && activeModifiers.Count > 0)
+            {
+                ClearAllActiveModifiers();
+                Debug.Log("ModifierManager: Cleared all active modifiers due to system being disabled.");
+            }
+
+            // Fire events if state changed
+            if (wasEnabled != enabled)
+            {
+                OnModifierSystemToggled?.Invoke(enabled);
+                OnModifierAvailabilityChanged?.Invoke(IsModifierSystemEnabled);
+                Debug.Log($"ModifierManager: System {(enabled ? "enabled" : "disabled")}");
+            }
+        }
+
+        /// <summary>
+        /// Check if modifiers should be available based on current game context
+        /// </summary>
+        /// <returns>True if modifiers should be available in current context</returns>
+        private bool ShouldModifiersBeAvailableInCurrentContext()
+        {
+            // Check game mode restrictions if GameManager is available
+            var gameManager = FindObjectOfType<GameManager>();
+            if (gameManager != null)
+            {
+                // Check if we have game mode restrictions
+                if (restrictToWordleMode && !IsWordleMode(gameManager))
+                {
+                    return false;
+                }
+                
+                if (restrictToScrabbleMode && IsWordleMode(gameManager))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Check if current game is in Wordle mode
+        /// </summary>
+        private bool IsWordleMode(GameManager gameManager)
+        {
+            // Try to determine if this is Wordle mode based on GameManager properties
+            // You may need to adjust this based on your specific GameManager implementation
+            try
+            {
+                var isWordleProperty = gameManager.GetType().GetProperty("IsWordleStyleLevel");
+                if (isWordleProperty != null)
+                {
+                    return (bool)isWordleProperty.GetValue(gameManager);
+                }
+            }
+            catch
+            {
+                // Property doesn't exist or can't be accessed
+            }
+
+            // Default assumption if we can't determine
+            return false;
+        }
+
+        /// <summary>
+        /// Update modifier UI elements visibility based on system state
+        /// </summary>
+        private void UpdateModifierUI()
+        {
+            if (modifierUIElements == null) return;
+
+            bool shouldShow = IsModifierSystemEnabled;
+            foreach (var uiElement in modifierUIElements)
+            {
+                if (uiElement != null)
+                {
+                    uiElement.SetActive(shouldShow);
+                }
+            }
+        }
+
+        // --- Inspector Helper Methods ---
+
+        /// <summary>
+        /// Force enable modifiers (callable from Inspector)
+        /// </summary>
+        [ContextMenu("Enable Modifier System")]
+        public void InspectorEnableModifiers()
+        {
+            SetModifierSystemEnabled(true);
+        }
+
+        /// <summary>
+        /// Force disable modifiers (callable from Inspector)
+        /// </summary>
+        [ContextMenu("Disable Modifier System")]
+        public void InspectorDisableModifiers()
+        {
+            SetModifierSystemEnabled(false);
+        }
+
+        /// <summary>
+        /// Test current availability (callable from Inspector)
+        /// </summary>
+        [ContextMenu("Test Modifier Availability")]
+        public void InspectorTestAvailability()
+        {
+            bool available = IsModifierSystemEnabled;
+            Debug.Log($"Modifier System Status: {(available ? "AVAILABLE" : "NOT AVAILABLE")}");
+            Debug.Log($"- System Enabled: {enableModifierSystem}");
+            Debug.Log($"- Context Check: {ShouldModifiersBeAvailableInCurrentContext()}");
         }
 
         // --- TODO: Gift and Upgrade Card Handling ---

@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: adb394a5a5b8c46a98a85ddf0184369a, type: 3}
   m_Name: Level 4
   m_EditorClassIdentifier: 
-  levelNumber: 3
-  levelName: Level 3
+  levelNumber: 4
+  levelName: Level 4
   levelDescription: Complete the level by reaching the target score within the move
     limit.
   gameMode: 1
@@ -23,9 +23,11 @@ MonoBehaviour:
   twoStarPercentage: 75
   threeStarPercentage: 100
   targetWords:
-  - CAT
-  - DOG
-  - OWL
+  - BAT
+  - LIP
+  - BUN
+  - NET
+  - PET
   winConditionType: 1
   maxMoves: 10
   unlimitedMoves: 0

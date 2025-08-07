@@ -12,22 +12,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: adb394a5a5b8c46a98a85ddf0184369a, type: 3}
   m_Name: Level 9
   m_EditorClassIdentifier: 
-  levelNumber: 3
-  levelName: Level 3
+  levelNumber: 8
+  levelName: Level 8
   levelDescription: Complete the level by reaching the target score within the move
     limit.
   gameMode: 1
-  gridSize: 3
+  gridSize: 5
   targetScore: 100
   oneStarPercentage: 50
   twoStarPercentage: 75
   threeStarPercentage: 100
   targetWords:
-  - CAT
-  - DOG
-  - OWL
-  winConditionType: 1
-  maxMoves: 10
+  - SMART
+  - SILLY
+  - SHINE
+  - SWEET
+  - QUICK
+  winConditionType: 0
+  maxMoves: 50
   unlimitedMoves: 0
   timeLimit: 300
   threeStarEfficiencyPercentage: 10
@@ -37,6 +39,6 @@ MonoBehaviour:
   timeBonus: 1
   scoreMultiplier: 1
   enableSpecialTiles: 0
-  nextLevel: {fileID: 11400000}
+  nextLevel: {fileID: 11400000, guid: 0a412a666787f4210a8efeb813df480a, type: 2}
   isUnlocked: 1
   isTutorialLevel: 0

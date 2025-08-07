@@ -1,0 +1,5 @@
+/Users/parvathy/Documents/Ragin/UnityProjects/MyProject/.utmp/RelWithDebInfo/4w5v3j1v/arm64-v8a/CMakeFiles/edit_cache.dir
+/Users/parvathy/Documents/Ragin/UnityProjects/MyProject/.utmp/RelWithDebInfo/4w5v3j1v/arm64-v8a/CMakeFiles/rebuild_cache.dir
+/Users/parvathy/Documents/Ragin/UnityProjects/MyProject/.utmp/RelWithDebInfo/4w5v3j1v/arm64-v8a/GameActivity/CMakeFiles/game.dir
+/Users/parvathy/Documents/Ragin/UnityProjects/MyProject/.utmp/RelWithDebInfo/4w5v3j1v/arm64-v8a/GameActivity/CMakeFiles/edit_cache.dir
+/Users/parvathy/Documents/Ragin/UnityProjects/MyProject/.utmp/RelWithDebInfo/4w5v3j1v/arm64-v8a/GameActivity/CMakeFiles/rebuild_cache.dir

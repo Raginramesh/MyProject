@@ -25,7 +25,7 @@ MonoBehaviour:
   targetWords:
   - WOW
   winConditionType: 1
-  maxMoves: 10
+  maxMoves: 20
   unlimitedMoves: 0
   timeLimit: 1000
   threeStarEfficiencyPercentage: 10

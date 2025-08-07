@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine.SceneManagement; // Required for loading scenes
 using System.Collections.Generic; // Required for Lists
 using WordScroll.UI; // <<< ADDED for ModifierSelectionUI
+using WordScroll.Modifiers; // <<< ADDED for ModifierManager
 
 public class UIManager_HomeScreen : MonoBehaviour
 {
@@ -116,16 +117,27 @@ public class UIManager_HomeScreen : MonoBehaviour
     {
         Debug.Log("UIManager_HomeScreen: OnPlayClicked() initiated."); // <<< ADDED DEBUG
 
-        if (modifierSelectionUI != null)
+        // Check if modifier system is enabled via ModifierManager
+        if (ModifierManager.Instance != null && ModifierManager.Instance.IsModifierSystemEnabled)
         {
-            Debug.Log("UIManager_HomeScreen: modifierSelectionUI reference is VALID. Attempting to show."); // <<< ADDED DEBUG
-            modifierSelectionUI.Show();
+            // Modifier system is enabled, show modifier selection
+            if (modifierSelectionUI != null)
+            {
+                Debug.Log("UIManager_HomeScreen: Modifier system enabled, showing modifier selection UI.");
+                modifierSelectionUI.Show();
+            }
+            else
+            {
+                Debug.LogError("UIManager_HomeScreen: Modifier system enabled but modifierSelectionUI reference is NULL!");
+                // Fallback: Load game directly
+                Debug.LogWarning("Fallback: Loading game scene directly as ModifierSelectionUI is missing.");
+                SceneManager.LoadScene(gameSceneName);
+            }
         }
         else
         {
-            Debug.LogError("UIManager_HomeScreen: OnPlayClicked - modifierSelectionUI reference is NULL!"); // <<< CHANGED TO LOGERROR
-            // Fallback: Load game directly, or do nothing, or show an error to the player.
-            Debug.LogWarning("Fallback: Loading game scene directly as ModifierSelectionUI is missing.");
+            // Modifier system is disabled or ModifierManager not found, load game directly
+            Debug.Log("UIManager_HomeScreen: Modifier system disabled or ModifierManager not found, loading game scene directly.");
             SceneManager.LoadScene(gameSceneName);
         }
     }
