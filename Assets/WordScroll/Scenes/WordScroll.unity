@@ -1528,7 +1528,7 @@ MonoBehaviour:
   centerDeadzoneRadius: 0.5
   directionLockThreshold: 0.5
   showDeadzoneDebug: 0
-  enableCellTracking: 1
+  enableCellTracking: 0
 --- !u!1 &472207180
 GameObject:
   m_ObjectHideFlags: 0

@@ -36,10 +36,15 @@ namespace WordScroll.Modifiers
         
         [Tooltip("Only allow modifiers in Scrabble-style levels")]
         public bool restrictToScrabbleMode = false;
+        
+        [Header("Single Cell Directional Scrolling Control")]
+        [Tooltip("Enable/disable single cell directional scrolling (hold and drag individual cells)")]
+        public bool enableSingleCellDirectionalScrolling = true;
 
         // Events for other systems to listen to
         public static System.Action<bool> OnModifierSystemToggled;
         public static System.Action<bool> OnModifierAvailabilityChanged;
+        public static System.Action<bool> OnSingleCellScrollingToggled;
 
         // Public property to check if modifiers should be available
         public bool IsModifierSystemEnabled => enableModifierSystem && ShouldModifiersBeAvailableInCurrentContext();

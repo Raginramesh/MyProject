@@ -988,4 +988,136 @@ public class GridInputHandler : MonoBehaviour, IPointerDownHandler, IBeginDragHa
         }
     }
 #endif
+    
+    // ===========================
+    // SINGLE CELL DIRECTIONAL SCROLLING CONTROL API
+    // ===========================
+    
+    /// <summary>
+    /// Enable single cell directional scrolling (cell tracking system)
+    /// </summary>
+    public void EnableSingleCellDirectionalScrolling()
+    {
+        enableCellTracking = true;
+        Debug.Log("🎮 GridInputHandler: Single cell directional scrolling ENABLED");
+    }
+    
+    /// <summary>
+    /// Disable single cell directional scrolling (cell tracking system)
+    /// </summary>
+    public void DisableSingleCellDirectionalScrolling()
+    {
+        enableCellTracking = false;
+        
+        // Clear any active cell tracking
+        if (isTrackingCell)
+        {
+            trackedCellID = -1;
+            trackedCellPosition = Vector2Int.zero;
+            isTrackingCell = false;
+            Debug.Log("🎮 GridInputHandler: Cleared active cell tracking due to system being disabled");
+        }
+        
+        Debug.Log("🎮 GridInputHandler: Single cell directional scrolling DISABLED");
+    }
+    
+    /// <summary>
+    /// Toggle single cell directional scrolling on/off
+    /// </summary>
+    public void ToggleSingleCellDirectionalScrolling()
+    {
+        if (enableCellTracking)
+        {
+            DisableSingleCellDirectionalScrolling();
+        }
+        else
+        {
+            EnableSingleCellDirectionalScrolling();
+        }
+    }
+    
+    /// <summary>
+    /// Set single cell directional scrolling state directly
+    /// </summary>
+    /// <param name="enabled">Whether to enable single cell directional scrolling</param>
+    public void SetSingleCellDirectionalScrollingEnabled(bool enabled)
+    {
+        if (enabled)
+        {
+            EnableSingleCellDirectionalScrolling();
+        }
+        else
+        {
+            DisableSingleCellDirectionalScrolling();
+        }
+    }
+    
+    /// <summary>
+    /// Check if single cell directional scrolling is enabled
+    /// </summary>
+    public bool IsSingleCellDirectionalScrollingEnabled => enableCellTracking;
+    
+    /// <summary>
+    /// Check if currently tracking a cell
+    /// </summary>
+    public bool IsTrackingCell => isTrackingCell;
+    
+    /// <summary>
+    /// Get the currently tracked cell ID (if any)
+    /// </summary>
+    public int GetTrackedCellID() => isTrackingCell ? trackedCellID : -1;
+    
+    /// <summary>
+    /// Get the currently tracked cell position (if any)
+    /// </summary>
+    public Vector2Int GetTrackedCellPosition() => isTrackingCell ? trackedCellPosition : Vector2Int.one * -1;
+    
+    // ===========================
+    // INSPECTOR HELPER METHODS
+    // ===========================
+    
+    /// <summary>
+    /// Enable single cell scrolling (callable from Inspector context menu)
+    /// </summary>
+    [ContextMenu("Enable Single Cell Scrolling")]
+    public void InspectorEnableSingleCellScrolling()
+    {
+        EnableSingleCellDirectionalScrolling();
+    }
+    
+    /// <summary>
+    /// Disable single cell scrolling (callable from Inspector context menu)
+    /// </summary>
+    [ContextMenu("Disable Single Cell Scrolling")]
+    public void InspectorDisableSingleCellScrolling()
+    {
+        DisableSingleCellDirectionalScrolling();
+    }
+    
+    /// <summary>
+    /// Toggle single cell scrolling (callable from Inspector context menu)
+    /// </summary>
+    [ContextMenu("Toggle Single Cell Scrolling")]
+    public void InspectorToggleSingleCellScrolling()
+    {
+        ToggleSingleCellDirectionalScrolling();
+    }
+    
+    /// <summary>
+    /// Check current single cell scrolling state (callable from Inspector context menu)
+    /// </summary>
+    [ContextMenu("Check Single Cell Scrolling Status")]
+    public void InspectorCheckSingleCellScrollingStatus()
+    {
+        Debug.Log($"📊 GridInputHandler Single Cell Scrolling Status: {(enableCellTracking ? "🔓 ENABLED" : "🔒 DISABLED")}");
+        
+        if (isTrackingCell)
+        {
+            Debug.Log($"📊 Currently tracking cell ID: {trackedCellID} at position: {trackedCellPosition}");
+        }
+        else
+        {
+            Debug.Log("📊 No cell currently being tracked");
+        }
+    }
 }
