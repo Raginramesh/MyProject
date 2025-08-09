@@ -27,7 +27,7 @@ MonoBehaviour:
   winConditionType: 1
   maxMoves: 20
   unlimitedMoves: 0
-  timeLimit: 1000
+  timeLimit: 15
   threeStarEfficiencyPercentage: 10
   twoStarEfficiencyPercentage: 50
   oneStarEfficiencyPercentage: 90
