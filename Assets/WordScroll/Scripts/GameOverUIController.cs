@@ -135,6 +135,7 @@ public class GameOverUIController : MonoBehaviour
         bool playerWon = GameManager.instance != null ? GameManager.instance.HasWon : levelCompleted;
         
         Debug.Log($"🎮 Level End State: PlayerWon={playerWon}, LevelCompleted={levelCompleted}, GameManager.HasWon={GameManager.instance?.HasWon}, Stars={starsEarned}");
+        Debug.Log($"🔍 DEBUGGING - Final Score: {finalScore}, Target Score: {currentLevel.TargetScore}, Moves Used: {movesUsed}, Max Moves: {currentLevel.MaxMoves}");
         
         // Update title based on win/loss
         if (levelCompleteTitle != null)
@@ -202,25 +203,67 @@ public class GameOverUIController : MonoBehaviour
     /// </summary>
     private void ConfigureButtons(bool playerWon)
     {
+        Debug.Log($"🔧 ConfigureButtons called with playerWon={playerWon}");
+        Debug.Log($"🔧 GameManager.HasWon={GameManager.instance?.HasWon}");
+        
         // Next Level Button: Show only if player won
         if (nextLevelButton != null)
         {
             nextLevelButton.gameObject.SetActive(playerWon);
-            Debug.Log($"🎮 Next Level Button: {(playerWon ? "Shown" : "Hidden")}");
+            Debug.Log($"🎮 Next Level Button: {(playerWon ? "Shown" : "Hidden")} - Actually active: {nextLevelButton.gameObject.activeSelf}");
+        }
+        else
+        {
+            Debug.LogError("❌ nextLevelButton is NULL!");
         }
         
         // Retry Button: Show only if player lost
         if (retryButton != null)
         {
             retryButton.gameObject.SetActive(!playerWon);
-            Debug.Log($"🎮 Retry Button: {(!playerWon ? "Shown" : "Hidden")}");
+            Debug.Log($"🎮 Retry Button: {(!playerWon ? "Shown" : "Hidden")} - Actually active: {retryButton.gameObject.activeSelf}");
+            Debug.Log($"🔧 Retry Button GameObject name: {retryButton.gameObject.name}");
+            
+            // Additional UI debugging when button should be shown
+            if (!playerWon)
+            {
+                Debug.Log($"🔍 Retry Button Position: {retryButton.transform.position}");
+                Debug.Log($"🔍 Retry Button Parent: {retryButton.transform.parent?.name}");
+                Debug.Log($"🔍 Retry Button Parent Active: {retryButton.transform.parent?.gameObject.activeSelf}");
+                
+                // Check for CanvasGroup
+                var canvasGroup = retryButton.GetComponent<CanvasGroup>();
+                if (canvasGroup != null)
+                {
+                    Debug.Log($"🔍 Retry Button CanvasGroup Alpha: {canvasGroup.alpha}, Interactable: {canvasGroup.interactable}");
+                }
+                
+                // Check parent CanvasGroup
+                var parentCanvasGroup = retryButton.GetComponentInParent<CanvasGroup>();
+                if (parentCanvasGroup != null && parentCanvasGroup != canvasGroup)
+                {
+                    Debug.Log($"🔍 Parent CanvasGroup Alpha: {parentCanvasGroup.alpha}, Interactable: {parentCanvasGroup.interactable}");
+                }
+                
+                // Force ensure it's visible
+                retryButton.gameObject.SetActive(true);
+                Debug.Log($"🔧 FORCE ACTIVATED Retry Button - Final state: {retryButton.gameObject.activeSelf}");
+            }
+        }
+        else
+        {
+            Debug.LogError("❌ retryButton is NULL! Check inspector assignment!");
         }
         
         // Home Button: Always show
         if (homeButton != null)
         {
             homeButton.gameObject.SetActive(true);
-            Debug.Log("🎮 Home Button: Always shown");
+            Debug.Log($"🎮 Home Button: Always shown - Actually active: {homeButton.gameObject.activeSelf}");
+        }
+        else
+        {
+            Debug.LogError("❌ homeButton is NULL!");
         }
     }
     
