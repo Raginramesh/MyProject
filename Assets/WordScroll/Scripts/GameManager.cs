@@ -2365,7 +2365,13 @@ public class GameManager : MonoBehaviour
     private void OnLevelSystemCompleted(LevelData level, int finalScore, int stars)
     {
         Debug.Log($"🌟 Level System: {level.LevelName} completed with {stars} stars!");
-        hasWon = true;
+        
+        // Determine if player actually won based on target completion, not stars
+        // Win = found all target letters/words, Lose = timer/moves ran out before completing targets
+        bool completedTargets = level.AreAllTargetWordsFound(); // Check if all targets were found
+        hasWon = completedTargets;
+        
+        Debug.Log($"🎯 Level Result: CompletedTargets={completedTargets}, HasWon={hasWon}, Stars={stars}");
         SetState(GameState.GameOver);
         
         if (gameOverPanel != null && instance == this)
