@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System;
+using WordScroll.SaveSystem;
 
 public class LevelManager : MonoBehaviour
 {
@@ -13,6 +14,10 @@ public class LevelManager : MonoBehaviour
     [SerializeField] private int currentLevelIndex = 0;
     [SerializeField] private int currentMoves = 0;
     [SerializeField] private int currentScore = 0;
+    
+    // Level timing for save system
+    private float levelStartTime = 0f;
+    private List<string> foundTargetWordsThisLevel = new List<string>();
     
     // Events for UI updates
     public static event Action<LevelData> OnLevelStarted;
@@ -110,6 +115,10 @@ public class LevelManager : MonoBehaviour
         currentMoves = 0;
         currentScore = 0;
         IsLevelActive = true;
+        
+        // Initialize timing and target words tracking for save system
+        levelStartTime = Time.time;
+        foundTargetWordsThisLevel.Clear();
         
         Debug.Log($"🎮 Starting Level {level.LevelNumber}: {level.LevelName}");
         Debug.Log($"📊 Target Score: {level.TargetScore}, Max Moves: {(level.UnlimitedMoves ? "Unlimited" : level.MaxMoves.ToString())}");
@@ -221,8 +230,8 @@ public class LevelManager : MonoBehaviour
             Debug.Log($"🔓 Unlocked next level: {currentLevel.NextLevel.LevelName}");
         }
         
-        // Save progress
-        SaveLevelProgress();
+        // Save progress using the new save system
+        SaveLevelProgressWithSystem(stars);
         
         // Notify listeners
         OnLevelCompleted?.Invoke(currentLevel, currentScore, stars);
@@ -264,22 +273,73 @@ public class LevelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Save level progress (placeholder - implement with your save system)
+    /// Save level progress using the new save system
     /// </summary>
     private void SaveLevelProgress()
     {
-        // TODO: Implement save system
+        // Use the new save system if available, otherwise fallback to PlayerPrefs
+        var saveManagerType = System.Type.GetType("WordScroll.SaveSystem.WordScrollSaveManager");
+        if (saveManagerType != null)
+        {
+            var instanceProperty = saveManagerType.GetProperty("Instance");
+            var saveManagerInstance = instanceProperty?.GetValue(null);
+            
+            if (saveManagerInstance != null)
+            {
+                var markDirtyMethod = saveManagerType.GetMethod("MarkDirty");
+                markDirtyMethod?.Invoke(saveManagerInstance, null);
+                return;
+            }
+        }
+        
+        // Fallback to PlayerPrefs if save manager not available
         PlayerPrefs.SetInt("CurrentLevelIndex", currentLevelIndex);
         PlayerPrefs.SetInt($"Level_{currentLevelIndex}_HighScore", currentScore);
         PlayerPrefs.Save();
     }
     
     /// <summary>
-    /// Load level progress (placeholder - implement with your save system)
+    /// Load level progress using the new save system
     /// </summary>
     private void LoadLevelProgress()
     {
-        // TODO: Implement save system
+        // Use the new save system if available, otherwise fallback to PlayerPrefs
+        var saveManagerType = System.Type.GetType("WordScroll.SaveSystem.WordScrollSaveManager");
+        if (saveManagerType != null)
+        {
+            var instanceProperty = saveManagerType.GetProperty("Instance");
+            var saveManagerInstance = instanceProperty?.GetValue(null);
+            
+            if (saveManagerInstance != null)
+            {
+                var hasDataProperty = saveManagerType.GetProperty("HasSaveData");
+                var hasData = (bool)(hasDataProperty?.GetValue(saveManagerInstance) ?? false);
+                
+                if (hasData)
+                {
+                    var currentSaveDataProperty = saveManagerType.GetProperty("CurrentSaveData");
+                    var saveData = currentSaveDataProperty?.GetValue(saveManagerInstance);
+                    
+                    if (saveData != null)
+                    {
+                        var currentLevelIndexField = saveData.GetType().GetField("currentLevelIndex");
+                        if (currentLevelIndexField != null)
+                        {
+                            currentLevelIndex = (int)currentLevelIndexField.GetValue(saveData);
+                            
+                            // Ensure the level index is valid
+                            if (currentLevelIndex >= allLevels.Count)
+                            {
+                                currentLevelIndex = allLevels.Count - 1;
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Fallback to PlayerPrefs if save manager not available
         int savedLevelIndex = PlayerPrefs.GetInt("CurrentLevelIndex", 0);
         if (savedLevelIndex < allLevels.Count)
         {
@@ -292,6 +352,149 @@ public class LevelManager : MonoBehaviour
     /// </summary>
     public int GetLevelHighScore(int levelIndex)
     {
+        // Use the new save system if available, otherwise fallback to PlayerPrefs
+        var saveManagerType = System.Type.GetType("WordScroll.SaveSystem.WordScrollSaveManager");
+        if (saveManagerType != null)
+        {
+            var instanceProperty = saveManagerType.GetProperty("Instance");
+            var saveManagerInstance = instanceProperty?.GetValue(null);
+            
+            if (saveManagerInstance != null)
+            {
+                var getLevelProgressMethod = saveManagerType.GetMethod("GetLevelProgress");
+                var levelProgress = getLevelProgressMethod?.Invoke(saveManagerInstance, new object[] { levelIndex });
+                
+                if (levelProgress != null)
+                {
+                    var bestScoreField = levelProgress.GetType().GetField("bestScore");
+                    if (bestScoreField != null)
+                    {
+                        return (int)bestScoreField.GetValue(levelProgress);
+                    }
+                }
+            }
+        }
+        
+        // Fallback to PlayerPrefs
         return PlayerPrefs.GetInt($"Level_{levelIndex}_HighScore", 0);
+    }
+    
+    /// <summary>
+    /// Get a specific level by index
+    /// </summary>
+    public LevelData GetLevel(int levelIndex)
+    {
+        if (levelIndex >= 0 && levelIndex < allLevels.Count)
+        {
+            return allLevels[levelIndex];
+        }
+        return null;
+    }
+    
+    /// <summary>
+    /// Get total number of levels
+    /// </summary>
+    public int GetTotalLevelCount()
+    {
+        return allLevels.Count;
+    }
+    
+    /// <summary>
+    /// Check if a level is unlocked using save system
+    /// </summary>
+    public bool IsLevelUnlocked(int levelIndex)
+    {
+        if (debugMode) return true; // All levels unlocked in debug mode
+        
+        // Use the new save system if available, otherwise fallback to PlayerPrefs
+        var saveManagerType = System.Type.GetType("WordScroll.SaveSystem.WordScrollSaveManager");
+        if (saveManagerType != null)
+        {
+            var instanceProperty = saveManagerType.GetProperty("Instance");
+            var saveManagerInstance = instanceProperty?.GetValue(null);
+            
+            if (saveManagerInstance != null)
+            {
+                var isLevelUnlockedMethod = saveManagerType.GetMethod("IsLevelUnlocked");
+                var result = isLevelUnlockedMethod?.Invoke(saveManagerInstance, new object[] { levelIndex });
+                if (result != null)
+                {
+                    return (bool)result;
+                }
+            }
+        }
+        
+        // Fallback: level is unlocked if previous level was completed or it's the first level
+        return levelIndex == 0 || PlayerPrefs.GetInt($"Level_{levelIndex - 1}_Completed", 0) == 1;
+    }
+    
+    /// <summary>
+    /// Add a found target word for Wordle-style levels
+    /// </summary>
+    public void AddFoundTargetWord(string word)
+    {
+        if (currentLevel != null && currentLevel.IsWordleStyle)
+        {
+            if (!foundTargetWordsThisLevel.Contains(word))
+            {
+                foundTargetWordsThisLevel.Add(word);
+                Debug.Log($"🎯 Target word found: {word}. Total found: {foundTargetWordsThisLevel.Count}/{currentLevel.TargetWordCount}");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Get the list of found target words for this level
+    /// </summary>
+    private List<string> GetFoundTargetWords()
+    {
+        return new List<string>(foundTargetWordsThisLevel);
+    }
+    
+    /// <summary>
+    /// Save level progress with comprehensive save system integration
+    /// </summary>
+    private void SaveLevelProgressWithSystem(int stars)
+    {
+        // Try to use the new save system first using reflection
+        var saveManagerType = System.Type.GetType("WordScroll.SaveSystem.WordScrollSaveManager");
+        if (saveManagerType != null)
+        {
+            var instanceProperty = saveManagerType.GetProperty("Instance");
+            var saveManagerInstance = instanceProperty?.GetValue(null);
+            
+            if (saveManagerInstance != null)
+            {
+                // Calculate level completion time
+                float levelTime = Time.time - levelStartTime;
+                
+                // Get found words for Wordle-style levels
+                List<string> foundWords = null;
+                if (currentLevel.IsWordleStyle)
+                {
+                    foundWords = GetFoundTargetWords();
+                }
+                
+                // Update save data with comprehensive level completion info
+                var updateMethod = saveManagerType.GetMethod("UpdateLevelProgress");
+                if (updateMethod != null)
+                {
+                    updateMethod.Invoke(saveManagerInstance, new object[] 
+                    {
+                        currentLevelIndex, 
+                        currentScore, 
+                        currentMoves, 
+                        levelTime, 
+                        stars, 
+                        currentLevel, 
+                        foundWords
+                    });
+                    return;
+                }
+            }
+        }
+        
+        // Fallback to old save method
+        SaveLevelProgress();
     }
 }

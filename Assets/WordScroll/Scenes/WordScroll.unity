@@ -1904,7 +1904,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   targetWordText: {fileID: 1490566784}
-  enableLetterDiscovery: 1
+  enableLetterDiscovery: 0
   letterFeedbackContainer: {fileID: 580965798}
   letterFeedbackPrefab: {fileID: 9110838812193733251, guid: 306e81b8f13890e49be86a54cafbf012, type: 3}
   letterAnimationDelay: 0.1
